@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdam_app/pengaduan_form_page.dart';
 import 'package:pdam_app/id_pdam_form_page.dart';
+import 'chatbot_page.dart';
 
 class PelangganPage extends StatefulWidget {
   const PelangganPage({super.key});
@@ -73,7 +74,7 @@ class _PelangganPageState extends State<PelangganPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PengaduanFormPage(),
+                            builder: (context) => const PengaduanFormPage(),
                           ),
                         );
                       },
@@ -103,9 +104,31 @@ class _PelangganPageState extends State<PelangganPage> {
                         );
                       },
                     ),
+                    _buildMenuItem(
+                      icon: Icons.chat_bubble,
+                      title: "Chatbot",
+                      subtitle: "Ajukan pertanyaan atau dapatkan bantuan",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChatbotPage(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatbotPage()),
+          );
+        },
+        child: const Icon(Icons.chat),
+      ),
     );
   }
 

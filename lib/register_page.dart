@@ -30,29 +30,28 @@ class _RegisterPageState extends State<RegisterPage> {
   ];
 
   Future<void> register() async {
-    // String url = 'http://10.0.168.221:8000/api/auth/register'; // Hapus baris ini
-    var response = await http.post(
-      Uri.parse(registerUrl), // Gunakan konstanta URL dari api_endpoints.dart
-      body: {
-        'username': usernameController.text,
-        'email': emailController.text,
-        'password': passwordController.text,
-        'nomor_hp': nomorHpController.text,
-        'id_cabang': selectedCabang ?? '', // Tambahkan id_cabang
-      },
-    );
+    var response = await http.post(
+      Uri.parse(registerUrl),
+      body: {
+        'username': usernameController.text,
+        'email': emailController.text,
+        'password': passwordController.text,
+        'nomor_hp': nomorHpController.text,
+        'id_cabang': selectedCabang ?? '', // Tambahkan id_cabang
+      },
+    );
 
-    if (response.statusCode == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registrasi berhasil, silakan login')),
-      );
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Registrasi gagal, coba lagi')));
-    }
-  }
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registrasi berhasil, silakan login')),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Registrasi gagal, coba lagi')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
