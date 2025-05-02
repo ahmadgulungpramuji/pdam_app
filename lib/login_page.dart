@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pelanggan_page.dart';
 import 'petugas_page.dart';
 import 'register_page.dart';
+import 'api_endpoints.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -29,7 +30,12 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    final url = Uri.parse('http://10.0.168.221:8000/api/auth/login/$userType');
+    Uri url;
+    if (userType == 'pelanggan') {
+      url = Uri.parse(loginPelangganUrl);
+    } else {
+      url = Uri.parse(loginPetugasUrl);
+    }
 
     showDialog(
       context: context,
