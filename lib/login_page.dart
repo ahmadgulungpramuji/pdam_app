@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pelanggan_page.dart';
 import 'petugas_page.dart';
 import 'register_page.dart';
+import 'temuan_kebocoran_page.dart'; // IMPORT halaman pengaduan
 import 'api_endpoints.dart';
 
 class LoginPage extends StatefulWidget {
@@ -60,7 +61,6 @@ class _LoginPageState extends State<LoginPage> {
 
         final user = data['user'];
 
-        // Only store IDs (no name or email)
         if (userType == 'pelanggan') {
           await prefs.setString('id_pelanggan', user['id'].toString());
           if (user['id_cabang'] != null) {
@@ -139,6 +139,21 @@ class _LoginPageState extends State<LoginPage> {
                 );
               },
               child: const Text('Belum punya akun? Daftar di sini'),
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.report_problem),
+              label: const Text("Laporkan Temuan Kebocoran"),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TemuanKebocoranPage(),
+                  ),
+                );
+              },
             ),
           ],
         ),

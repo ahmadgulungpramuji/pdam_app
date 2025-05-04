@@ -37,6 +37,8 @@ dependencies:
   geolocator: ^10.1.0
   geocoding: ^2.1.0  # Opsional, kalau mau konversi lat/lng jadi alamat 
   permission_handler: ^11.3.0
+  path: ^1.8.3
+  camera: ^0.10.0+4
 
 
 
