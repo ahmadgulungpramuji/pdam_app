@@ -1,12 +1,12 @@
+// login_page.dart
+// ignore_for_file: unused_import, unused_local_variable
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'pelanggan_page.dart';
-import 'petugas_page.dart';
-import 'register_page.dart';
-import 'temuan_kebocoran_page.dart'; // IMPORT halaman pengaduan
-import 'api_endpoints.dart';
+import 'package:pdam_app/temuan_kebocoran_page.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Pastikan import
+import 'api_service.dart'; // Import file api_service.dart Anda
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,84 +16,110 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  String userType = "pelanggan"; // Default user type
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _trackCodeController =
+      TextEditingController(); // Controller baru
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final ApiService _apiService = ApiService(); // Inisialisasi ApiService
 
-  Future<void> login() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text;
+  bool _isLoading = false;
+  bool _passwordVisible = false; // Untuk visibility password
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email dan password tidak boleh kosong")),
-      );
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _trackCodeController.dispose(); // Jangan lupa dispose controller baru
+    super.dispose();
+  }
+
+  void _showSnackbar(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  void _trackReportFromLogin() {
+    final code = _trackCodeController.text.trim();
+    if (code.isEmpty) {
+      _showSnackbar('Masukkan kode tracking terlebih dahulu.');
+      return;
+    }
+    Navigator.pushReplacementNamed(
+      context,
+      '/tracking_page', // Ganti dengan route halaman tracking Anda
+      arguments: code, // Kirim kode tracking
+    );
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    Uri url;
-    if (userType == 'pelanggan') {
-      url = Uri.parse(loginPelangganUrl);
-    } else {
-      url = Uri.parse(loginPetugasUrl);
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      final response = await http.post(
-        url,
-        body: {'email': email, 'password': password},
+      // Kita asumsikan halaman login ini untuk user 'pelanggan'
+      final response = await _apiService.loginUser(
+        email: _emailController.text,
+        password: _passwordController.text,
+        userType: 'pelanggan', // Sesuai endpoint login di AuthController
       );
 
-      Navigator.pop(context); // Close loading dialog
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final prefs = await SharedPreferences.getInstance();
+        final responseData = jsonDecode(response.body);
+        final String token = responseData['token'];
+        final user = responseData['user']; // Data user jika perlu
+        final redirectUrl =
+            responseData['redirect_url']; // URL redirect dari backend
 
-        await prefs.setString('token', data['token']);
-        await prefs.setString('userType', userType);
+        // Simpan token
+        await _apiService.saveToken(token);
 
-        final user = data['user'];
+        _showSnackbar('Login berhasil!', isError: false);
 
-        if (userType == 'pelanggan') {
-          await prefs.setString('id_pelanggan', user['id'].toString());
-          if (user['id_cabang'] != null) {
-            await prefs.setString('id_cabang', user['id_cabang'].toString());
-          }
-        } else if (userType == 'petugas') {
-          await prefs.setString('id_petugas', user['id'].toString());
-          await prefs.setString('id_cabang', user['id_cabang'].toString());
-        }
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
+        // Navigasi setelah login sukses
+        // Anda bisa menggunakan redirectUrl atau navigasi ke halaman default
+        // Contoh navigasi ke halaman utama (anggap ada route '/home')
+        Navigator.pushReplacementNamed(
           context,
-          MaterialPageRoute(
-            builder:
-                (_) =>
-                    userType == 'pelanggan'
-                        ? const PelangganPage()
-                        : const PetugasPage(),
-          ),
-        );
+          '/home',
+        ); // Ganti dengan route halaman utama Anda
+      } else if (response.statusCode == 422) {
+        // Handle validation errors from Laravel
+        final errors = jsonDecode(response.body)['errors'];
+        String errorMessage = 'Login gagal:';
+        errors.forEach((field, messages) {
+          errorMessage += '\n- ${messages.join(", ")}';
+        });
+        _showSnackbar(errorMessage);
       } else {
-        final error = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error['message'] ?? 'Login gagal')),
-        );
+        // Handle other error status codes
+        final responseData = jsonDecode(response.body);
+        String errorMessage =
+            responseData['message'] ?? 'Login gagal. Silakan coba lagi.';
+        _showSnackbar('Login gagal: $errorMessage');
+        print('Login failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+      _showSnackbar('Terjadi kesalahan saat login: $e');
+      print('Error during login: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -101,61 +127,171 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: userType,
-              decoration: const InputDecoration(labelText: "Tipe Pengguna"),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  setState(() => userType = newValue);
-                }
-              },
-              items: const [
-                DropdownMenuItem(value: "pelanggan", child: Text("Pelanggan")),
-                DropdownMenuItem(value: "petugas", child: Text("Petugas")),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey, // Form ini hanya untuk login, bukan tracking
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                // ... (Logo, Judul, Field Email, Field Password, Tombol Login tetap sama)
+                const Text(
+                  'Selamat Datang',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 40),
+
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Email tidak boleh kosong';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Masukkan email yang valid';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        color: Theme.of(context).primaryColorDark,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _passwordVisible = !_passwordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: !_passwordVisible,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password tidak boleh kosong';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(fontSize: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Text('Login'),
+                ),
+                const SizedBox(height: 20),
+
+                TextButton(
+                  onPressed:
+                      _isLoading
+                          ? null
+                          : () {
+                            Navigator.pushNamed(context, '/register');
+                          },
+                  child: const Text('Belum punya akun? Daftar di sini'),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.report_problem),
+                  label: const Text("Laporkan Temuan Kebocoran"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TemuanKebocoranPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 40), // Spacer
+
+                const Divider(height: 40), // Pemisah
+
+                const Text(
+                  'Lacak Laporan Anda (Tanpa Login)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+
+                // Field Kode Tracking
+                TextFormField(
+                  controller: _trackCodeController,
+                  decoration: InputDecoration(
+                    labelText: 'Masukkan Kode Tracking',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  // Tidak perlu validator di sini jika tracking tidak wajib diisi
+                ),
+                const SizedBox(height: 16),
+
+                // Tombol Lacak
+                ElevatedButton(
+                  // Disable jika sedang loading login, atau jika field kode kosong
+                  onPressed:
+                      _isLoading || _trackCodeController.text.trim().isEmpty
+                          ? null
+                          : _trackReportFromLogin,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(fontSize: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    backgroundColor:
+                        Colors.grey[300], // Warna berbeda untuk tombol tracking
+                    foregroundColor: Colors.black87,
+                  ),
+                  child: const Text('Lacak Laporan'),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: login, child: const Text('Login')),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RegisterPage()),
-                );
-              },
-              child: const Text('Belum punya akun? Daftar di sini'),
-            ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.report_problem),
-              label: const Text("Laporkan Temuan Kebocoran"),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TemuanKebocoranPage(),
-                  ),
-                );
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
