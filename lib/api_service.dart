@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Ganti dengan Base URL API Anda
-  final String baseUrl = 'http://10.0.164.160:8000/api';
+  final String baseUrl = 'http://192.168.0.107:8000/api';
 
   // Fungsi untuk menyimpan token
   Future<void> saveToken(String token) async {
