@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'api_service.dart'; // Import file api_service.dart Anda
+import 'package:flutter/services.dart'; // Import for TextInputFormatters
+import 'package:flutter/foundation.dart'; // Tambahkan import ini
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -19,6 +21,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nomorHpController = TextEditingController();
+  final TextEditingController _idPelangganController =
+      TextEditingController(); // Controller untuk nomor ID PDAM
   final ApiService _apiService = ApiService(); // Inisialisasi ApiService
 
   // State untuk Dropdown Cabang
@@ -42,6 +46,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _nomorHpController.dispose();
+    _idPelangganController.dispose(); // Dispose controller ID Pelanggan
     super.dispose();
   }
 
@@ -130,44 +135,63 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final response = await _apiService.registerUser(
+      final responsePelanggan = await _apiService.registerPelanggan(
         username: _usernameController.text,
         email: _emailController.text,
         password: _passwordController.text,
         nomorHp: _nomorHpController.text,
-        idCabang: _selectedCabangId!, // Gunakan id_cabang yang dipilih
+        idCabang: _selectedCabangId!,
       );
 
       if (!mounted) return;
 
-      if (response.statusCode == 201) {
-        // Registrasi berhasil
-        final responseData = jsonDecode(response.body);
-        _showSnackbar(
-          responseData['message'] ?? 'Registrasi berhasil!',
-          isError: false,
+      if (responsePelanggan.statusCode == 201) {
+        // Registrasi pelanggan berhasil, sekarang buat ID PDAM
+        final responseDataPelanggan = jsonDecode(responsePelanggan.body);
+        debugPrint("Username: ${responseDataPelanggan['username']}");
+        debugPrint("Email: ${responseDataPelanggan['email']}");
+        debugPrint("ID: ${responseDataPelanggan['id']}");
+        debugPrint("ID Cabang: ${responseDataPelanggan['id_cabang']}");
+        // Jangan mencetak password
+        final int idPelanggan = responseDataPelanggan['id'];
+
+        final responseIdPdam = await _apiService.createIdPdam(
+          nomor: _idPelangganController.text,
+          idPelanggan: idPelanggan,
         );
 
-        // Kembali ke halaman login setelah registrasi sukses
-        Navigator.pop(context);
-      } else if (response.statusCode == 422) {
-        // Handle validation errors from Laravel
-        final errors = jsonDecode(response.body)['errors'];
+        if (responseIdPdam.statusCode == 201) {
+          // Pembuatan ID PDAM berhasil
+          _showSnackbar('Registrasi berhasil!', isError: false);
+          Navigator.pop(context);
+        } else {
+          // Gagal membuat ID PDAM, mungkin perlu handling rollback atau info ke user
+          final responseDataIdPdam = jsonDecode(responseIdPdam.body);
+          _showSnackbar(
+            'Registrasi berhasil, namun gagal membuat ID Pelanggan: ${responseDataIdPdam['message'] ?? 'Silakan coba lagi.'}',
+          );
+          // Mungkin arahkan user ke halaman login atau berikan opsi lain
+          Navigator.pop(context);
+        }
+      } else if (responsePelanggan.statusCode == 422) {
+        // Handle validation errors dari registrasi pelanggan
+        final errors = jsonDecode(responsePelanggan.body)['errors'];
         String errorMessage = 'Registrasi gagal:';
         errors.forEach((field, messages) {
-          // Sesuaikan field name jika berbeda antara backend dan frontend (opsional)
-          String displayField =
-              field.replaceAll('_', ' ').capitalize(); // Contoh format field
+          String displayField = field.replaceAll('_', ' ').capitalize();
           errorMessage += '\n- $displayField: ${messages.join(", ")}';
         });
         _showSnackbar(errorMessage);
       } else {
-        // Handle other error status codes
-        final responseData = jsonDecode(response.body);
+        // Handle error status codes dari registrasi pelanggan
+        final responseDataPelanggan = jsonDecode(responsePelanggan.body);
         String errorMessage =
-            responseData['message'] ?? 'Registrasi gagal. Silakan coba lagi.';
+            responseDataPelanggan['message'] ??
+            'Registrasi gagal. Silakan coba lagi.';
         _showSnackbar('Registrasi gagal: $errorMessage');
-        print('Registration failed: ${response.statusCode} - ${response.body}');
+        print(
+          'Registration failed (Pelanggan): ${responsePelanggan.statusCode} - ${responsePelanggan.body}',
+        );
       }
     } catch (e) {
       _showSnackbar('Terjadi kesalahan saat registrasi: $e');
@@ -253,8 +277,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 );
               }).toList(),
       onChanged:
-          _cabangOptionsApi.isEmpty ||
-                  _isLoading // Disable onChanged jika list kosong atau sedang loading
+          _cabangOptionsApi.isEmpty || _isLoading
               ? null
               : (value) {
                 setState(() {
@@ -394,6 +417,30 @@ class _RegisterPageState extends State<RegisterPage> {
                     if (value.length < 6) {
                       return 'Password minimal 6 karakter';
                     }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Field ID Pelanggan (sebenarnya nomor ID PDAM)
+                TextFormField(
+                  controller: _idPelangganController,
+                  decoration: InputDecoration(
+                    labelText: 'ID Pelanggan',
+                    prefixIcon: const Icon(Icons.tag),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number, // Hanya menerima angka
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'ID Pelanggan tidak boleh kosong';
+                    }
+                    // Tambahkan validasi format ID Pelanggan jika perlu
                     return null;
                   },
                 ),

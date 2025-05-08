@@ -25,6 +25,8 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   bool _passwordVisible = false; // Untuk visibility password
+  String? _selectedUserType; // Untuk menyimpan jenis pengguna yang dipilih
+  List<String> _userTypes = ['pelanggan', 'petugas'];
 
   @override
   void dispose() {
@@ -58,7 +60,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate() || _selectedUserType == null) {
+      if (_selectedUserType == null) {
+        _showSnackbar('Pilih jenis pengguna terlebih dahulu.');
+      }
       return;
     }
 
@@ -67,11 +72,10 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // Kita asumsikan halaman login ini untuk user 'pelanggan'
       final response = await _apiService.loginUser(
         email: _emailController.text,
         password: _passwordController.text,
-        userType: 'pelanggan', // Sesuai endpoint login di AuthController
+        userType: _selectedUserType!,
       );
 
       if (!mounted) return;
@@ -80,21 +84,24 @@ class _LoginPageState extends State<LoginPage> {
         final responseData = jsonDecode(response.body);
         final String token = responseData['token'];
         final user = responseData['user']; // Data user jika perlu
-        final redirectUrl =
-            responseData['redirect_url']; // URL redirect dari backend
 
         // Simpan token
         await _apiService.saveToken(token);
 
         _showSnackbar('Login berhasil!', isError: false);
 
-        // Navigasi setelah login sukses
-        // Anda bisa menggunakan redirectUrl atau navigasi ke halaman default
-        // Contoh navigasi ke halaman utama (anggap ada route '/home')
-        Navigator.pushReplacementNamed(
-          context,
-          '/home',
-        ); // Ganti dengan route halaman utama Anda
+        // Navigasi berdasarkan jenis pengguna
+        if (_selectedUserType == 'pelanggan') {
+          Navigator.pushReplacementNamed(
+            context,
+            '/home_pelanggan', // Ganti dengan route halaman utama pelanggan Anda
+          );
+        } else if (_selectedUserType == 'petugas') {
+          Navigator.pushReplacementNamed(
+            context,
+            '/home_petugas', // Ganti dengan route halaman utama petugas Anda
+          );
+        }
       } else if (response.statusCode == 422) {
         // Handle validation errors from Laravel
         final errors = jsonDecode(response.body)['errors'];
@@ -136,13 +143,44 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                // ... (Logo, Judul, Field Email, Field Password, Tombol Login tetap sama)
                 const Text(
                   'Selamat Datang',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 40),
+
+                // Dropdown untuk memilih jenis pengguna
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Login Sebagai',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  value: _selectedUserType,
+                  items:
+                      _userTypes.map((userType) {
+                        return DropdownMenuItem(
+                          value: userType,
+                          child: Text(
+                            userType == 'pelanggan' ? 'Pelanggan' : 'Petugas',
+                          ),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedUserType = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Pilih jenis pengguna';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
 
                 TextFormField(
                   controller: _emailController,

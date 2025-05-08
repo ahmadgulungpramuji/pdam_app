@@ -51,8 +51,8 @@ class ApiService {
     return await http.get(url, headers: headers);
   }
 
-  // Fungsi Register
-  Future<http.Response> registerUser({
+  // Fungsi Register Pelanggan
+  Future<http.Response> registerPelanggan({
     required String username,
     required String email,
     required String password,
@@ -63,7 +63,9 @@ class ApiService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    final url = Uri.parse('$baseUrl/auth/register');
+    final url = Uri.parse(
+      '$baseUrl/pelanggan',
+    ); // Spesifik ke endpoint pelanggan
     final body = jsonEncode({
       'username': username,
       'email': email,
@@ -74,7 +76,21 @@ class ApiService {
     return await http.post(url, headers: headers, body: body);
   }
 
-  // Fungsi Login
+  // Fungsi Create ID PDAM
+  Future<http.Response> createIdPdam({
+    required String nomor,
+    required int idPelanggan,
+  }) async {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    final url = Uri.parse('$baseUrl/id-pdam');
+    final body = jsonEncode({'nomor': nomor, 'id_pelanggan': idPelanggan});
+    return await http.post(url, headers: headers, body: body);
+  }
+
+  // Fungsi Login Pelanggan
   Future<http.Response> loginUser({
     required String email,
     required String password,
@@ -84,9 +100,17 @@ class ApiService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    final url = Uri.parse(
-      '$baseUrl/auth/login/$userType',
-    ); // Endpoint login sesuai controller
+    final String loginEndpoint;
+    if (userType == 'pelanggan') {
+      loginEndpoint =
+          '$baseUrl/pelanggan/login'; // Menggunakan endpoint spesifik pelanggan
+    } else if (userType == 'petugas') {
+      loginEndpoint =
+          '$baseUrl/petugas/login'; // Menggunakan endpoint spesifik petugas
+    } else {
+      throw ArgumentError('Tipe pengguna tidak valid: $userType');
+    }
+    final url = Uri.parse(loginEndpoint);
     final body = jsonEncode({'email': email, 'password': password});
     return await http.post(url, headers: headers, body: body);
   }
