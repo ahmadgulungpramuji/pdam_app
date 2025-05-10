@@ -25,20 +25,20 @@ class _RegisterPageState extends State<RegisterPage> {
       TextEditingController(); // Controller untuk nomor ID PDAM
   final ApiService _apiService = ApiService(); // Inisialisasi ApiService
 
-  // State untuk Dropdown Cabang
+  // State untuk Dropdown Cabang (tidak lagi diperlukan)
   int? _selectedCabangId;
-  List<Map<String, dynamic>> _cabangOptionsApi = [];
-  bool _isCabangLoading = true;
-  String? _cabangError;
+  // List<Map<String, dynamic>> _cabangOptionsApi = []; (tidak lagi diperlukan)
+  // bool _isCabangLoading = true; (tidak lagi diperlukan)
+  // String? _cabangError; (tidak lagi diperlukan)
 
   bool _isLoading = false;
   bool _passwordVisible = false; // Untuk visibility password
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchCabangOptions(); // Ambil data cabang saat halaman dimuat
-  }
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _fetchCabangOptions(); // Ambil data cabang saat halaman dimuat (tidak lagi diperlukan)
+  // }
 
   @override
   void dispose() {
@@ -60,62 +60,44 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // --- Fungsi untuk mengambil data Cabang dari API ---
-  Future<void> _fetchCabangOptions() async {
-    setState(() {
-      _isCabangLoading = true;
-      _cabangError = null;
-    });
+  // // --- Fungsi untuk mengambil data Cabang dari API --- (tidak lagi diperlukan)
+  // Future<void> _fetchCabangOptions() async { ... }
 
-    try {
-      final response = await _apiService
-          .fetchCabangs() // Gunakan fungsi dari ApiService
-          .timeout(const Duration(seconds: 15));
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final List<Map<String, dynamic>> options = [];
-
-        for (var item in data) {
-          // Pastikan item memiliki 'id' dan 'nama_cabang'
-          if (item is Map<String, dynamic> &&
-              item.containsKey('id') &&
-              item.containsKey('nama_cabang')) {
-            options.add({
-              'id': item['id'] as int,
-              'nama_cabang': item['nama_cabang'] as String,
-              // Jika perlu data lain dari cabang (misal lokasi_maps), tambahkan di sini
-            });
-          } else {
-            print("Invalid item format from API: $item");
-          }
-        }
-
-        setState(() {
-          _cabangOptionsApi = options;
-        });
-      } else {
-        setState(() {
-          _cabangError = 'Gagal memuat cabang: Status ${response.statusCode}';
-        });
-        print(
-          'Failed to load cabang: ${response.statusCode} - ${response.body}',
-        );
+  void _otomatisPilihCabang() {
+    final idPdam = _idPelangganController.text.trim();
+    if (idPdam.length >= 2) {
+      final duaDigitPertama = idPdam.substring(0, 2);
+      switch (duaDigitPertama) {
+        case '10':
+          _selectedCabangId = 1; // Indramayu
+          break;
+        case '12':
+          _selectedCabangId = 2; // Asumsi ID untuk Losarang
+          break;
+        case '15':
+          _selectedCabangId = 3; // Sindang
+          break;
+        case '20':
+          _selectedCabangId = 4; // Jatibarang
+          break;
+        case '30':
+          _selectedCabangId = 5; // Kertasmaya
+          break;
+        case '40':
+          _selectedCabangId = 6; // Kandanghaur
+          break;
+        case '50':
+          _selectedCabangId = 7; // Lohbener
+          break;
+        case '60':
+          _selectedCabangId = 8; // Karangampel
+          break;
+        default:
+          _selectedCabangId = null; // Atau logika default lainnya jika perlu
+          break;
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _cabangError = 'Terjadi kesalahan saat memuat data cabang.';
-      });
-      print('Error fetching cabang: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCabangLoading = false;
-        });
-      }
+    } else {
+      _selectedCabangId = null; // Atau logika default lainnya jika perlu
     }
   }
 
@@ -124,9 +106,14 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    // Validasi tambahan untuk dropdown cabang
+    _otomatisPilihCabang(); // Otomatis pilih cabang berdasarkan ID PDAM
+
+    // Validasi tambahan untuk memastikan cabang terpilih
     if (_selectedCabangId == null) {
-      _showSnackbar('Silakan pilih cabang terlebih dahulu.');
+      _showSnackbar(
+        'ID Pelanggan tidak valid untuk pemilihan cabang otomatis.',
+        isError: true,
+      );
       return;
     }
 
@@ -205,103 +192,8 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  // Helper Widget untuk membangun bagian Dropdown Cabang (sama seperti di TemuanKebocoranPage)
-  Widget _buildCabangDropdown() {
-    if (_isCabangLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            ),
-            SizedBox(width: 15),
-            Text("Memuat data cabang...", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-
-    if (_cabangError != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10.0),
-        child: Column(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 30),
-            const SizedBox(height: 8),
-            Text(
-              _cabangError!,
-              style: const TextStyle(color: Colors.red),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text("Coba Lagi"),
-              onPressed: _fetchCabangOptions, // Tombol untuk retry
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                foregroundColor: Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Tampilan dropdown jika data berhasil dimuat dan tidak ada error
-    return DropdownButtonFormField<int>(
-      value: _selectedCabangId,
-      hint: const Text('Pilih Cabang'),
-      isExpanded: true,
-      items:
-          _cabangOptionsApi.isEmpty
-              ? [
-                const DropdownMenuItem<int>(
-                  value: null,
-                  enabled:
-                      false, // Disable dropdown item jika tidak ada data cabang
-                  child: Text(
-                    "Tidak ada data cabang tersedia",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              ]
-              : _cabangOptionsApi.map((cabang) {
-                return DropdownMenuItem<int>(
-                  value: cabang['id'] as int,
-                  child: Text(cabang['nama_cabang'] as String),
-                );
-              }).toList(),
-      onChanged:
-          _cabangOptionsApi.isEmpty || _isLoading
-              ? null
-              : (value) {
-                setState(() {
-                  _selectedCabangId = value;
-                });
-              },
-      validator: (value) {
-        // Validasi hanya jika tidak sedang loading, tidak ada error cabang,
-        // ada options cabang, dan value masih null
-        if (!_isCabangLoading &&
-            _cabangError == null &&
-            _cabangOptionsApi.isNotEmpty &&
-            value == null) {
-          return 'Cabang tidak boleh kosong';
-        }
-        return null;
-      },
-      decoration: const InputDecoration(
-        labelText: 'Cabang',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.location_city),
-      ),
-    );
-  }
+  // Helper Widget untuk membangun bagian Dropdown Cabang (tidak lagi diperlukan)
+  // Widget _buildCabangDropdown() { ... }
 
   @override
   Widget build(BuildContext context) {
@@ -436,26 +328,43 @@ class _RegisterPageState extends State<RegisterPage> {
                   inputFormatters: <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
                   ],
+                  onChanged: (value) {
+                    _otomatisPilihCabang(); // Panggil saat nilai berubah
+                    setState(
+                      () {},
+                    ); // Rebuild UI agar _selectedCabangId bisa berpengaruh (jika ada widget yang membutuhkannya)
+                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'ID Pelanggan tidak boleh kosong';
+                    }
+                    if (value.length < 8) {
+                      return 'ID Pelanggan minimal 8 digit';
                     }
                     // Tambahkan validasi format ID Pelanggan jika perlu
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // Dropdown Cabang
-                _buildCabangDropdown(),
+                Text(
+                  _selectedCabangId != null
+                      ? 'Cabang akan otomatis dipilih.'
+                      : 'Cabang tidak dapat ditentukan dari ID Pelanggan.',
+                  style: TextStyle(
+                    color:
+                        _selectedCabangId != null ? Colors.green : Colors.red,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Tombol Register
                 ElevatedButton(
                   onPressed:
-                      _isLoading || _isCabangLoading || _cabangError != null
+                      _isLoading || _selectedCabangId == null
                           ? null
-                          : _register, // Disable jika loading atau ada masalah cabang
+                          : _register, // Disable jika loading atau cabang belum dipilih otomatis
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     textStyle: const TextStyle(fontSize: 18),

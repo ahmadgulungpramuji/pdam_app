@@ -1,224 +1,332 @@
 // tracking_page.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'api_service.dart'; // Import file api_service.dart Anda
+// import 'package:pdam_app/api_service.dart'; // Jika perlu fetch detail tracking
 
 class TrackingPage extends StatefulWidget {
-  // Halaman ini menerima kode tracking sebagai argumen
-  final String trackingCode;
+  final String? kodeTracking; // Terima kode tracking dari argumen navigasi
 
-  const TrackingPage({Key? key, required this.trackingCode}) : super(key: key);
+  const TrackingPage({super.key, this.kodeTracking});
 
   @override
   State<TrackingPage> createState() => _TrackingPageState();
 }
 
 class _TrackingPageState extends State<TrackingPage> {
-  final ApiService _apiService = ApiService(); // Inisialisasi ApiService
-
-  bool _isLoading = true;
-  Map<String, dynamic>? _reportData;
+  final TextEditingController _kodeController = TextEditingController();
+  // final ApiService _apiService = ApiService(); // Jika perlu API
+  bool _isLoading = false;
+  Map<String, dynamic>? _trackingData;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchReportStatus(); // Ambil status laporan saat halaman dimuat
+    if (widget.kodeTracking != null && widget.kodeTracking!.isNotEmpty) {
+      _kodeController.text = widget.kodeTracking!;
+      _searchTracking(widget.kodeTracking!);
+    }
   }
 
-  Future<void> _fetchReportStatus() async {
+  Future<void> _searchTracking(String kode) async {
+    if (kode.isEmpty) {
+      setState(() {
+        _errorMessage = "Kode tracking tidak boleh kosong.";
+        _trackingData = null;
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
-      _reportData = null;
       _errorMessage = null;
+      _trackingData = null;
     });
 
-    try {
-      final response = await _apiService.trackReport(
-        widget.trackingCode,
-      ); // Panggil API tracking
+    // Simulasi API call
+    await Future.delayed(const Duration(seconds: 1));
 
-      if (!mounted) return;
+    // Ganti dengan implementasi API call yang sesungguhnya
+    // final response = await _apiService.getTrackingLaporanByKode(kode);
+    // if (response.success) {
+    //   _trackingData = response.data;
+    // } else {
+    //   _errorMessage = response.message;
+    // }
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        setState(() {
-          _reportData =
-              responseData['report']; // Ambil data laporan dari respons
-        });
-      } else {
-        // Handle error (misal kode tracking tidak valid)
-        final responseData = jsonDecode(response.body);
-        setState(() {
-          _errorMessage =
-              responseData['message'] ?? 'Gagal memuat status laporan.';
-        });
-        print(
-          'Failed to fetch report status: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Terjadi kesalahan: ${e.toString()}';
-      });
-      print('Error fetching report status: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Contoh data dummy
+    if (kode.toUpperCase() == "LP202405A1") {
+      _trackingData = {
+        'kode': kode.toUpperCase(),
+        'jenis': 'Kebocoran Pipa Utama',
+        'lokasi': 'Jl. Sudirman No. 123, Jakarta',
+        'tanggal_lapor': '2024-05-01 10:00',
+        'status': 'Sedang Ditangani Petugas',
+        'estimasi_selesai': '2024-05-01 15:00',
+        'catatan_petugas': 'Tim sedang menuju lokasi, harap bersabar.',
+        'history': [
+          {
+            'timestamp': '2024-05-01 10:05',
+            'status': 'Laporan Diterima dan Diverifikasi',
+          },
+          {'timestamp': '2024-05-01 10:30', 'status': 'Petugas Ditugaskan'},
+          {'timestamp': '2024-05-01 11:00', 'status': 'Petugas Menuju Lokasi'},
+        ],
+      };
+    } else if (kode.toUpperCase() == "ERROR123") {
+      _errorMessage = "Terjadi kesalahan pada server saat mencari kode Anda.";
+    } else {
+      _errorMessage = "Kode tracking tidak ditemukan atau tidak valid.";
     }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Color _getStatusColor(String? status) {
+    if (status == null) return Colors.grey;
+    status = status.toLowerCase();
+    if (status.contains('selesai') || status.contains('teratasi'))
+      return Colors.green;
+    if (status.contains('ditangani') ||
+        status.contains('proses') ||
+        status.contains('menuju'))
+      return Colors.orangeAccent;
+    if (status.contains('diterima') || status.contains('verifikasi'))
+      return Colors.blueAccent;
+    if (status.contains('ditolak')) return Colors.redAccent;
+    return Colors.grey;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Status Laporan'),
-        // Tombol back otomatis muncul jika ada halaman sebelumnya di stack
+        title: const Text('Lacak Laporan (Anonim)'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            // Jika datang dari login page dan mau kembali, gunakan pushReplacementNamed
+            // Jika dari tempat lain, cukup Navigator.pop(context)
+            if (ModalRoute.of(context)?.settings.name == '/tracking_page') {
+              Navigator.pushReplacementNamed(context, '/login');
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              'Masukkan Kode Tracking Laporan Anda',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: _kodeController,
+              decoration: InputDecoration(
+                labelText: 'Kode Tracking',
+                hintText: 'Contoh: LP202405A1',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                prefixIcon: const Icon(Icons.qr_code_scanner),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.clear),
+                  onPressed: () {
+                    _kodeController.clear();
+                    setState(() {
+                      _trackingData = null;
+                      _errorMessage = null;
+                    });
+                  },
+                ),
+              ),
+              textInputAction: TextInputAction.search,
+              onFieldSubmitted: (value) => _searchTracking(value),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon:
+                  _isLoading
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.search),
+              label:
+                  _isLoading
+                      ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                      : const Text('Lacak Sekarang'),
+              onPressed:
+                  _isLoading
+                      ? null
+                      : () => _searchTracking(_kodeController.text.trim()),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            if (!_isLoading && _errorMessage != null)
+              Card(
+                color: Colors.red[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Colors.red[700], fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            if (!_isLoading && _trackingData != null)
+              Card(
+                elevation: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 40,
-                      ),
-                      const SizedBox(height: 16),
                       Text(
-                        'Error: $_errorMessage',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.red, fontSize: 16),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh),
-                        label: const Text("Coba Lagi"),
-                        onPressed: _fetchReportStatus, // Tombol untuk retry
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey[300],
-                          foregroundColor: Colors.black87,
+                        'Detail Laporan: ${_trackingData!['kode']}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                )
-                : _reportData != null
-                ? ListView(
-                  // Menggunakan ListView agar bisa di-scroll jika konten panjang
-                  children: [
-                    const Text(
-                      'Detail Laporan',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                      const Divider(height: 20),
+                      _buildInfoRow(
+                        Icons.label_outline,
+                        'Jenis Laporan:',
+                        _trackingData!['jenis'] ?? '-',
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      // Tampilkan data dalam Card agar lebih rapi
-                      elevation: 2.0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+                      _buildInfoRow(
+                        Icons.location_on_outlined,
+                        'Lokasi:',
+                        _trackingData!['lokasi'] ?? '-',
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      _buildInfoRow(
+                        Icons.calendar_today_outlined,
+                        'Tanggal Lapor:',
+                        _trackingData!['tanggal_lapor'] ?? '-',
+                      ),
+                      _buildInfoRow(
+                        Icons.hourglass_empty_outlined,
+                        'Estimasi Selesai:',
+                        _trackingData!['estimasi_selesai'] ?? '-',
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6.0),
+                        child: Row(
                           children: [
+                            Icon(
+                              Icons.flag_outlined,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 10),
                             Text(
-                              'Kode Tracking: ${widget.trackingCode}',
+                              'Status Terkini: ',
                               style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const Divider(height: 24),
-                            Text(
-                              'Status: ${_reportData!['status']}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: _getStatusColor(_reportData!['status']),
+                            Expanded(
+                              child: Chip(
+                                label: Text(
+                                  _trackingData!['status'] ?? '-',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                backgroundColor: _getStatusColor(
+                                  _trackingData!['status'],
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Deskripsi Lokasi: ${_reportData!['deskripsi_lokasi']}',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tanggal Temuan: ${_formatDate(_reportData!['tanggal_temuan'])}',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-
-                            // Tambahkan detail lain dari _reportData jika ada
                           ],
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    // Anda bisa tambahkan tombol kembali atau navigasi lain di sini jika perlu
-                    // ElevatedButton(
-                    //   onPressed: () {
-                    //      Navigator.pop(context); // Kembali ke halaman sebelumnya
-                    //   },
-                    //   child: const Text('Kembali'),
-                    // ),
-                  ],
-                )
-                : const Center(
-                  child: Text(
-                    'Laporan tidak ditemukan atau terjadi kesalahan.',
+                      _buildInfoRow(
+                        Icons.notes_outlined,
+                        'Catatan Petugas:',
+                        _trackingData!['catatan_petugas'] ??
+                            'Tidak ada catatan.',
+                      ),
+                      if (_trackingData!['history'] != null &&
+                          (_trackingData!['history'] as List).isNotEmpty) ...[
+                        const Divider(height: 30),
+                        Text(
+                          'Riwayat Status:',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        ...(_trackingData!['history'] as List).map((hist) {
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(
+                              Icons.check_circle_outline,
+                              color: _getStatusColor(hist['status']),
+                              size: 20,
+                            ),
+                            title: Text(
+                              hist['status'],
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            subtitle: Text(
+                              hist['timestamp'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ],
                   ),
-                ), // Kasus jika _reportData null tanpa error spesifik (jarang)
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  // Fungsi helper untuk menentukan warna status (opsional)
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.grey;
-      case 'menunggu_konfirmasi':
-        return Colors.orange;
-      case 'diterima':
-        return Colors.blue;
-      case 'dalam_perjalanan':
-        return Colors.cyan;
-      case 'diproses':
-        return Colors.blueAccent;
-      case 'selesai':
-        return Colors.green;
-      case 'dibatalkan':
-        return Colors.red;
-      default:
-        return Colors.black;
-    }
-  }
-
-  // Fungsi helper untuk format tanggal (opsional)
-  String _formatDate(dynamic date) {
-    if (date == null) return 'N/A';
-    // Asumsi format dari backend adalah string ISO 8601 atau serupa
-    try {
-      final dateTime = DateTime.parse(date);
-      return "${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute}";
-    } catch (e) {
-      print("Failed to parse date: $e");
-      return date.toString(); // Kembali ke string asli jika gagal parse
-    }
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(value, style: TextStyle(color: Colors.grey[800])),
+          ),
+        ],
+      ),
+    );
   }
 }

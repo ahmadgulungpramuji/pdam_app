@@ -8,7 +8,7 @@ class HomePage extends StatelessWidget {
   // Fungsi logout (opsional, tambahkan tombol di UI jika diperlukan)
   Future<void> _logout(BuildContext context) async {
     final apiService = ApiService();
-    await apiService.deleteToken(); // Hapus token
+    await apiService.removeToken(); // Hapus token
     // Navigasi kembali ke halaman login dan hapus semua route sebelumnya
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }

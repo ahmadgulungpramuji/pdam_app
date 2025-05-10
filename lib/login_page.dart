@@ -4,9 +4,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
+import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Pastikan import
 import 'api_service.dart'; // Import file api_service.dart Anda
+// Import halaman utama pelanggan
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -92,14 +95,18 @@ class _LoginPageState extends State<LoginPage> {
 
         // Navigasi berdasarkan jenis pengguna
         if (_selectedUserType == 'pelanggan') {
-          Navigator.pushReplacementNamed(
+          // <-- Bagian ini yang diubah
+          Navigator.pushReplacement(
             context,
-            '/home_pelanggan', // Ganti dengan route halaman utama pelanggan Anda
+            MaterialPageRoute(
+              builder: (_) => const HomePelangganPage(),
+            ), // Menggunakan MaterialPageRoute
           );
+          // <-- Akhir bagian yang diubah
         } else if (_selectedUserType == 'petugas') {
           Navigator.pushReplacementNamed(
             context,
-            '/home_petugas', // Ganti dengan route halaman utama petugas Anda
+            '/home_petugas', // Ganti dengan route halaman utama petugas Anda (atau gunakan MaterialPageRoute jika diinginkan)
           );
         }
       } else if (response.statusCode == 422) {
@@ -266,7 +273,12 @@ class _LoginPageState extends State<LoginPage> {
                       _isLoading
                           ? null
                           : () {
-                            Navigator.pushNamed(context, '/register');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterPage(),
+                              ),
+                            );
                           },
                   child: const Text('Belum punya akun? Daftar di sini'),
                 ),
