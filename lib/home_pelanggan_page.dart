@@ -1,3 +1,5 @@
+// ignore_for_file: unused_import, unused_element
+
 import 'package:flutter/material.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -169,7 +171,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Selamat Datang, ${_userData?['name'] ?? 'Pelanggan'}!',
+                        'Selamat Datang, ${_userData?['username'] ?? 'Pelanggan'}!',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),

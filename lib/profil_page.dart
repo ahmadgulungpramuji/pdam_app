@@ -1,7 +1,6 @@
 // profil_page.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:pdam_app/api_service.dart'; // Pastikan import
+import 'package:pdam_app/api_service.dart'; // Pastikan path ApiService benar
 
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -12,115 +11,144 @@ class ProfilPage extends StatefulWidget {
 
 class _ProfilPageState extends State<ProfilPage> {
   final ApiService _apiService = ApiService();
-  final _formKey = GlobalKey<FormState>();
-
-  TextEditingController _nameController = TextEditingController();
-  TextEditingController _emailController = TextEditingController();
-  TextEditingController _phoneController = TextEditingController();
-  // Tambahkan controller lain jika ada, misal alamat
-
-  bool _isLoading = true;
-  bool _isEditing = false;
+  // Data pengguna yang dimuat dari API
   Map<String, dynamic>? _userData;
+  // Controller untuk mengelola input di TextField
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController =
+      TextEditingController(); // Email biasanya read-only
+  final TextEditingController _nomorHpController = TextEditingController();
+
+  // Status loading saat memuat data atau menyimpan perubahan
+  bool _isLoading = true;
+  // Status menyimpan perubahan
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    // Muat data profil saat halaman pertama kali dibuat
+    _fetchUserData();
   }
 
-  Future<void> _loadUserProfile() async {
-    setState(() => _isLoading = true);
+  @override
+  void dispose() {
+    // Pastikan controller dibuang saat widget tidak lagi digunakan untuk mencegah memory leaks
+    _nameController.dispose();
+    _emailController.dispose();
+    _nomorHpController.dispose();
+    super.dispose();
+  }
+
+  // Mengambil data profil pengguna dari API
+  Future<void> _fetchUserData() async {
+    if (!mounted) return; // Pastikan widget masih ada
+    setState(() {
+      _isLoading = true;
+      _userData = null; // Reset data sebelumnya
+    });
+
     final data = await _apiService.getUserProfile();
+
     if (mounted) {
-      setState(() {
+      // Pastikan widget masih ada setelah async call
+      if (data != null) {
         _userData = data;
-        if (data != null) {
-          _nameController.text = data['name'] ?? '';
-          _emailController.text = data['email'] ?? '';
-          _phoneController.text =
-              data['phone_number'] ?? ''; // Sesuaikan dengan field dari API
-        }
+        // Isi controller dengan data yang dimuat
+        _nameController.text =
+            _userData?['username'] ?? ''; // Asumsi field 'username'
+        _emailController.text =
+            _userData?['email'] ?? ''; // Asumsi field 'email'
+        _nomorHpController.text =
+            _userData?['nomor_hp'] ?? ''; // Asumsi field 'nomor_hp'
+      } else {
+        // Jika gagal memuat data (misal 401), tampilkan pesan atau kembali ke login
+        // Untuk kasus ini, kita asumsikan Home page sudah menangani logout
+        // Kita cukup tampilkan pesan error di sini
+        _showSnackbar(
+          'Gagal memuat data profil. Silakan coba lagi.',
+          isError: true,
+        );
+        // Biarkan _userData null, fields akan kosong
+      }
+      setState(() {
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _updateUserProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+  // Menyimpan perubahan profil ke API
+  Future<void> _saveChanges() async {
+    if (!mounted) return; // Pastikan widget masih ada
 
-    setState(() => _isLoading = true);
-    Map<String, String> updatedData = {
-      'name': _nameController.text,
-      'email': _emailController.text, // Jika email bisa diubah
-      'phone_number': _phoneController.text,
-      // tambahkan field lain
+    // Anda bisa tambahkan validasi di sini sebelum mengirim ke API
+    // Contoh validasi sederhana:
+    if (_nameController.text.isEmpty || _nomorHpController.text.isEmpty) {
+      _showSnackbar('Nama dan Nomor HP tidak boleh kosong.', isError: true);
+      return;
+    }
+    // Validasi format email atau nomor HP yang lebih kompleks bisa ditambahkan
+
+    setState(() {
+      _isSaving = true; // Set status menyimpan menjadi true
+    });
+
+    // Kumpulkan data dari controller yang sudah diubah
+    final updatedData = {
+      // Pastikan nama field sesuai dengan yang diharapkan backend
+      'username': _nameController.text,
+      // 'email': _emailController.text, // Email biasanya tidak bisa langsung diubah
+      'nomor_hp': _nomorHpController.text,
     };
 
-    try {
-      final response = await _apiService.updateUserProfile(updatedData);
-      if (!mounted) return;
+    // Panggil ApiService untuk mengirim update data
+    // Anda perlu membuat method update di ApiService dan endpoint di backend
+    final success = await _apiService.updateUserProfile(
+      updatedData, // <-- Hanya mengirimkan argumen ini
+    );
 
-      if (response?.statusCode == 200) {
-        _showSnackbar('Profil berhasil diperbarui.', isError: false);
-        await _loadUserProfile(); // Muat ulang data untuk memastikan sinkron
-        setState(() => _isEditing = false);
-        Navigator.pop(context, true); // Kirim true untuk menandakan ada update
+    if (mounted) {
+      // Pastikan widget masih ada setelah async call
+      if (success != null) {
+        // Jika update berhasil, tampilkan pesan sukses
+        _showSnackbar('Profil berhasil diperbarui!');
+
+        // Update data lokal setelah berhasil disimpan
+        // Atau panggil ulang _fetchUserData() jika respons backend tdk mengembalikan data lengkap
+        setState(() {
+          _userData =
+              success
+                  as Map<
+                    String,
+                    dynamic
+                  >?; // Asumsi response backend mengembalikan data user terbaru
+        });
+
+        // Kembali ke halaman sebelumnya (Home)
+        // Mengembalikan 'true' agar Home page tahu bahwa ada perubahan dan bisa refresh datanya
+        Navigator.pop(context, true);
       } else {
-        final responseData = jsonDecode(response!.body);
+        // Jika update gagal, tampilkan pesan error
         _showSnackbar(
-          'Gagal memperbarui profil: ${responseData['message'] ?? response.reasonPhrase}',
+          'Gagal memperbarui profil. Silakan coba lagi.',
+          isError: true,
         );
+        // Mungkin perlu penanganan error spesifik (misal 401, 422 validasi)
       }
-    } catch (e) {
-      _showSnackbar('Terjadi kesalahan: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isSaving = false; // Set status menyimpan menjadi false
+      });
     }
   }
 
-  void _showSnackbar(String message, {bool isError = true}) {
+  // Helper untuk menampilkan Snackbar
+  void _showSnackbar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  Widget _buildProfileField({
-    required IconData icon,
-    required String label,
-    required TextEditingController controller,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-    bool readOnly = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: TextFormField(
-        controller: controller,
-        readOnly: readOnly || !_isEditing,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          filled: readOnly || !_isEditing,
-          fillColor: (readOnly || !_isEditing) ? Colors.grey[100] : null,
-        ),
-        validator: validator,
+        duration: const Duration(seconds: 3), // Durasi snackbar
       ),
     );
   }
@@ -129,149 +157,107 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil Pengguna'),
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              icon: Icon(
-                _isEditing ? Icons.save_outlined : Icons.edit_outlined,
-              ),
-              tooltip: _isEditing ? 'Simpan' : 'Edit Profil',
-              onPressed: () {
-                if (_isEditing) {
-                  _updateUserProfile();
-                } else {
-                  setState(() => _isEditing = true);
-                }
-              },
-            ),
-          if (_isEditing)
-            IconButton(
-              icon: Icon(Icons.cancel_outlined),
-              tooltip: 'Batal Edit',
-              onPressed: () {
-                setState(() {
-                  _isEditing = false;
-                  // Reset fields ke data awal jika ada perubahan yang belum disimpan
-                  if (_userData != null) {
-                    _nameController.text = _userData!['name'] ?? '';
-                    _emailController.text = _userData!['email'] ?? '';
-                    _phoneController.text = _userData!['phone_number'] ?? '';
-                  }
-                });
-              },
-            ),
-        ],
+        title: const Text('Profil Saya'),
+        // Jika sedang loading atau menyimpan, sembunyikan tombol back
+        automaticallyImplyLeading: !_isLoading && !_isSaving,
       ),
       body:
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _userData == null
-              ? const Center(child: Text('Gagal memuat data profil.'))
-              : RefreshIndicator(
-                onRefresh: _loadUserProfile,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: <Widget>[
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primaryContainer,
-                          child: Icon(
-                            Icons.person_outline,
-                            size: 50,
-                            color:
-                                Theme.of(
-                                  context,
-                                ).colorScheme.onPrimaryContainer,
-                          ),
-                          // backgroundImage: NetworkImage(_userData!['profile_picture_url'] ?? ''), // Jika ada URL gambar profil
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _isEditing
-                              ? 'Edit Profil Anda'
-                              : (_userData!['name'] ?? 'Nama Pengguna'),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _userData!['email'] ?? 'email@example.com',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 30),
-                        _buildProfileField(
-                          icon: Icons.person_outline,
-                          label: 'Nama Lengkap',
-                          controller: _nameController,
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Nama tidak boleh kosong'
-                                      : null,
-                        ),
-                        _buildProfileField(
-                          icon: Icons.email_outlined,
-                          label: 'Email',
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          readOnly: true, // Email biasanya tidak bisa diubah
-                          validator: (value) {
-                            if (value == null || value.isEmpty)
-                              return 'Email tidak boleh kosong';
-                            if (!value.contains('@'))
-                              return 'Email tidak valid';
-                            return null;
-                          },
-                        ),
-                        _buildProfileField(
-                          icon: Icons.phone_outlined,
-                          label: 'Nomor Telepon',
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Nomor telepon tidak boleh kosong'
-                                      : null,
-                        ),
-                        // Tambahkan field lain seperti alamat, dll.
-                        // _buildProfileField(
-                        //   icon: Icons.location_city_outlined,
-                        //   label: 'Alamat',
-                        //   controller: _addressController,
-                        // ),
-                        const SizedBox(height: 30),
-                        if (_isEditing)
-                          ElevatedButton.icon(
-                            icon:
-                                _isLoading
-                                    ? const SizedBox.shrink()
-                                    : const Icon(Icons.save_alt_outlined),
-                            label:
-                                _isLoading
-                                    ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                    : const Text('Simpan Perubahan'),
-                            onPressed: _isLoading ? null : _updateUserProfile,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                          ),
-                      ],
+              ? const Center(
+                child: CircularProgressIndicator(),
+              ) // Tampilkan loading indicator jika memuat data
+              : _userData == null && !_isSaving
+              ? Center(
+                // Tampilkan pesan error jika data gagal dimuat dan tidak sedang menyimpan
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Tidak dapat memuat data profil.'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _fetchUserData, // Tombol coba lagi
+                      child: const Text('Coba Lagi'),
                     ),
-                  ),
+                  ],
+                ),
+              )
+              : SingleChildScrollView(
+                // Tampilkan form jika data sudah dimuat
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    // Field Nama (Username)
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Lengkap / Username',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Field Email (Biasanya Read-only)
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        suffixIcon: Icon(Icons.lock_outline), // Icon gembok
+                      ),
+                      readOnly:
+                          true, // Email biasanya tidak bisa diubah langsung
+                      keyboardType: TextInputType.emailAddress,
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                      ), // Tampilan read-only
+                    ),
+                    const SizedBox(height: 16),
+                    // Field Nomor HP
+                    TextField(
+                      controller: _nomorHpController,
+                      decoration: InputDecoration(
+                        labelText: 'Nomor Telepon',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                      keyboardType:
+                          TextInputType.phone, // Keyboard tipe telepon
+                      // Tambahkan inputFormatters jika perlu format khusus nomor HP
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Tombol Simpan Perubahan
+                    ElevatedButton(
+                      // Nonaktifkan tombol saat sedang menyimpan
+                      onPressed: _isSaving ? null : _saveChanges,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                      child:
+                          _isSaving
+                              ? const SizedBox(
+                                // Tampilkan loading indicator di tombol saat menyimpan
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                              : const Text(
+                                'Simpan Perubahan',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                    ),
+                  ],
                 ),
               ),
     );

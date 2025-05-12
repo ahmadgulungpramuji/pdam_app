@@ -131,35 +131,97 @@ class ApiService {
     }
   }
 
-  Future<http.Response?> updateUserProfile(Map<String, String> data) async {
+  Future<Map<String, dynamic>?> updateUserProfile(
+    Map<String, dynamic> updatedData,
+  ) async {
+    print('ApiService DEBUG: Attempting to update user profile.'); // DEBUG
     final token = await getToken();
-    print(
-      'ApiService DEBUG: getUserProfile - Token retrieved: $token',
-    ); // DEBUG
     if (token == null) {
       print(
-        'ApiService DEBUG: getUserProfile - No token found, returning null',
+        'ApiService DEBUG: updateUserProfile - No token found, returning null.',
       ); // DEBUG
       return null;
     }
 
-    // Ganti dengan endpoint update profil Anda
-    final response = await http.post(
-      Uri.parse('$baseUrl/user/profile/update'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(data),
-    );
-    if (response.statusCode == 200) {
-      // Refresh cached user data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_data');
-      await getUserProfile(); // Panggil untuk refresh cache
+    try {
+      // URL endpoint update profil di backend.
+      // Gunakan URL dan metode HTTP yang SAMA PERSIS dengan rute di api.php (PATCH /user/profile)
+      final response = await http.patch(
+        // <-- Menggunakan metode PATCH
+        Uri.parse('$baseUrl/user/profile'), // <-- Menggunakan URL /user/profile
+        headers: {
+          'Authorization': 'Bearer $token', // Kirim token di header
+          'Accept': 'application/json',
+          'Content-Type':
+              'application/json; charset=UTF-8', // Body dalam format JSON
+        },
+        body: jsonEncode(updatedData), // <-- Mengirim map updatedData di body
+      );
+
+      print(
+        'ApiService DEBUG: updateUserProfile - API Response Status Code: ${response.statusCode}',
+      ); // DEBUG
+      print(
+        'ApiService DEBUG: updateUserProfile - API Response Body: ${response.body}',
+      ); // DEBUG
+
+      if (response.statusCode == 200) {
+        // Backend mengembalikan data user terbaru (seperti di method me/login)
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Hapus cache user data lama karena data sudah berubah
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('user_data');
+
+        // Backend disarankan mengembalikan data user yang sudah diperbarui dalam kunci 'user'
+        if (responseData.containsKey('user') &&
+            responseData['user'] is Map<String, dynamic>) {
+          // Simpan data user terbaru ke cache lokal
+          await prefs.setString('user_data', jsonEncode(responseData['user']));
+          print(
+            'ApiService DEBUG: updateUserProfile - Profile updated and cache refreshed.',
+          ); // DEBUG
+          return responseData['user']
+              as Map<String, dynamic>; // Kembalikan data user terbaru
+        } else {
+          // Jika format respons 200 OK tidak sesuai harapan
+          print(
+            'ApiService DEBUG: updateUserProfile - 200 OK, but response format unexpected.',
+          ); // DEBUG
+          // Untuk amannya, kita coba fetch ulang data user setelah update
+          print(
+            'ApiService DEBUG: Calling getUserProfile() to refresh data after update.',
+          ); // DEBUG
+          return await getUserProfile(); // Coba muat ulang data user dari API profil
+        }
+      } else if (response.statusCode == 401) {
+        // Token tidak valid, hapus token dan kembalikan null
+        print(
+          'ApiService DEBUG: updateUserProfile - Received 401, token is invalid. Removing token.',
+        ); // DEBUG
+        await removeToken();
+        return null;
+      } else if (response.statusCode == 422) {
+        // Error validasi dari backend
+        print(
+          'ApiService DEBUG: updateUserProfile - Received 422 Validation Error. Body: ${response.body}',
+        ); // DEBUG
+        // Anda bisa parsing error detail dari response.body jika perlu menampilkan pesan validasi spesifik
+        // final validationErrors = jsonDecode(response.body)['errors'];
+        // print('Validation Errors: $validationErrors');
+        // Jika ingin menampilkan Snackbar dari sini, ApiService butuh cara untuk mengakses context
+        return null; // Update gagal karena validasi
+      } else {
+        // Status code lain menandakan kegagalan update
+        print(
+          'ApiService DEBUG: updateUserProfile - Failed to update profile with status code: ${response.statusCode}. Body: ${response.body}',
+        ); // DEBUG
+        return null;
+      }
+    } catch (e) {
+      print('ApiService DEBUG: Error updating profile: $e'); // DEBUG
+      return null;
     }
-    return response;
   }
 
   Future<http.Response> trackReport(String trackingCode) async {
