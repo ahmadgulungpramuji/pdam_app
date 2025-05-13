@@ -1,9 +1,13 @@
 // cek_tunggakan_page.dart
 import 'package:flutter/material.dart';
-import 'package:pdam_app/api_service.dart'; // Pastikan import
+import 'package:pdam_app/api_service.dart'; // Pastikan import path sesuai dengan proyek Anda
+import 'package:shared_preferences/shared_preferences.dart'; // Import untuk penyimpanan lokal
+import 'dart:convert';
 
 class CekTunggakanPage extends StatefulWidget {
-  const CekTunggakanPage({super.key});
+  const CekTunggakanPage({super.key, this.registeredIdPdam});
+
+  final String? registeredIdPdam;
 
   @override
   State<CekTunggakanPage> createState() => _CekTunggakanPageState();
@@ -18,17 +22,55 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
   bool _isLoadingIds = true;
   bool _isLoadingTunggakan = false;
   String? _errorMessage;
+  String? _registeredIdFromPrefs;
+  List<dynamic> _pdamIdsFromApi = [];
+  bool _isLoadingApiPdamIds = true;
 
   @override
   void initState() {
     super.initState();
     _loadSavedPdamIds();
+    _loadRegisteredIdFromPrefs();
+    _fetchUserPdamIdsFromApi(); // Panggil fungsi untuk mengambil ID dari API
+  }
+
+  Future<void> _fetchUserPdamIdsFromApi() async {
+    setState(() => _isLoadingApiPdamIds = true);
+    _pdamIdsFromApi = await _apiService.getAllUserPdamIds();
+    setState(() => _isLoadingApiPdamIds = false);
+  }
+
+  Future<void> _loadRegisteredIdFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _registeredIdFromPrefs = prefs.getString('registered_pdam_id');
+      // Jika ada ID PDAM dari registrasi dan belum ada di daftar, tambahkan
+      if (_registeredIdFromPrefs != null &&
+          _registeredIdFromPrefs!.isNotEmpty &&
+          !_savedPdamIds.contains(_registeredIdFromPrefs)) {
+        _savedPdamIds.insert(0, _registeredIdFromPrefs!);
+        if (_selectedPdamId == null) {
+          _selectedPdamId = _registeredIdFromPrefs;
+          _fetchTunggakan(_selectedPdamId!);
+        }
+      } else if (_savedPdamIds.isNotEmpty && _selectedPdamId == null) {
+        _selectedPdamId = _savedPdamIds.first;
+        _fetchTunggakan(_selectedPdamId!);
+      }
+    });
   }
 
   Future<void> _loadSavedPdamIds() async {
     setState(() => _isLoadingIds = true);
     _savedPdamIds = await PdamIdManager.getPdamIds();
-    if (_savedPdamIds.isNotEmpty) {
+    // Jika ID dari registrasi dikirimkan dan belum ada di saved IDs
+    if (widget.registeredIdPdam != null &&
+        widget.registeredIdPdam!.isNotEmpty &&
+        !_savedPdamIds.contains(widget.registeredIdPdam)) {
+      _savedPdamIds.insert(0, widget.registeredIdPdam!);
+      _selectedPdamId = widget.registeredIdPdam;
+      _fetchTunggakan(_selectedPdamId!);
+    } else if (_savedPdamIds.isNotEmpty && _selectedPdamId == null) {
       _selectedPdamId = _savedPdamIds.first;
       _fetchTunggakan(_selectedPdamId!);
     }
@@ -76,13 +118,25 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
       return;
     }
     final newId = _pdamIdController.text.trim();
-    if (_savedPdamIds.length >= 2 && !_savedPdamIds.contains(newId)) {
-      // Batas contoh 2 ID, bisa lebih
+    const maxLocalPdamIds = 3; // Batas maksimal ID PDAM lokal
+
+    // Periksa jumlah ID PDAM di database
+    final pdamIdsFromApi = await _apiService.getAllUserPdamIds();
+
+    if (pdamIdsFromApi.length >= 3 &&
+        !_savedPdamIds.contains(newId) &&
+        !pdamIdsFromApi.any((item) => item['nomor'].toString() == newId)) {
+      _showSnackbar('Anda sudah memiliki maksimal 3 ID PDAM terdaftar.');
+      return;
+    }
+
+    // Periksa juga batas ID lokal jika perlu (misalnya, jika ada alasan untuk membatasi penyimpanan lokal)
+    if (_savedPdamIds.length >= maxLocalPdamIds &&
+        !_savedPdamIds.contains(newId)) {
       _showSnackbar(
-        'Anda hanya dapat menyimpan maksimal ${_savedPdamIds.length} ID PDAM.',
+        'Anda hanya dapat menyimpan maksimal $maxLocalPdamIds ID PDAM secara lokal.',
       );
-      // Atau tampilkan dialog untuk mengganti salah satu ID yang ada
-      // return;
+      return;
     }
 
     await PdamIdManager.addPdamId(newId);
@@ -91,6 +145,38 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
     if (_savedPdamIds.contains(newId)) {
       setState(() => _selectedPdamId = newId);
       _fetchTunggakan(newId);
+
+      // Kirim ID PDAM ke API dan simpan ke database
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final userDataString = prefs.getString('user_data');
+
+        if (userDataString != null) {
+          final userData = jsonDecode(userDataString) as Map<String, dynamic>;
+          final int idPelanggan = userData['id']; // Ambil ID dari user_data
+
+          final response = await _apiService.postPdamId(
+            newId,
+            idPelanggan.toString(),
+          );
+          if (response['data'] != null) {
+            _showSnackbar('ID PDAM berhasil disimpan ke akun.', isError: false);
+          } else if (response['errors'] != null &&
+              response['errors']['nomor'] != null) {
+            _showSnackbar(
+              'Gagal menyimpan ID PDAM ke akun: ${response['errors']['nomor'][0]}',
+            );
+          } else {
+            _showSnackbar('Gagal menyimpan ID PDAM ke akun.');
+          }
+        } else {
+          _showSnackbar(
+            'Gagal mendapatkan informasi pengguna untuk menyimpan ID PDAM ke server.',
+          );
+        }
+      } catch (e) {
+        _showSnackbar('Terjadi kesalahan saat menyimpan ID PDAM ke server: $e');
+      }
     }
   }
 
@@ -122,7 +208,8 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Cek Tagihan & Kelola ID')),
       body:
-          _isLoadingIds
+          _isLoadingIds ||
+                  _isLoadingApiPdamIds // Tambahkan loading API IDs
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                 padding: const EdgeInsets.all(20.0),
@@ -134,8 +221,31 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
+                    if (widget.registeredIdPdam != null &&
+                        widget.registeredIdPdam!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'ID PDAM Terdaftar: ${widget.registeredIdPdam}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    if (_registeredIdFromPrefs != null &&
+                        _registeredIdFromPrefs!.isNotEmpty &&
+                        (widget.registeredIdPdam == null ||
+                            widget.registeredIdPdam!.isEmpty ||
+                            widget.registeredIdPdam != _registeredIdFromPrefs))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'ID PDAM Terdaftar: $_registeredIdFromPrefs',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     Text(
-                      'Anda dapat menyimpan dan mengelola beberapa ID pelanggan PDAM (maksimal ${_savedPdamIds.length > 0 ? _savedPdamIds.length : 'beberapa'}).',
+                      'Anda dapat menyimpan dan mengelola beberapa ID pelanggan PDAM (maksimal 3 ID lokal).',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 16),
@@ -165,36 +275,33 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    if (_savedPdamIds.isNotEmpty)
+                    if (_savedPdamIds.isNotEmpty || _pdamIdsFromApi.isNotEmpty)
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
-                          labelText: 'Pilih ID PDAM Tersimpan',
+                          labelText: 'Pilih ID PDAM',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
                           prefixIcon: const Icon(Icons.bookmark_border),
                         ),
                         value: _selectedPdamId,
-                        items:
-                            _savedPdamIds.map((id) {
-                              return DropdownMenuItem(
-                                value: id,
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(id),
-                                    // IconButton( // Tombol hapus langsung di item bisa jadi UX yang kurang baik
-                                    //   icon: Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                    //   onPressed: (e) {
-                                    //     e.stopPropagation(); // Mencegah dropdown tertutup
-                                    //     _removePdamId(id);
-                                    //   },
-                                    // )
-                                  ],
-                                ),
-                              );
-                            }).toList(),
+                        items: [
+                          ..._savedPdamIds.map((id) {
+                            return DropdownMenuItem(
+                              value: id,
+                              child: Text('Lokal: $id'),
+                            );
+                          }),
+                          ..._pdamIdsFromApi.map((item) {
+                            final id =
+                                item['nomor']
+                                    .toString(); // Ambil 'nomor' dari setiap item
+                            return DropdownMenuItem(
+                              value: id,
+                              child: Text('Akun: $id'),
+                            );
+                          }),
+                        ],
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _selectedPdamId = value);
@@ -202,67 +309,66 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                           }
                         },
                       ),
-                    if (_savedPdamIds.isNotEmpty) const SizedBox(height: 8),
-                    if (_savedPdamIds.isNotEmpty)
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 4.0,
-                        children:
-                            _savedPdamIds
-                                .map(
-                                  (id) => Chip(
-                                    label: Text(id),
-                                    backgroundColor:
-                                        _selectedPdamId == id
-                                            ? Theme.of(
-                                              context,
-                                            ).primaryColorLight
-                                            : null,
-                                    onDeleted: () {
-                                      showDialog(
-                                        context: context,
-                                        builder:
-                                            (ctx) => AlertDialog(
-                                              title: const Text(
-                                                'Hapus ID PDAM',
-                                              ),
-                                              content: Text(
-                                                'Anda yakin ingin menghapus ID "$id"?',
-                                              ),
-                                              actions: <Widget>[
-                                                TextButton(
-                                                  child: const Text('Batal'),
-                                                  onPressed:
-                                                      () =>
-                                                          Navigator.of(
-                                                            ctx,
-                                                          ).pop(),
-                                                ),
-                                                TextButton(
-                                                  child: const Text(
-                                                    'Hapus',
-                                                    style: TextStyle(
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(ctx).pop();
-                                                    _removePdamId(id);
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                      );
-                                    },
-                                    deleteIcon: const Icon(
-                                      Icons.close,
-                                      size: 18,
+                    if (_savedPdamIds.isNotEmpty || _pdamIdsFromApi.isNotEmpty)
+                      const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      children: [
+                        ..._savedPdamIds.map(
+                          (id) => Chip(
+                            label: Text('Lokal: $id'),
+                            backgroundColor:
+                                _selectedPdamId == id
+                                    ? Theme.of(context).primaryColorLight
+                                    : null,
+                            onDeleted: () {
+                              showDialog(
+                                context: context,
+                                builder:
+                                    (ctx) => AlertDialog(
+                                      title: const Text('Hapus ID PDAM Lokal'),
+                                      content: Text(
+                                        'Anda yakin ingin menghapus ID "$id" dari penyimpanan lokal?',
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          child: const Text('Batal'),
+                                          onPressed:
+                                              () => Navigator.of(ctx).pop(),
+                                        ),
+                                        TextButton(
+                                          child: const Text(
+                                            'Hapus',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(ctx).pop();
+                                            _removePdamId(id);
+                                          },
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                )
-                                .toList(),
-                      ),
-
+                              );
+                            },
+                            deleteIcon: const Icon(Icons.close, size: 18),
+                          ),
+                        ),
+                        ..._pdamIdsFromApi.map((item) {
+                          final id =
+                              item['nomor']
+                                  .toString(); // Ambil 'nomor' dari setiap item
+                          return Chip(
+                            label: Text('Akun: $id'),
+                            backgroundColor:
+                                _selectedPdamId == id
+                                    ? Theme.of(context).primaryColorLight
+                                    : null,
+                            // Anda mungkin tidak ingin memberikan opsi hapus untuk ID dari API di sini
+                          );
+                        }),
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     const Divider(),
                     const SizedBox(height: 16),
@@ -345,18 +451,20 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                                       isError: false,
                                     );
                                   },
-                                  icon: Icon(Icons.payment_outlined),
-                                  label: Text("Bayar Tagihan"),
+                                  icon: const Icon(Icons.payment_outlined),
+                                  label: const Text("Bayar Tagihan"),
                                   style: ElevatedButton.styleFrom(
-                                    minimumSize: Size(double.infinity, 45),
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      45,
+                                    ),
                                   ),
                                 ),
                             ],
                           ),
                         ),
                       )
-                    else if (_selectedPdamId !=
-                        null) // Ada ID terpilih tapi tidak ada data/error
+                    else if (_selectedPdamId != null)
                       Center(
                         child: Text(
                           'Tidak ada data tagihan untuk ID $_selectedPdamId atau ID tidak valid.',
@@ -369,9 +477,7 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                           'Pilih atau masukkan ID PDAM untuk melihat tagihan.',
                         ),
                       ),
-
                     const SizedBox(height: 20),
-                    // Tombol untuk membuat laporan terkait ID PDAM yang dipilih
                     if (_selectedPdamId != null &&
                         _tunggakanData != null &&
                         _tunggakanData!['error'] == null)
@@ -382,7 +488,6 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
                           backgroundColor: Colors.orangeAccent,
                         ),
                         onPressed: () {
-                          // Navigasi ke halaman buat laporan dengan ID PDAM yang sudah terisi
                           Navigator.pushNamed(
                             context,
                             '/buat_laporan',
@@ -411,5 +516,31 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
         ],
       ),
     );
+  }
+}
+
+class PdamIdManager {
+  static const String _pdamIdsKey = 'pdam_ids';
+
+  static Future<List<String>> getPdamIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_pdamIdsKey) ?? [];
+  }
+
+  static Future<void> addPdamId(String pdamId) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> ids = await getPdamIds();
+    if (!ids.contains(pdamId) && ids.length < 5) {
+      // Batasi jumlah ID misal 5
+      ids.add(pdamId);
+      await prefs.setStringList(_pdamIdsKey, ids);
+    }
+  }
+
+  static Future<void> removePdamId(String pdamId) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> ids = await getPdamIds();
+    ids.remove(pdamId);
+    await prefs.setStringList(_pdamIdsKey, ids);
   }
 }

@@ -27,6 +27,85 @@ class ApiService {
     await prefs.remove('pdam_ids'); // Hapus juga pdam ids jika disimpan lokal
   }
 
+  Future<Map<String, dynamic>> postPdamId(
+    String idPdam,
+    String idPelanggan,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/id-pdam'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(<String, String>{
+        'id_pelanggan': idPelanggan, // Nilai ini perlu Anda tentukan
+        'nomor': idPdam,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Gagal menyimpan ID PDAM ke server');
+    }
+  }
+
+  Future<List<dynamic>> getAllUserPdamIds() async {
+    final token = await getToken();
+    if (token == null) {
+      print('ApiService DEBUG: getAllUserPdamIds - No token found.');
+      return [];
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('user_data');
+    if (userDataString == null) {
+      print('ApiService DEBUG: getAllUserPdamIds - User data not found.');
+      return [];
+    }
+
+    final userData = jsonDecode(userDataString) as Map<String, dynamic>;
+    final int idPelanggan = userData['id']; // Ambil ID pengguna
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/id-pdam/$idPelanggan'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      print(
+        'ApiService DEBUG: getAllUserPdamIds - Status Code: ${response.statusCode}',
+      );
+      print('ApiService DEBUG: getAllUserPdamIds - Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['data'] is List) {
+          return responseData['data']; // Asumsi API mengembalikan format { 'data': [...] }
+        } else {
+          print(
+            'ApiService DEBUG: getAllUserPdamIds - Unexpected response format.',
+          );
+          return [];
+        }
+      } else if (response.statusCode == 401) {
+        print('ApiService DEBUG: getAllUserPdamIds - Unauthorized.');
+        removeToken(); // Hapus token jika tidak valid
+        return [];
+      } else {
+        print(
+          'ApiService DEBUG: getAllUserPdamIds - Failed with status code: ${response.statusCode}',
+        );
+        return [];
+      }
+    } catch (e) {
+      print('ApiService DEBUG: getAllUserPdamIds - Error during API call: $e');
+      return [];
+    }
+  }
+
   // ApiService.dart - Method getUserProfile
   Future<Map<String, dynamic>?> getUserProfile() async {
     // Step 1: Coba ambil token yang tersimpan lokal
