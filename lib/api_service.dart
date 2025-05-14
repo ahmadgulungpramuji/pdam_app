@@ -2,12 +2,69 @@
 // ignore_for_file: unused_local_variable
 
 import 'dart:convert';
+import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Ganti dengan Base URL API Anda
-  final String baseUrl = 'http://10.0.164.160:8000/api';
+  final String baseUrl = 'http://192.168.231.226:8000/api';
+
+  final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
+  final String _witAiApiUrl = 'https://api.wit.ai/message';
+  final String _witAiApiVersion =
+      '20240514'; // Gunakan tanggal versi yang sesuai
+
+  Future<Map<String, dynamic>?> sendMessage(String message) async {
+    if (_witAiServerAccessToken == 'YOUR_WIT_AI_SERVER_ACCESS_TOKEN') {
+      log(
+        'WARNING: Wit.ai Server Access Token has not been set in ApiService.',
+      );
+      return {
+        "error": true,
+        "message":
+            "Token API belum diatur. Silakan atur token Wit.ai di api_service.dart.",
+      };
+    }
+
+    try {
+      final uri = Uri.parse(_witAiApiUrl).replace(
+        queryParameters: {
+          'q': message, // Pesan pengguna
+          'v':
+              _witAiApiVersion, // Versi API (gunakan tanggal saat Anda melatih model)
+        },
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $_witAiServerAccessToken'},
+      );
+
+      log('Wit.ai API Status Code: ${response.statusCode}');
+      log('Wit.ai API Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Sukses, parse JSON
+        return jsonDecode(response.body);
+      } else {
+        // Gagal, mungkin token salah, batasan rate limit, dll.
+        return {
+          "error": true,
+          "statusCode": response.statusCode,
+          "message":
+              "Gagal menghubungi Wit.ai API. Status: ${response.statusCode}. Body: ${response.body}",
+        };
+      }
+    } catch (e) {
+      // Tangani error jaringan atau error lainnya
+      log('Error calling Wit.ai API: $e');
+      return {
+        "error": true,
+        "message": "Terjadi kesalahan jaringan atau sistem: $e",
+      };
+    }
+  }
 
   // Fungsi untuk menyimpan token
   Future<void> saveToken(String token) async {
