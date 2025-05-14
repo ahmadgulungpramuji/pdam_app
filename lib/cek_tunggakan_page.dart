@@ -146,14 +146,13 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
       setState(() => _selectedPdamId = newId);
       _fetchTunggakan(newId);
 
-      // Kirim ID PDAM ke API dan simpan ke database
       try {
         final prefs = await SharedPreferences.getInstance();
         final userDataString = prefs.getString('user_data');
 
         if (userDataString != null) {
           final userData = jsonDecode(userDataString) as Map<String, dynamic>;
-          final int idPelanggan = userData['id']; // Ambil ID dari user_data
+          final int idPelanggan = userData['id']; 
 
           final response = await _apiService.postPdamId(
             newId,
