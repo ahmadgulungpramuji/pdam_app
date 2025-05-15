@@ -20,6 +20,10 @@ class _ChatPageState extends State<ChatPage> {
       "text":
           "Anda bisa bertanya seputar tagihan, laporan, atau layanan lainnya.",
     },
+    {
+      "sender": "bot",
+      "text": "ketik hubungi admin untuk berinteraksi dengan admin terdekat.",
+    },
   ];
   final TextEditingController _chatController = TextEditingController();
   final ApiService _witService = ApiService(); // Inisialisasi WitService
