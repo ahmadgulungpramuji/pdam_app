@@ -374,6 +374,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
 
   // --- Fungsi untuk mengirim data ke API ---
   // Termasuk penambahan logika untuk mengambil tracking_code dan navigasi
+  // --- Fungsi untuk mengirim data ke API ---
+  // Termasuk penambahan logika untuk mengambil tracking_code dan navigasi
   Future<void> _submitForm() async {
     // Validasi form
     if (!_formKey.currentState!.validate()) {
@@ -393,47 +395,57 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(_apiUrlSubmit));
 
+      // --- START: Bagian yang perlu diubah/dihapus ---
       // Dapatkan token dari storage untuk otentikasi (jika diperlukan oleh endpoint submit)
       // Jika endpoint submit membutuhkan token (misal menggunakan auth:sanctum)
       // Anda perlu menambahkan header Authorization
-      final token = await _apiService.getToken();
+      final token =
+          await _apiService
+              .getToken(); // Masih bisa ambil token, tapi tidak diwajibkan
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
         // Tambahkan header lain jika diperlukan oleh backend, misal Accept/Content-Type
         request.headers['Accept'] = 'application/json';
-      } else {
-        // Handle case where user is not logged in but accessing this page (shouldn't happen if route is protected)
-        print("Warning: Submitting form without authentication token.");
-        // Mungkin beri tahu user untuk login dulu atau batalkan submit
-        _showSnackbar(
-          'Anda harus login untuk mengirim laporan.',
-          isError: true,
-        );
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          }); // Hentikan loading
-        }
-        return; // Hentikan proses submit
       }
+      // Hapus blok ELSE ini yang MENGHENTIKAN submit jika token == null
+      /*
+   else {
+    // Handle case where user is not logged in but accessing this page (shouldn't happen if route is protected)
+    print("Warning: Submitting form without authentication token.");
+    // Mungkin beri tahu user untuk login dulu atau batalkan submit
+    _showSnackbar(
+     'Anda harus login untuk mengirim laporan.',
+     isError: true,
+    );
+    if (mounted) {
+     setState(() {
+      _isLoading = false;
+     }); // Hentikan loading
+    }
+    return; // Hentikan proses submit
+   }
+        */
+      // --- END: Bagian yang perlu diubah/dihapus ---
 
-      // Tambahkan field data
+      // Tambahkan field data (bagian ini tetap)
       request.fields['id_cabang'] = _selectedCabangId.toString();
       request.fields['lokasi_maps'] = _lokasiMapsController.text;
       request.fields['deskripsi_lokasi'] = _deskripsiLokasiController.text;
 
-      // Tambahkan foto bukti HANYA jika ada file yang dipilih (_imageFile tidak null)
+      // Tambahkan foto bukti (bagian ini tetap)
       if (_imageFile != null) {
         request.files.add(
           await http.MultipartFile.fromPath('foto_bukti', _imageFile!.path),
         );
       }
 
+      // Kirim request (bagian ini tetap)
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (!mounted) return;
 
+      // Proses respons (bagian ini tetap)
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         final String? trackingCode =
@@ -444,7 +456,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           isError: false,
         );
 
-        // Reset form setelah berhasil
+        // Reset form setelah berhasil (bagian ini tetap)
         _formKey.currentState?.reset();
         setState(() {
           _selectedCabangId = null;
@@ -454,7 +466,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           _currentPosition = null; // Reset juga lokasi pengguna
         });
 
-        // <<< Navigasi ke halaman tracking jika kode tracking didapat
+        // <<< Navigasi ke halaman tracking jika kode tracking didapat (bagian ini tetap)
         if (trackingCode != null && trackingCode.isNotEmpty) {
           // Menggunakan pushReplacementNamed agar user tidak bisa kembali ke form submit setelah submit
           // Jika ingin user bisa kembali ke form (misal untuk submit laporan lain), gunakan Navigator.pushNamed
@@ -472,7 +484,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           // Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
-        // Handle error status codes
+        // Handle error status codes (bagian ini tetap)
         String errorMessage =
             'Gagal mengirim data. Status: ${response.statusCode}';
         try {

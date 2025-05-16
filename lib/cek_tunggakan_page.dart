@@ -203,9 +203,7 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
         'Terjadi kesalahan saat menyimpan ID PDAM ke server: $e',
         isError: true,
       );
-      setState(
-        () => _isLoadingTunggakan = false,
-      ); // Sembunyikan loading jika ada error
+      setState(() => _isLoadingTunggakan = false);
     }
   }
 
