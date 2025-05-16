@@ -1,4 +1,3 @@
-// login_page.dart
 // ignore_for_file: unused_import, unused_local_variable
 
 import 'dart:convert';
@@ -7,9 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Pastikan import
-import 'api_service.dart'; // Import file api_service.dart Anda
-// Import halaman utama pelanggan
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+
+import 'api_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,22 +22,21 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _trackCodeController =
-      TextEditingController(); // Controller baru
+  final TextEditingController _trackCodeController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final ApiService _apiService = ApiService(); // Inisialisasi ApiService
+  final ApiService _apiService = ApiService();
 
   bool _isLoading = false;
-  bool _passwordVisible = false; // Untuk visibility password
-  String? _selectedUserType; // Untuk menyimpan jenis pengguna yang dipilih
+  bool _passwordVisible = false;
+  String? _selectedUserType;
   List<String> _userTypes = ['pelanggan', 'petugas'];
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _trackCodeController.dispose(); // Jangan lupa dispose controller baru
+    _trackCodeController.dispose();
     super.dispose();
   }
 
@@ -57,8 +58,8 @@ class _LoginPageState extends State<LoginPage> {
     }
     Navigator.pushReplacementNamed(
       context,
-      '/tracking_page', // Ganti dengan route halaman tracking Anda
-      arguments: code, // Kirim kode tracking
+      '/tracking_page',
+      arguments: code,
     );
   }
 
@@ -86,31 +87,19 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         final String token = responseData['token'];
-        final user = responseData['user']; // Data user jika perlu
 
-        // Simpan token
         await _apiService.saveToken(token);
-
         _showSnackbar('Login berhasil!', isError: false);
 
-        // Navigasi berdasarkan jenis pengguna
         if (_selectedUserType == 'pelanggan') {
-          // <-- Bagian ini yang diubah
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => const HomePelangganPage(),
-            ), // Menggunakan MaterialPageRoute
+            MaterialPageRoute(builder: (_) => const HomePelangganPage()),
           );
-          // <-- Akhir bagian yang diubah
         } else if (_selectedUserType == 'petugas') {
-          Navigator.pushReplacementNamed(
-            context,
-            '/home_petugas', // Ganti dengan route halaman utama petugas Anda (atau gunakan MaterialPageRoute jika diinginkan)
-          );
+          Navigator.pushReplacementNamed(context, '/home_petugas');
         }
       } else if (response.statusCode == 422) {
-        // Handle validation errors from Laravel
         final errors = jsonDecode(response.body)['errors'];
         String errorMessage = 'Login gagal:';
         errors.forEach((field, messages) {
@@ -118,16 +107,13 @@ class _LoginPageState extends State<LoginPage> {
         });
         _showSnackbar(errorMessage);
       } else {
-        // Handle other error status codes
         final responseData = jsonDecode(response.body);
         String errorMessage =
             responseData['message'] ?? 'Login gagal. Silakan coba lagi.';
         _showSnackbar('Login gagal: $errorMessage');
-        print('Login failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       _showSnackbar('Terjadi kesalahan saat login: $e');
-      print('Error during login: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -140,209 +126,176 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      backgroundColor: const Color(0xFFE3F2FD),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey, // Form ini hanya untuk login, bukan tracking
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const Text(
-                  'Selamat Datang',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 40),
-
-                // Dropdown untuk memilih jenis pengguna
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: 'Login Sebagai',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  value: _selectedUserType,
-                  items:
-                      _userTypes.map((userType) {
-                        return DropdownMenuItem(
-                          value: userType,
-                          child: Text(
-                            userType == 'pelanggan' ? 'Pelanggan' : 'Petugas',
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedUserType = value;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null) {
-                      return 'Pilih jenis pengguna';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Email tidak boleh kosong';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Masukkan email yang valid';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _passwordVisible
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                        color: Theme.of(context).primaryColorDark,
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 40),
+                child: AnimatedTextKit(
+                  animatedTexts: [
+                    TypewriterAnimatedText(
+                      'Selamat Datang di PDAM App',
+                      textStyle: GoogleFonts.poppins(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[900],
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _passwordVisible = !_passwordVisible;
-                        });
-                      },
+                      speed: const Duration(milliseconds: 100),
                     ),
-                  ),
-                  obscureText: !_passwordVisible,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Password tidak boleh kosong';
-                    }
-                    return null;
-                  },
+                  ],
+                  isRepeatingAnimation: false,
                 ),
-                const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  child:
-                      _isLoading
-                          ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                          : const Text('Login'),
-                ),
-                const SizedBox(height: 20),
-
-                TextButton(
-                  onPressed:
-                      _isLoading
-                          ? null
-                          : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterPage(),
-                              ),
-                            );
-                          },
-                  child: const Text('Belum punya akun? Daftar di sini'),
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.report_problem),
-                  label: const Text("Laporkan Temuan Kebocoran"),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TemuanKebocoranPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 40), // Spacer
-
-                const Divider(height: 40), // Pemisah
-
-                const Text(
-                  'Lacak Laporan Anda (Tanpa Login)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-
-                // Field Kode Tracking
-                TextFormField(
-                  controller: _trackCodeController,
-                  decoration: InputDecoration(
-                    labelText: 'Masukkan Kode Tracking',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  // Tidak perlu validator di sini jika tracking tidak wajib diisi
-                ),
-                const SizedBox(height: 16),
-
-                // Tombol Lacak
-                ElevatedButton(
-                  // Disable jika sedang loading login, atau jika field kode kosong
-                  onPressed:
-                      _isLoading || _trackCodeController.text.trim().isEmpty
-                          ? null
-                          : _trackReportFromLogin,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    backgroundColor:
-                        Colors.grey[300], // Warna berbeda untuk tombol tracking
-                    foregroundColor: Colors.black87,
-                  ),
-                  child: const Text('Lacak Laporan'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+              _buildLoginCard(),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoginCard() {
+    return Card(
+      elevation: 10,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: _inputDecoration("Login Sebagai", Ionicons.person),
+                value: _selectedUserType,
+                items: _userTypes.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type == 'pelanggan' ? 'Pelanggan' : 'Petugas'),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedUserType = val),
+                validator: (value) =>
+                    value == null ? 'Pilih jenis pengguna' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                decoration: _inputDecoration("Email", Ionicons.mail),
+                keyboardType: TextInputType.emailAddress,
+                validator: (val) => val!.isEmpty || !val.contains("@")
+                    ? 'Email tidak valid'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: _inputDecoration("Password", Ionicons.lock_closed)
+                    .copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordVisible
+                          ? Ionicons.eye
+                          : Ionicons.eye_off_outline,
+                      color: Colors.blue,
+                    ),
+                    onPressed: () =>
+                        setState(() => _passwordVisible = !_passwordVisible),
+                  ),
+                ),
+                obscureText: !_passwordVisible,
+                validator: (val) =>
+                    val!.isEmpty ? 'Password tidak boleh kosong' : null,
+              ),
+              const SizedBox(height: 24),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Ionicons.log_in_outline),
+                  label: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Login'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[800],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isLoading ? null : _login,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const RegisterPage()),
+                        ),
+                icon: const Icon(Ionicons.person_add),
+                label: const Text("Belum punya akun? Daftar di sini"),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Ionicons.warning_outline),
+                label: const Text("Laporkan Temuan Kebocoran"),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const TemuanKebocoranPage()),
+                ),
+              ),
+              const Divider(height: 40),
+              Text(
+                "Lacak Laporan Anda (Tanpa Login)",
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _trackCodeController,
+                decoration:
+                    _inputDecoration("Masukkan Kode Tracking", Ionicons.search),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed:
+                    _trackCodeController.text.trim().isEmpty || _isLoading
+                        ? null
+                        : _trackReportFromLogin,
+                child: const Text("Lacak Laporan"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.lightBlue[100],
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.blue[700]),
+      filled: true,
+      fillColor: Colors.blue[50],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
     );
   }
