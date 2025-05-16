@@ -13,12 +13,17 @@ class _ChatPageState extends State<ChatPage> {
   final List<Map<String, dynamic>> _messages = [
     {
       "sender": "bot",
-      "text": "Selamat datang di layanan chat PDAM! Ada yang bisa saya bantu?",
+      "text":
+          "ketik hubungi admin untuk berinteraksi dengan admin cabang terdekat.",
     },
     {
       "sender": "bot",
       "text":
           "Anda bisa bertanya seputar tagihan, laporan, atau layanan lainnya.",
+    },
+    {
+      "sender": "bot",
+      "text": "Selamat datang di layanan chat PDAM! Ada yang bisa saya bantu?",
     },
   ];
   final TextEditingController _chatController = TextEditingController();
