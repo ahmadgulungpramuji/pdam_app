@@ -22,6 +22,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   final TextEditingController _lokasiMapsController = TextEditingController();
   final TextEditingController _deskripsiLokasiController =
       TextEditingController();
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _nomorHpController = TextEditingController();
 
   // --- State untuk Dropdown Cabang (dari API) ---
   int? _selectedCabangId;
@@ -64,6 +66,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   void dispose() {
     _lokasiMapsController.dispose();
     _deskripsiLokasiController.dispose();
+    _namaController.dispose(); // Don't forget to dispose
+    _nomorHpController.dispose(); // Don't forget to dispose
     super.dispose();
   }
 
@@ -428,6 +432,9 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       // --- END: Bagian yang perlu diubah/dihapus ---
 
       // Tambahkan field data (bagian ini tetap)
+      // Add new fields for nama and nomor_hp
+      request.fields['nama_pelapor'] = _namaController.text;
+      request.fields['nomor_hp_pelapor'] = _nomorHpController.text;
       request.fields['id_cabang'] = _selectedCabangId.toString();
       request.fields['lokasi_maps'] = _lokasiMapsController.text;
       request.fields['deskripsi_lokasi'] = _deskripsiLokasiController.text;
@@ -459,6 +466,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         // Reset form setelah berhasil (bagian ini tetap)
         _formKey.currentState?.reset();
         setState(() {
+          _namaController.clear();
+          _nomorHpController.clear();
           _selectedCabangId = null;
           _imageFile = null;
           _lokasiMapsController.clear();
@@ -630,6 +639,46 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
             children: [
               // --- Gunakan Helper Widget untuk Dropdown Cabang ---
               _buildCabangDropdown(),
+              const SizedBox(height: 16.0),
+              // --- Input Nama Pelapor ---
+              TextFormField(
+                controller: _namaController,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Pelapor',
+                  hintText: 'Masukkan nama Anda',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nama pelapor tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16.0),
+
+              // --- Input Nomor HP Pelapor ---
+              TextFormField(
+                controller: _nomorHpController,
+                decoration: const InputDecoration(
+                  labelText: 'Nomor HP',
+                  hintText: 'Contoh: 081234567890',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                keyboardType: TextInputType.phone, // Set keyboard type to phone
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nomor HP tidak boleh kosong';
+                  }
+                  // Optional: Add more robust phone number validation if needed
+                  if (value.length < 10 || value.length > 15) {
+                    return 'Nomor HP harus antara 10 sampai 15 digit';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 16.0),
 
               // --- Input Lokasi Maps ---

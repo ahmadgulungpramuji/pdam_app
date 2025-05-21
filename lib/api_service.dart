@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Ganti dengan Base URL API Anda
-  final String baseUrl = 'http://192.168.231.226:8000/api';
+  final String baseUrl = 'http://10.0.164.160:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
