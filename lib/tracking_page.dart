@@ -85,14 +85,17 @@ class _TrackingPageState extends State<TrackingPage> {
   Color _getStatusColor(String? status) {
     if (status == null) return Colors.grey;
     status = status.toLowerCase();
-    if (status.contains('selesai') || status.contains('teratasi'))
+    if (status.contains('selesai') || status.contains('teratasi')) {
       return Colors.green;
+    }
     if (status.contains('ditangani') ||
         status.contains('proses') ||
-        status.contains('menuju'))
+        status.contains('menuju')) {
       return Colors.orangeAccent;
-    if (status.contains('diterima') || status.contains('verifikasi'))
+    }
+    if (status.contains('diterima') || status.contains('verifikasi')) {
       return Colors.blueAccent;
+    }
     if (status.contains('ditolak')) return Colors.redAccent;
     return Colors.grey;
   }
@@ -300,7 +303,7 @@ class _TrackingPageState extends State<TrackingPage> {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ],
                   ),

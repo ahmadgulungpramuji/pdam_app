@@ -30,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _passwordVisible = false;
   String? _selectedUserType;
-  List<String> _userTypes = ['pelanggan', 'petugas'];
+  final List<String> _userTypes = ['pelanggan', 'petugas'];
 
   @override
   void dispose() {
@@ -273,12 +273,12 @@ class _LoginPageState extends State<LoginPage> {
                     _trackCodeController.text.trim().isEmpty || _isLoading
                         ? null
                         : _trackReportFromLogin,
-                child: const Text("Lacak Laporan"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.lightBlue[100],
                   foregroundColor: Colors.black,
                   minimumSize: const Size.fromHeight(50),
                 ),
+                child: const Text("Lacak Laporan"),
               ),
             ],
           ),

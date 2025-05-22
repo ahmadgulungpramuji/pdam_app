@@ -3,17 +3,18 @@
 
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io'; // Import untuk tipe File
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Ganti dengan Base URL API Anda
-  final String baseUrl = 'http://10.0.164.160:8000/api';
+  final String baseUrl =
+      'http://192.168.0.107:8000/api'; // Menggunakan URL yang Anda berikan
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
-  final String _witAiApiVersion =
-      '20240514'; // Gunakan tanggal versi yang sesuai
+  final String _witAiApiVersion = '20240514';
 
   Future<Map<String, dynamic>?> sendMessage(String message) async {
     if (_witAiServerAccessToken == 'YOUR_WIT_AI_SERVER_ACCESS_TOKEN') {
@@ -501,30 +502,104 @@ class ApiService {
     };
   }
 
-  Future<http.Response> buatLaporan(
-    Map<String, dynamic> dataLaporan,
-    String? pdamId,
-  ) async {
-    final token = await getToken();
-    // Ganti dengan endpoint buat laporan Anda
-    final response = await http.post(
-      Uri.parse('$baseUrl/laporan/buat'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode({
-        ...dataLaporan,
-        'pdam_id':
-            pdamId, // Sertakan pdam_id jika laporan terikat pada ID tertentu
-      }),
+  // Metode BARU untuk mengambil daftar nomor PDAM berdasarkan ID Pelanggan
+  // Menggunakan endpoint yang Anda sebutkan: Route::get('{id_pelanggan}', [IDPdamController::class, 'showByPelanggan']);
+  // Diasumsikan API mengembalikan List<Map<String, dynamic>> dengan kunci 'nomor'
+  Future<List<String>> fetchPdamNumbersByPelanggan(String idPelanggan) async {
+    print(
+      'ApiService DEBUG: Memulai fetchPdamNumbersByPelanggan untuk ID Pelanggan: $idPelanggan',
     );
-    return response;
+    try {
+      final url = Uri.parse('$baseUrl/id-pdam/$idPelanggan');
+      print('ApiService DEBUG: Memanggil URL: $url');
+      final response = await http.get(url);
+
+      print('ApiService DEBUG: Status Code: ${response.statusCode}');
+      print('ApiService DEBUG: Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(
+          response.body,
+        ); // <-- PERUBAHAN DI SINI
+        if (responseData.containsKey('data') && responseData['data'] is List) {
+          // <-- PERUBAHAN DI SINI
+          final List<dynamic> data =
+              responseData['data']; // <-- PERUBAHAN DI SINI
+          final List<String> pdamNumbers =
+              data
+                  .map((item) {
+                    final pdamNum = item['nomor']?.toString();
+                    print('ApiService DEBUG: Ditemukan Nomor PDAM: $pdamNum');
+                    return pdamNum;
+                  })
+                  .whereType<String>()
+                  .toList(); // Filter out any nulls
+          print(
+            'ApiService DEBUG: Berhasil mengambil ${pdamNumbers.length} Nomor PDAM.',
+          );
+          return pdamNumbers;
+        } else {
+          print(
+            'ApiService DEBUG: Respons tidak memiliki kunci "data" atau bukan list.',
+          );
+          return [];
+        }
+      } else {
+        print(
+          'ApiService DEBUG: Gagal mengambil daftar nomor PDAM untuk ID Pelanggan $idPelanggan: ${response.statusCode} ${response.body}',
+        );
+        return [];
+      }
+    } catch (e) {
+      print(
+        'ApiService DEBUG: Error saat mengambil daftar nomor PDAM untuk ID Pelanggan $idPelanggan: $e',
+      );
+      return [];
+    }
+  }
+
+  // Metode untuk mengirim laporan pengaduan (dengan file)
+  // Menggunakan endpoint POST /api/pengaduan
+  Future<http.Response> buatPengaduan(
+    Map<String, String> fields, {
+    File? fotoBukti,
+    File? fotoRumah,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/pengaduan',
+    ); // Endpoint POST untuk Pengaduan
+    final request = http.MultipartRequest('POST', uri);
+
+    // Tambahkan field teks
+    request.fields.addAll(fields);
+
+    // Tambahkan file jika ada
+    if (fotoBukti != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'foto_bukti', // Nama field di backend Laravel (sesuai model Pengaduan)
+          fotoBukti.path,
+          filename: fotoBukti.path.split('/').last,
+        ),
+      );
+    }
+    if (fotoRumah != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'foto_rumah', // Nama field di backend Laravel (sesuai model Pengaduan)
+          fotoRumah.path,
+          filename: fotoRumah.path.split('/').last,
+        ),
+      );
+    }
+
+    // Kirim request
+    return await http.Response.fromStream(await request.send());
   }
 }
 
 // Helper untuk manajemen PDAM ID secara lokal (contoh sederhana)
+// Mungkin tidak lagi relevan jika ID Pelanggan selalu diambil dari API
 class PdamIdManager {
   static const String _pdamIdsKey = 'pdam_ids';
 
@@ -537,7 +612,6 @@ class PdamIdManager {
     final prefs = await SharedPreferences.getInstance();
     List<String> ids = await getPdamIds();
     if (!ids.contains(pdamId) && ids.length < 5) {
-      // Batasi jumlah ID misal 5
       ids.add(pdamId);
       await prefs.setStringList(_pdamIdsKey, ids);
     }
