@@ -7,6 +7,7 @@ import 'package:pdam_app/buat_laporan_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/chat_page.dart';
+import 'package:pdam_app/home_petugas_page.dart';
 import 'package:pdam_app/profil_page.dart';
 import 'package:pdam_app/tracking_page.dart'; // Jika ada halaman tracking anonim
 import 'package:pdam_app/temuan_kebocoran_page.dart'; // Sudah ada dari login
@@ -55,6 +56,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LoginPage(), // Atau SplashScreen jika ada
         '/login': (context) => const LoginPage(),
         // '/register': (context) => const RegisterPage(), // Jika ada
+        '/home_petugas': (context) => const HomePetugasPage(), // Add this lin
         '/home_pelanggan': (context) => const HomePelangganPage(),
         '/buat_laporan': (context) => const BuatLaporanPage(),
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),

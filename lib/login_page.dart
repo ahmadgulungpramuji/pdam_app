@@ -56,11 +56,7 @@ class _LoginPageState extends State<LoginPage> {
       _showSnackbar('Masukkan kode tracking terlebih dahulu.');
       return;
     }
-    Navigator.pushReplacementNamed(
-      context,
-      '/tracking_page',
-      arguments: code,
-    );
+    Navigator.pushReplacementNamed(context, '/tracking_page', arguments: code);
   }
 
   Future<void> _login() async {
@@ -161,9 +157,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildLoginCard() {
     return Card(
       elevation: 10,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -173,30 +167,37 @@ class _LoginPageState extends State<LoginPage> {
               DropdownButtonFormField<String>(
                 decoration: _inputDecoration("Login Sebagai", Ionicons.person),
                 value: _selectedUserType,
-                items: _userTypes.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type == 'pelanggan' ? 'Pelanggan' : 'Petugas'),
-                  );
-                }).toList(),
+                items:
+                    _userTypes.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(
+                          type == 'pelanggan' ? 'Pelanggan' : 'Petugas',
+                        ),
+                      );
+                    }).toList(),
                 onChanged: (val) => setState(() => _selectedUserType = val),
-                validator: (value) =>
-                    value == null ? 'Pilih jenis pengguna' : null,
+                validator:
+                    (value) => value == null ? 'Pilih jenis pengguna' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 decoration: _inputDecoration("Email", Ionicons.mail),
                 keyboardType: TextInputType.emailAddress,
-                validator: (val) => val!.isEmpty || !val.contains("@")
-                    ? 'Email tidak valid'
-                    : null,
+                validator:
+                    (val) =>
+                        val!.isEmpty || !val.contains("@")
+                            ? 'Email tidak valid'
+                            : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: _inputDecoration("Password", Ionicons.lock_closed)
-                    .copyWith(
+                decoration: _inputDecoration(
+                  "Password",
+                  Ionicons.lock_closed,
+                ).copyWith(
                   suffixIcon: IconButton(
                     icon: Icon(
                       _passwordVisible
@@ -204,13 +205,16 @@ class _LoginPageState extends State<LoginPage> {
                           : Ionicons.eye_off_outline,
                       color: Colors.blue,
                     ),
-                    onPressed: () =>
-                        setState(() => _passwordVisible = !_passwordVisible),
+                    onPressed:
+                        () => setState(
+                          () => _passwordVisible = !_passwordVisible,
+                        ),
                   ),
                 ),
                 obscureText: !_passwordVisible,
-                validator: (val) =>
-                    val!.isEmpty ? 'Password tidak boleh kosong' : null,
+                validator:
+                    (val) =>
+                        val!.isEmpty ? 'Password tidak boleh kosong' : null,
               ),
               const SizedBox(height: 24),
               AnimatedContainer(
@@ -219,9 +223,10 @@ class _LoginPageState extends State<LoginPage> {
                 height: 50,
                 child: ElevatedButton.icon(
                   icon: const Icon(Ionicons.log_in_outline),
-                  label: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Login'),
+                  label:
+                      _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Login'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[800],
                     foregroundColor: Colors.white,
@@ -234,12 +239,14 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 16),
               TextButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.push(
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const RegisterPage()),
+                            builder: (context) => const RegisterPage(),
+                          ),
                         ),
                 icon: const Icon(Ionicons.person_add),
                 label: const Text("Belum punya akun? Daftar di sini"),
@@ -248,24 +255,30 @@ class _LoginPageState extends State<LoginPage> {
               OutlinedButton.icon(
                 icon: const Icon(Ionicons.warning_outline),
                 label: const Text("Laporkan Temuan Kebocoran"),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const TemuanKebocoranPage()),
-                ),
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TemuanKebocoranPage(),
+                      ),
+                    ),
               ),
               const Divider(height: 40),
               Text(
                 "Lacak Laporan Anda (Tanpa Login)",
                 style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600, fontSize: 16),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _trackCodeController,
-                decoration:
-                    _inputDecoration("Masukkan Kode Tracking", Ionicons.search),
+                decoration: _inputDecoration(
+                  "Masukkan Kode Tracking",
+                  Ionicons.search,
+                ),
               ),
               const SizedBox(height: 12),
               ElevatedButton(

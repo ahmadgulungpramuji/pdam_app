@@ -442,7 +442,7 @@ class ApiService {
           '$baseUrl/auth/login/pelanggan'; // Menggunakan endpoint spesifik pelanggan
     } else if (userType == 'petugas') {
       loginEndpoint =
-          '$baseUrl/petugas'; // Menggunakan endpoint spesifik petugas
+          '$baseUrl/auth/login/petugas'; // Menggunakan endpoint spesifik petugas
     } else {
       throw ArgumentError('Tipe pengguna tidak valid: $userType');
     }

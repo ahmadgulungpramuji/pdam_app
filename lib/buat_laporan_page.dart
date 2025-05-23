@@ -354,11 +354,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        _showSnackbar(
-          'Laporan berhasil dikirim! Kode Laporan: ${responseData['tracking_code'] ?? 'N/A'}',
-          isError: false,
-        );
+        jsonDecode(response.body);
+        _showSnackbar('Laporan berhasil dikirim!', isError: false);
         _formKey.currentState?.reset(); // Reset form
         _deskripsiController.clear();
         _lokasiMapsController.clear();
