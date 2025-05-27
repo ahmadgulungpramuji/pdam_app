@@ -56,21 +56,76 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LoginPage(), // Atau SplashScreen jika ada
         '/login': (context) => const LoginPage(),
         // '/register': (context) => const RegisterPage(), // Jika ada
-        '/home_petugas': (context) => const HomePetugasPage(), // Add this lin
+
+        // MODIFIED ROUTE FOR /home_petugas
+        '/home_petugas': (context) {
+          final arguments = ModalRoute.of(context)?.settings.arguments;
+          int petugasId;
+
+          if (arguments is Map<String, dynamic> &&
+              arguments.containsKey('idPetugasLoggedIn')) {
+            petugasId = arguments['idPetugasLoggedIn'] as int;
+          } else if (arguments is int) {
+            // Fallback if only an int is passed directly, though Map is preferred for clarity
+            petugasId = arguments;
+          } else {
+            // Fallback or error handling if argument is not passed or incorrect
+            // For now, let's throw an error or navigate to login.
+            // It's better to ensure the argument is always passed from LoginPage.
+            // If you want a default for testing, you can use a default ID,
+            // but this is not recommended for production.
+            // Example: petugasId = 0; // Default or placeholder
+            print(
+              'Error: idPetugasLoggedIn not provided for /home_petugas route. Navigating to login.',
+            );
+            // Optionally, navigate back or to an error page or login
+            // WidgetsBinding.instance.addPostFrameCallback((_) {
+            //   Navigator.of(context).pushReplacementNamed('/login');
+            // });
+            // return const Scaffold(body: Center(child: Text("Error: Missing Petugas ID")));
+            // For simplicity in this example, we'll assume login page will always pass it.
+            // If it can be null, HomePetugasPage needs to handle null idPetugasLoggedIn
+            // or you need a different flow.
+            // For now, throwing an error to make it explicit.
+            throw FlutterError(
+              'HomePetugasPage requires an idPetugasLoggedIn argument.',
+            );
+          }
+          return HomePetugasPage(idPetugasLoggedIn: petugasId);
+        },
         '/home_pelanggan': (context) => const HomePelangganPage(),
         '/buat_laporan': (context) => const BuatLaporanPage(),
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
-        '/tracking_page':
-            (context) => TrackingPage(
-              kodeTracking:
-                  ModalRoute.of(context)?.settings.arguments as String?,
-            ), // Halaman tracking anonim dari login
+        '/tracking_page': (context) {
+          final arguments = ModalRoute.of(context)?.settings.arguments;
+          String? kodeTracking;
+          if (arguments is Map<String, dynamic> &&
+              arguments.containsKey('kodeTracking')) {
+            kodeTracking = arguments['kodeTracking'] as String?;
+          } else if (arguments is String?) {
+            kodeTracking = arguments;
+          }
+          // If kodeTracking is still null, TrackingPage should handle it (e.g., show a form to enter code)
+          return TrackingPage(kodeTracking: kodeTracking);
+        },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
 
-        // Tambahkan rute lain jika ada, misal '/home_petugas'
+        // Tambahkan rute lain jika ada
+      },
+      // Optional: Add onUnknownRoute for better error handling of undefined routes
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder:
+              (context) => Scaffold(
+                appBar: AppBar(title: const Text('Halaman Tidak Ditemukan')),
+                body: Center(
+                  child: Text('Rute "${settings.name}" tidak ditemukan.'),
+                ),
+              ),
+        );
       },
     );
   }

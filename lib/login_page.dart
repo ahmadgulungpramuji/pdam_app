@@ -83,18 +83,54 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         final String token = responseData['token'];
+        // final dynamic userData = responseData['user']; // Atau responseData['data'] atau responseData['petugas']
 
-        await _apiService.saveToken(token);
-        _showSnackbar('Login berhasil!', isError: false);
+        // ----- AWAL PERUBAHAN -----
+        if (_selectedUserType == 'petugas') {
+          // Pastikan Anda mendapatkan ID petugas dari responseData
+          // Sesuaikan 'user' dan 'id' dengan struktur respons API Anda
+          // Contoh:
+          // final int petugasId = responseData['user']['id'];
+          // atau jika ID ada di root:
+          // final int petugasId = responseData['id'];
 
-        if (_selectedUserType == 'pelanggan') {
+          // PENTING: Ganti baris di bawah ini sesuai dengan struktur respons API Anda!
+          // Saya akan berasumsi ID ada di dalam objek 'user' dengan key 'id'
+          if (responseData.containsKey('user') &&
+              responseData['user'] is Map &&
+              responseData['user'].containsKey('id')) {
+            final int petugasId = responseData['user']['id'];
+
+            // Simpan token SETELAH berhasil mendapatkan ID dan sebelum navigasi
+            await _apiService.saveToken(token);
+            _showSnackbar('Login berhasil!', isError: false);
+
+            Navigator.pushReplacementNamed(
+              context,
+              '/home_petugas',
+              arguments: {
+                'idPetugasLoggedIn': petugasId,
+              }, // KIRIM ARGUMEN DI SINI
+            );
+          } else {
+            // Jika struktur user atau id tidak ditemukan di responseData untuk petugas
+            _showSnackbar(
+              'Login berhasil, tetapi data petugas tidak lengkap dari server.',
+            );
+            // Anda mungkin ingin logout atau menampilkan pesan error yang lebih spesifik
+            // await _apiService.clearToken(); // Contoh jika ingin clear token jika data tidak lengkap
+          }
+        } else if (_selectedUserType == 'pelanggan') {
+          // Simpan token untuk pelanggan
+          await _apiService.saveToken(token);
+          _showSnackbar('Login berhasil!', isError: false);
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const HomePelangganPage()),
           );
-        } else if (_selectedUserType == 'petugas') {
-          Navigator.pushReplacementNamed(context, '/home_petugas');
         }
+        // ----- AKHIR PERUBAHAN -----
       } else if (response.statusCode == 422) {
         final errors = jsonDecode(response.body)['errors'];
         String errorMessage = 'Login gagal:';

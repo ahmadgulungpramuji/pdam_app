@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io'; // Import untuk tipe File
 import 'package:http/http.dart' as http;
+import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -595,6 +596,40 @@ class ApiService {
 
     // Kirim request
     return await http.Response.fromStream(await request.send());
+  }
+
+  Future<List<Pengaduan>> getPetugasAssignments(int idPetugas) async {
+    // This is a conceptual endpoint. You need to create this route in your Laravel backend.
+    // This endpoint should return a list of 'pengaduans' assigned to the 'id_petugas'
+    // by joining 'pengaduans' with 'petugas_pengaduans'.
+    final response = await http.get(
+      Uri.parse('$baseUrl/petugas/$idPetugas/assignments'),
+      headers: {
+        'Accept': 'application/json',
+        // Add Authorization header if your API requires authentication
+        // 'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      // If the API returns a list directly under a 'data' key, use:
+      // List<dynamic> body = jsonDecode(response.body)['data'];
+      // Otherwise, if it's a direct list:
+      List<dynamic> body = jsonDecode(response.body);
+      List<Pengaduan> assignments =
+          body
+              .map(
+                (dynamic item) =>
+                    Pengaduan.fromJson(item as Map<String, dynamic>),
+              )
+              .toList();
+      return assignments;
+    } else {
+      // You might want to parse the error message from response.body
+      throw Exception(
+        'Failed to load assignments (Status Code: ${response.statusCode})',
+      );
+    }
   }
 }
 
