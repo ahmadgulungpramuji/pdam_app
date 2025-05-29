@@ -6,6 +6,8 @@ import 'dart:developer';
 import 'dart:io'; // Import untuk tipe File
 import 'package:http/http.dart' as http;
 import 'package:pdam_app/models/pengaduan_model.dart';
+import 'package:pdam_app/models/tugas_model.dart'; // Import model Tugas yang baru
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -84,6 +86,39 @@ class ApiService {
     await prefs.remove('user_token');
     await prefs.remove('user_data'); // Hapus juga data pengguna jika ada
     await prefs.remove('pdam_ids'); // Hapus juga pdam ids jika disimpan lokal
+  }
+
+  // --- FUNGSI BARU ATAU MODIFIKASI ---
+  Future<List<Tugas>> getPetugasSemuaTugas(int idPetugas) async {
+    final token =
+        await getToken(); // Ambil token jika API memerlukan autentikasi
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/petugas/$idPetugas/tugas',
+      ), // Endpoint baru dari Laravel
+      headers: {
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> body = jsonDecode(response.body);
+      // Pastikan body adalah List
+      List<Tugas> daftarTugas =
+          body
+              .map(
+                (dynamic item) => Tugas.fromJson(item as Map<String, dynamic>),
+              )
+              .toList();
+      return daftarTugas;
+    } else {
+      // Anda mungkin ingin parse error message dari response.body
+      print('Error Body: ${response.body}');
+      throw Exception(
+        'Gagal memuat daftar tugas (Status Code: ${response.statusCode})',
+      );
+    }
   }
 
   Future<Map<String, dynamic>> postPdamId(

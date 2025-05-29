@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 // Import halaman lain yang akan dibuat
 import 'package:pdam_app/buat_laporan_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
@@ -13,7 +14,9 @@ import 'package:pdam_app/tracking_page.dart'; // Jika ada halaman tracking anoni
 import 'package:pdam_app/temuan_kebocoran_page.dart'; // Sudah ada dari login
 // import 'package:pdam_app/register_page.dart'; // Jika ada halaman register
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // <-- Pastikan baris ini ada
+  await initializeDateFormatting('id_ID', null); // <-- Tambahkan baris ini
   runApp(const MyApp());
 }
 

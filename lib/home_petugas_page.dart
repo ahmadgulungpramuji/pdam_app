@@ -1,16 +1,15 @@
+// lib/pages/home_petugas_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart'; // Untuk Ionicons
+import 'package:intl/intl.dart'; // Untuk format tanggal
+
+// Import model dan service Anda
+import 'package:pdam_app/models/tugas_model.dart'; // Pastikan path ini benar
 import 'package:pdam_app/api_service.dart';
 
-// --- IMPORTANT: ASSUMED IMPORTS ---
-// Make sure these files exist and paths are correct based on your project structure
-import 'package:pdam_app/models/pengaduan_model.dart'; // Created in the previous step
-// --- END OF ASSUMED IMPORTS ---
-
-// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-// MODIFIED AssignmentsPage: Now fetches and displays real data
-// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+// Halaman Daftar Tugas (Sebelumnya AssignmentsPage)
 class AssignmentsPage extends StatefulWidget {
   final int idPetugasLoggedIn;
 
@@ -21,21 +20,30 @@ class AssignmentsPage extends StatefulWidget {
 }
 
 class _AssignmentsPageState extends State<AssignmentsPage> {
-  late Future<List<Pengaduan>> _assignmentsFuture;
+  late Future<List<Tugas>> _tugasFuture;
   final ApiService _apiService = ApiService();
+  // Format tanggal Indonesia, pastikan initializeDateFormatting('id_ID', null) sudah dipanggil di main.dart
+  final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'id_ID');
 
   @override
   void initState() {
     super.initState();
-    _loadAssignments();
+    _loadTugas();
   }
 
-  void _loadAssignments() {
+  void _loadTugas() {
     setState(() {
-      _assignmentsFuture = _apiService.getPetugasAssignments(
-        widget.idPetugasLoggedIn,
-      );
+      _tugasFuture = _apiService.getPetugasSemuaTugas(widget.idPetugasLoggedIn);
     });
+  }
+
+  IconData _getIconForTugas(Tugas tugas) {
+    if (tugas is PengaduanTugas) {
+      return Ionicons.document_text_outline;
+    } else if (tugas is TemuanTugas) {
+      return Ionicons.warning_outline;
+    }
+    return Ionicons.help_circle_outline;
   }
 
   IconData _getIconForStatus(String status) {
@@ -80,37 +88,40 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Using a Scaffold here to provide a consistent background if needed,
-    // or remove it if the parent Scaffold's background is preferred.
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD), // Match parent background
+      backgroundColor: const Color(0xFFE3F2FD), // Latar belakang seragam
       body: Padding(
-        // Added Padding to match original structure
-        padding: const EdgeInsets.all(24.0), // Applied general padding
+        padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Ionicons.clipboard_outline, size: 60, color: Colors.blue[300]),
-            const SizedBox(height: 15),
-            Text(
-              'Daftar Penugasan Anda',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[900],
-              ),
-              textAlign: TextAlign.center,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Ionicons.list_outline, size: 40, color: Colors.blue[700]),
+                const SizedBox(width: 10),
+                Text(
+                  'Daftar Tugas Anda',
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Di sini Anda akan melihat penugasan yang diberikan oleh admin cabang.',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
+              'Berikut adalah semua penugasan dan temuan yang perlu Anda tindaklanjuti.',
+              style: GoogleFonts.poppins(fontSize: 15, color: Colors.grey[700]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: FutureBuilder<List<Pengaduan>>(
-                future: _assignmentsFuture,
+              child: FutureBuilder<List<Tugas>>(
+                future: _tugasFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -120,25 +131,39 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Ionicons.alert_circle_outline,
-                            color: Colors.red,
+                            Ionicons.cloud_offline_outline,
+                            color: Colors.red[600],
                             size: 50,
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Gagal memuat data: ${snapshot.error}',
+                            'Gagal memuat data tugas.',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(color: Colors.red[700]),
+                            style: GoogleFonts.poppins(
+                              color: Colors.red[700],
+                              fontSize: 16,
+                            ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 5),
+                          Text(
+                            // 'Detail: ${snapshot.error}', // Uncomment untuk debug detail error
+                            'Pastikan koneksi internet Anda stabil.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              color: Colors.red[700],
+                              fontSize: 12,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 15),
                           ElevatedButton.icon(
                             icon: const Icon(Ionicons.refresh_outline),
                             label: const Text('Coba Lagi'),
-                            onPressed: _loadAssignments,
+                            onPressed: _loadTugas,
                             style: ElevatedButton.styleFrom(
-                              foregroundColor:
-                                  Theme.of(context).primaryColorDark,
-                              // backgroundColor: Colors.white
+                              backgroundColor: Colors.blueGrey[50],
+                              foregroundColor: Colors.blueGrey[800],
                             ),
                           ),
                         ],
@@ -150,17 +175,17 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Ionicons.file_tray_outline,
+                            Ionicons.file_tray_stacked_outline,
                             size: 60,
-                            color: Colors.grey[400],
+                            color: Colors.grey[500],
                           ),
                           const SizedBox(height: 15),
                           Text(
-                            'Belum ada penugasan untuk Anda saat ini.',
+                            'Belum ada tugas untuk Anda saat ini.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.poppins(
                               fontSize: 17,
-                              color: Colors.grey[600],
+                              color: Colors.grey[700],
                             ),
                           ),
                         ],
@@ -168,17 +193,15 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                     );
                   }
 
-                  List<Pengaduan> assignments = snapshot.data!;
+                  List<Tugas> daftarTugas = snapshot.data!;
                   return RefreshIndicator(
-                    onRefresh: () async {
-                      _loadAssignments();
-                    },
+                    onRefresh: () async => _loadTugas(),
                     child: ListView.builder(
-                      // Removed shrinkWrap and primary: false to let Expanded handle scrolling
-                      itemCount: assignments.length,
+                      padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
+                      itemCount: daftarTugas.length,
                       itemBuilder: (context, index) {
-                        final assignment = assignments[index];
-                        return _buildAssignmentCard(assignment);
+                        final tugas = daftarTugas[index];
+                        return _buildTugasCard(tugas);
                       },
                     ),
                   );
@@ -191,14 +214,25 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     );
   }
 
-  Widget _buildAssignmentCard(Pengaduan assignment) {
+  Widget _buildTugasCard(Tugas tugas) {
+    KontakInfo? kontak = tugas.infoKontakPelapor;
+    String formattedDate = tugas.tanggalTugas;
+    try {
+      if (tugas.tanggalTugas.isNotEmpty) {
+        DateTime parsedDate = DateTime.parse(tugas.tanggalTugas);
+        formattedDate = _dateFormatter.format(parsedDate);
+      }
+    } catch (e) {
+      // print("Error parsing tanggal_tugas di card: ${tugas.tanggalTugas} - $e");
+    }
+
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.symmetric(
-        vertical: 8,
-        horizontal: 0,
-      ), // horizontal: 0 because parent Padding handles it
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blueGrey.withOpacity(0.15)),
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 7, horizontal: 0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -206,88 +240,158 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    assignment.friendlyKategori,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getIconForTugas(tugas),
+                        color: Colors.blue[700],
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          tugas.kategoriDisplay,
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue[800],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _getIconForStatus(tugas.status),
+                  color: _getColorForStatus(tugas.status),
+                  size: 24,
+                ),
+              ],
+            ),
+            if (tugas.isPetugasPelapor)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: Chip(
+                  avatar: Icon(
+                    Ionicons.megaphone_outline,
+                    size: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                  label: Text(
+                    'Anda Pelapor Progres',
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  backgroundColor: Colors.orange[600],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 0,
+                  ),
+                  labelPadding: const EdgeInsets.only(left: 4.0),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            const SizedBox(height: 10),
+            Text(
+              'Lokasi: ${tugas.deskripsiLokasi}',
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (kontak?.nama != null && kontak!.nama!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      Ionicons.person_outline,
+                      size: 14,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '${kontak.nama}${kontak.nomorHp != null && kontak.nomorHp!.isNotEmpty ? " (${kontak.nomorHp})" : ""}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Status: ${tugas.friendlyStatus}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: _getColorForStatus(tugas.status),
                       fontWeight: FontWeight.w600,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
-                  _getIconForStatus(assignment.status),
-                  color: _getColorForStatus(assignment.status),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Lokasi: ${assignment.deskripsiLokasi}',
-              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[800]),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Deskripsi: ${assignment.deskripsi}',
-              style: GoogleFonts.poppins(fontSize: 14),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tanggal: ${assignment.tanggalPengaduan}', // Consider formatting this date
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
                 Text(
-                  'Status: ',
+                  'Tgl: $formattedDate',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  assignment.friendlyStatus,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: _getColorForStatus(assignment.status),
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: Colors.grey[700],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.bottomRight,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  // TODO: Handle view details navigation
-                  // Example: Navigator.push(context, MaterialPageRoute(builder: (context) => AssignmentDetailPage(assignmentId: assignment.id)));
+                  // TODO: Navigasi ke halaman detail tugas
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Lihat Detail untuk ID: ${assignment.id}'),
+                      content: Text(
+                        'Lihat Detail untuk ID Penugasan: ${tugas.idPenugasanInternal} (ID Tugas Asli: ${tugas.idTugas}, Tipe: ${tugas.tipeTugas})',
+                      ),
                     ),
                   );
                 },
-                icon: const Icon(Ionicons.eye_outline, size: 18),
+                icon: const Icon(
+                  Ionicons.arrow_forward_circle_outline,
+                  size: 20,
+                ),
                 label: Text(
                   'Lihat Detail',
-                  style: GoogleFonts.poppins(fontSize: 13),
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[700],
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
@@ -298,11 +402,11 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     );
   }
 }
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-// END OF MODIFIED AssignmentsPage
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-// Placeholder pages for bottom navigation (SelfReport, History, Profile remain unchanged)
+// -----------------------------------------------------------------------------
+// PLACEHOLDER PAGES (Pastikan definisi ini ada di file atau diimpor dengan benar)
+// -----------------------------------------------------------------------------
+
 class SelfReportPage extends StatelessWidget {
   const SelfReportPage({super.key});
 
@@ -327,80 +431,9 @@ class SelfReportPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Laporkan temuan baru seperti kebocoran, kerusakan fasilitas, atau masalah lainnya.',
+              'Fitur ini akan datang.',
               style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            // Placeholder for self-report form
-            Card(
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    TextFormField(
-                      decoration: InputDecoration(
-                        labelText: 'Jenis Laporan',
-                        prefixIcon: Icon(
-                          Ionicons.bookmark_outline,
-                          color: Colors.teal[700],
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      decoration: InputDecoration(
-                        labelText: 'Lokasi',
-                        prefixIcon: Icon(
-                          Ionicons.location_outline,
-                          color: Colors.teal[700],
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        labelText: 'Deskripsi Detail',
-                        prefixIcon: Icon(
-                          Ionicons.document_text_outline,
-                          color: Colors.teal[700],
-                        ),
-                        alignLabelWithHint: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Handle report submission
-                      },
-                      icon: const Icon(Ionicons.send),
-                      label: const Text('Kirim Laporan'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal[700],
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -420,11 +453,7 @@ class HistoryPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Ionicons.analytics_outline,
-              size: 80,
-              color: Colors.purple[300],
-            ),
+            Icon(Ionicons.time_outline, size: 80, color: Colors.purple[300]),
             const SizedBox(height: 20),
             Text(
               'Riwayat Kinerja Anda',
@@ -437,58 +466,9 @@ class HistoryPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Lihat riwayat pengerjaan tugas dan statistik kinerja Anda di sini.',
+              'Fitur riwayat pekerjaan akan segera hadir.',
               style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            // Placeholder for history details
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tugas Selesai: 25',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Rata-rata Waktu Penyelesaian: 3 jam',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Terakhir Selesai:',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '- Perbaikan Saluran (20 Mei 2025)',
-                      style: GoogleFonts.poppins(fontSize: 14),
-                    ),
-                    Text(
-                      '- Inspeksi Jaringan (18 Mei 2025)',
-                      style: GoogleFonts.poppins(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -502,119 +482,64 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ApiService apiService = ApiService(); // Instance ApiService
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Icon(
               Ionicons.person_circle_outline,
               size: 80,
-              color: Colors.blueGrey[300],
+              color: Colors.blueGrey[400],
             ),
             const SizedBox(height: 20),
             Text(
               'Profil Petugas',
               style: GoogleFonts.poppins(
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[900],
+                color: Colors.blueGrey[800],
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
-              'Kelola informasi profil Anda di sini.',
+              'Informasi akun Anda akan ditampilkan di sini.',
               style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 30),
-            // Placeholder for profile details
-            Card(
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        Ionicons
-                            .person_outline, // Changed to outline for consistency
-                        color: Colors.blueGrey[700],
-                      ),
-                      title: Text(
-                        'Nama: Petugas A', // TODO: Replace with actual data
-                        style: GoogleFonts.poppins(fontSize: 16),
-                      ),
-                    ),
-                    ListTile(
-                      leading: Icon(
-                        Ionicons.mail_outline,
-                        color: Colors.blueGrey[700],
-                      ), // Changed
-                      title: Text(
-                        'Email: petugas.a@pdam.com', // TODO: Replace with actual data
-                        style: GoogleFonts.poppins(fontSize: 16),
-                      ),
-                    ),
-                    ListTile(
-                      leading: Icon(
-                        Ionicons.call_outline,
-                        color: Colors.blueGrey[700],
-                      ), // Changed
-                      title: Text(
-                        'Telepon: +62 812 3456 7890', // TODO: Replace with actual data
-                        style: GoogleFonts.poppins(fontSize: 16),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Handle edit profile
-                      },
-                      icon: const Icon(Ionicons.create_outline), // Changed
-                      label: const Text('Edit Profil'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueGrey[700],
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // TODO: Handle logout properly (e.g., clear session, navigate to login)
-                        // For now, just navigating to a conceptual login route
-                        Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        ).pushReplacementNamed(
-                          '/',
-                        ); // Assuming '/' is your login/splash page
-                      },
-                      icon: const Icon(Ionicons.log_out_outline), // Changed
-                      label: const Text('Logout'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red[700],
-                        side: BorderSide(color: Colors.red[700]!),
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 40),
+
+            const Spacer(),
+            ElevatedButton.icon(
+              icon: const Icon(Ionicons.log_out_outline),
+              label: const Text('Logout'),
+              onPressed: () async {
+                // === PERBAIKAN DI SINI ===
+                await apiService.removeToken(); // Menggunakan removeToken()
+
+                if (context.mounted) {
+                  Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).pushReplacementNamed('/');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                textStyle: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -622,8 +547,11 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// KELAS UTAMA HOME PETUGAS PAGE
+// -----------------------------------------------------------------------------
 class HomePetugasPage extends StatefulWidget {
-  final int idPetugasLoggedIn; // Added: Requires logged-in petugas ID
+  final int idPetugasLoggedIn;
 
   const HomePetugasPage({super.key, required this.idPetugasLoggedIn});
 
@@ -633,17 +561,13 @@ class HomePetugasPage extends StatefulWidget {
 
 class _HomePetugasPageState extends State<HomePetugasPage> {
   int _selectedIndex = 0;
-  late List<Widget>
-  _widgetOptions; // Made non-final and initialized in initState
+  late List<Widget> _widgetOptions;
 
   @override
   void initState() {
     super.initState();
-    // Initialize _widgetOptions here, passing the idPetugasLoggedIn to AssignmentsPage
     _widgetOptions = <Widget>[
-      AssignmentsPage(
-        idPetugasLoggedIn: widget.idPetugasLoggedIn,
-      ), // Pass the ID
+      AssignmentsPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
       const SelfReportPage(),
       const HistoryPage(),
       const ProfilePage(),
@@ -656,37 +580,48 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
     });
   }
 
+  String _getAppBarTitle(int index) {
+    switch (index) {
+      case 0:
+        return 'Daftar Tugas';
+      case 1:
+        return 'Lapor Mandiri';
+      case 2:
+        return 'Riwayat Pekerjaan';
+      case 3:
+        return 'Profil Petugas';
+      default:
+        return 'Dashboard Petugas';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD),
       appBar: AppBar(
         title: Text(
-          _getAppBarTitle(_selectedIndex), // Dynamic AppBar Title
+          _getAppBarTitle(_selectedIndex),
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         backgroundColor: Colors.blue[800],
-        elevation: 2, // Added a bit of elevation
+        elevation: 2,
         centerTitle: true,
       ),
-      body: IndexedStack(
-        // Using IndexedStack to preserve state of inactive tabs
-        index: _selectedIndex,
-        children: _widgetOptions,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Ionicons.clipboard_outline),
-            activeIcon: Icon(Ionicons.clipboard),
-            label: 'Penugasan',
+            icon: Icon(Ionicons.list_outline),
+            activeIcon: Icon(Ionicons.list_sharp),
+            label: 'Tugas',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Ionicons.add_circle_outline),
-            activeIcon: Icon(Ionicons.add_circle),
+            icon: Icon(Ionicons.create_outline),
+            activeIcon: Icon(Ionicons.create),
             label: 'Lapor Mandiri',
           ),
           BottomNavigationBarItem(
@@ -702,7 +637,7 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey[600], // Slightly darker grey
+        unselectedItemColor: Colors.grey[600],
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: GoogleFonts.poppins(
@@ -710,25 +645,9 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
           fontSize: 12,
         ),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        backgroundColor: Colors.white, // Added background color for navbar
-        elevation: 8, // Added elevation to navbar
+        backgroundColor: Colors.white,
+        elevation: 8,
       ),
     );
-  }
-
-  // Helper method to get AppBar title based on selected index
-  String _getAppBarTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'Penugasan Petugas';
-      case 1:
-        return 'Laporan Mandiri';
-      case 2:
-        return 'Riwayat Pekerjaan';
-      case 3:
-        return 'Profil Petugas';
-      default:
-        return 'Dashboard Petugas';
-    }
   }
 }

@@ -1,3 +1,5 @@
+// ignore_for_file: unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -50,7 +52,10 @@ class _ProfilPageState extends State<ProfilPage> {
         _emailController.text = _userData?['email'] ?? '';
         _nomorHpController.text = _userData?['nomor_hp'] ?? '';
       } else {
-        _showSnackbar('Gagal memuat data profil. Silakan coba lagi.', isError: true);
+        _showSnackbar(
+          'Gagal memuat data profil. Silakan coba lagi.',
+          isError: true,
+        );
       }
       setState(() {
         _isLoading = false;
@@ -82,7 +87,10 @@ class _ProfilPageState extends State<ProfilPage> {
         _showSnackbar('Profil berhasil diperbarui!');
         Navigator.pop(context, true);
       } else {
-        _showSnackbar('Gagal memperbarui profil. Silakan coba lagi.', isError: true);
+        _showSnackbar(
+          'Gagal memperbarui profil. Silakan coba lagi.',
+          isError: true,
+        );
       }
       setState(() {
         _isSaving = false;
@@ -114,84 +122,97 @@ class _ProfilPageState extends State<ProfilPage> {
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 500),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _userData == null && !_isSaving
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _userData == null && !_isSaving
                 ? FadeInDown(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(FontAwesomeIcons.circleExclamation, color: Colors.red, size: 60),
-                          const SizedBox(height: 12),
-                          Text('Tidak dapat memuat data profil.', style: GoogleFonts.poppins()),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: _fetchUserData,
-                            label: const Text('Coba Lagi'),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          FontAwesomeIcons.circleExclamation,
+                          color: Colors.red,
+                          size: 60,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tidak dapat memuat data profil.',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          onPressed: _fetchUserData,
+                          label: const Text('Coba Lagi'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  )
+                  ),
+                )
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: FadeInUp(
-                      child: Column(
-                        children: [
-                          _buildTextField(
-                            controller: _nameController,
-                            label: 'Nama Lengkap / Username',
-                            icon: FontAwesomeIcons.user,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _emailController,
-                            label: 'Email',
-                            icon: FontAwesomeIcons.envelope,
-                            readOnly: true,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _nomorHpController,
-                            label: 'Nomor Telepon',
-                            icon: FontAwesomeIcons.phone,
-                            keyboardType: TextInputType.phone,
-                          ),
-                          const SizedBox(height: 30),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: width,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: const LinearGradient(
-                                colors: [Colors.blueAccent, Colors.lightBlue],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blue.withOpacity(0.4),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
+                  padding: const EdgeInsets.all(20),
+                  child: FadeInUp(
+                    child: Column(
+                      children: [
+                        _buildTextField(
+                          controller: _nameController,
+                          label: 'Nama Lengkap / Username',
+                          icon: FontAwesomeIcons.user,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _emailController,
+                          label: 'Email',
+                          icon: FontAwesomeIcons.envelope,
+                          readOnly: true,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _nomorHpController,
+                          label: 'Nomor Telepon',
+                          icon: FontAwesomeIcons.phone,
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 30),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: width,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              colors: [Colors.blueAccent, Colors.lightBlue],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : _saveChanges,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 6),
                               ),
-                              child: _isSaving
-                                  ? const CircularProgressIndicator(color: Colors.white)
-                                  : Text(
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isSaving ? null : _saveChanges,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child:
+                                _isSaving
+                                    ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                    : Text(
                                       'Simpan Perubahan',
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
@@ -199,12 +220,12 @@ class _ProfilPageState extends State<ProfilPage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
       ),
     );
   }
@@ -227,9 +248,7 @@ class _ProfilPageState extends State<ProfilPage> {
         prefixIcon: Icon(icon, color: Colors.blueAccent),
         filled: true,
         fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
