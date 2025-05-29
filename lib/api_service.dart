@@ -666,6 +666,75 @@ class ApiService {
       );
     }
   }
+
+  Future<Map<String, dynamic>> updateStatusTugas({
+    required int idTugas,
+    required String tipeTugas,
+    required String newStatus,
+    String? keterangan,
+  }) async {
+    final token = await getToken();
+    // Sesuaikan endpoint API Anda
+    final url = Uri.parse('$baseUrl/tugas/$tipeTugas/$idTugas/update-status');
+    print('Calling updateStatusTugas: $url with status: $newStatus');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: {
+        'status': newStatus,
+        if (keterangan != null) 'keterangan': keterangan,
+      },
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      print(
+        'Error updateStatusTugas (${response.statusCode}): ${response.body}',
+      );
+      throw Exception('Gagal update status tugas: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFotoTugas({
+    required int idTugas,
+    required String tipeTugas,
+    required String jenisFoto, // 'foto_sebelum' atau 'foto_sesudah'
+    required String imagePath, // Path ke file gambar
+    String? newStatus, // Opsional, jika upload foto juga mengubah status
+  }) async {
+    final token = await getToken();
+    final url = Uri.parse(
+      '$baseUrl/petugas/tugas/$tipeTugas/$idTugas/upload-foto',
+    ); // Tambahkan
+    print('Calling uploadFotoTugas: $url for $jenisFoto');
+
+    var request = http.MultipartRequest('POST', url);
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.headers['Accept'] = 'application/json';
+
+    request.fields['jenis_foto'] = jenisFoto;
+    if (newStatus != null) {
+      request.fields['status'] = newStatus;
+    }
+    request.files.add(await http.MultipartFile.fromPath('foto', imagePath));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      print('Error uploadFotoTugas (${response.statusCode}): ${response.body}');
+      throw Exception('Gagal upload foto tugas: ${response.body}');
+    }
+  }
 }
 
 // Helper untuk manajemen PDAM ID secara lokal (contoh sederhana)

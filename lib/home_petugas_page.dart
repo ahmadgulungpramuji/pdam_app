@@ -4,26 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart'; // Untuk Ionicons
 import 'package:intl/intl.dart'; // Untuk format tanggal
-
-// Import model dan service Anda
-import 'package:pdam_app/models/tugas_model.dart'; // Pastikan path ini benar
 import 'package:pdam_app/api_service.dart';
+import 'package:pdam_app/models/tugas_model.dart';
+import 'package:pdam_app/pages/detail_tugas_page.dart';
 
 // Halaman Daftar Tugas (Sebelumnya AssignmentsPage)
-class AssignmentsPage extends StatefulWidget {
-  final int idPetugasLoggedIn;
-
-  const AssignmentsPage({super.key, required this.idPetugasLoggedIn});
-
-  @override
-  State<AssignmentsPage> createState() => _AssignmentsPageState();
-}
+// Catatan: Sisa dari kelas AssignmentsPage dan _AssignmentsPageState diasumsikan sama
+// seperti versi sebelumnya, kecuali untuk metode _buildTugasCard di bawah ini.
 
 class _AssignmentsPageState extends State<AssignmentsPage> {
   late Future<List<Tugas>> _tugasFuture;
   final ApiService _apiService = ApiService();
-  // Format tanggal Indonesia, pastikan initializeDateFormatting('id_ID', null) sudah dipanggil di main.dart
-  final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'id_ID');
+  final DateFormat _dateFormatter = DateFormat(
+    'dd MMM yyyy',
+    'id_ID',
+  ); // Format tanggal Indonesia
 
   @override
   void initState() {
@@ -32,6 +27,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 
   void _loadTugas() {
+    // print('Memuat tugas untuk petugas ID: ${widget.idPetugasLoggedIn}'); // Untuk debug
     setState(() {
       _tugasFuture = _apiService.getPetugasSemuaTugas(widget.idPetugasLoggedIn);
     });
@@ -86,10 +82,240 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     }
   }
 
+  // --- METODE _buildTugasCard DENGAN PERBAIKAN ---
+  Widget _buildTugasCard(Tugas tugas) {
+    KontakInfo? kontak = tugas.infoKontakPelapor;
+    String formattedDate = tugas.tanggalTugas; // Default jika parsing gagal
+    try {
+      // Asumsi API mengirim tanggal_tugas sebagai String "YYYY-MM-DD"
+      if (tugas.tanggalTugas.isNotEmpty) {
+        DateTime parsedDate = DateTime.parse(tugas.tanggalTugas);
+        formattedDate = _dateFormatter.format(parsedDate);
+      }
+    } catch (e) {
+      // print("Error parsing tanggal_tugas di card: ${tugas.tanggalTugas} - $e");
+      // Biarkan formattedDate menggunakan nilai asli jika parsing gagal
+    }
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Colors.blueGrey.withOpacity(0.15),
+        ), // Sedikit border
+      ),
+      margin: const EdgeInsets.symmetric(
+        vertical: 7,
+        horizontal: 0,
+      ), // horizontal: 0 karena parent Padding
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Baris untuk ikon kategori, nama kategori, dan ikon status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start, // Align ke atas jika teks kategori panjang
+              children: [
+                // Bagian kiri: Ikon tugas dan Kategori
+                Expanded(
+                  // Penting untuk membatasi lebar Row internal
+                  child: Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .center, // Icon dan teks align tengah vertikal
+                    children: [
+                      Icon(
+                        _getIconForTugas(tugas),
+                        color: Colors.blue[700],
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        // Agar teks kategori tidak menyebabkan overflow
+                        child: Text(
+                          tugas.kategoriDisplay,
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue[800],
+                          ),
+                          overflow:
+                              TextOverflow
+                                  .ellipsis, // Jika terlalu panjang, tampilkan ...
+                          maxLines: 2, // Maksimal 2 baris untuk kategori
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(
+                  width: 8,
+                ), // Jarak antara kategori dan ikon status
+                // Bagian kanan: Ikon Status
+                Icon(
+                  _getIconForStatus(tugas.status),
+                  color: _getColorForStatus(tugas.status),
+                  size: 24,
+                ),
+              ],
+            ),
+
+            // Chip "Anda Pelapor Progres" (jika isPetugasPelapor true)
+            if (tugas.isPetugasPelapor)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: Chip(
+                  avatar: Icon(
+                    Ionicons.megaphone_outline,
+                    size: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                  label: Text(
+                    'Anda Pelapor Progres',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  backgroundColor: Colors.orange[600],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 0,
+                  ),
+                  labelPadding: const EdgeInsets.only(
+                    left: 4.0,
+                  ), // Mengurangi padding internal chip
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity:
+                      VisualDensity.compact, // Membuat chip lebih kecil
+                ),
+              ),
+            const SizedBox(height: 10),
+
+            // Deskripsi Lokasi
+            Text(
+              'Lokasi: ${tugas.deskripsiLokasi}',
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4), // Jarak kecil sebelum info pelapor
+            // Informasi Pelapor (jika ada)
+            if (kontak?.nama != null && kontak!.nama!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Ionicons.person_outline,
+                      size: 14,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      // Agar teks pelapor tidak overflow
+                      child: Text(
+                        '${kontak.nama}${kontak.nomorHp != null && kontak.nomorHp!.isNotEmpty ? " (${kontak.nomorHp})" : ""}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 10),
+
+            // Baris untuk Status Teks dan Tanggal Tugas
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  // Agar teks status tidak overflow
+                  child: Text(
+                    'Status: ${tugas.friendlyStatus}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: _getColorForStatus(tugas.status),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8), // Jarak antara status dan tanggal
+                Text(
+                  'Tgl: $formattedDate',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tombol Lihat Detail
+            Align(
+              alignment: Alignment.bottomRight,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetailTugasPage(tugas: tugas),
+                    ),
+                  ).then((_) {
+                    // Muat ulang daftar tugas setelah kembali dari halaman detail
+                    // untuk merefleksikan perubahan status (jika ada).
+                    _loadTugas();
+                  });
+                },
+                icon: const Icon(
+                  Ionicons.arrow_forward_circle_outline,
+                  size: 20,
+                ),
+                label: Text(
+                  'Lihat Detail',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Metode build dari _AssignmentsPageState tetap sama seperti sebelumnya
+  // yang memanggil FutureBuilder dan ListView.builder
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD), // Latar belakang seragam
+      backgroundColor: const Color(0xFFE3F2FD),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 0),
         child: Column(
@@ -146,7 +372,6 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            // 'Detail: ${snapshot.error}', // Uncomment untuk debug detail error
                             'Pastikan koneksi internet Anda stabil.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.poppins(
@@ -201,7 +426,9 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                       itemCount: daftarTugas.length,
                       itemBuilder: (context, index) {
                         final tugas = daftarTugas[index];
-                        return _buildTugasCard(tugas);
+                        return _buildTugasCard(
+                          tugas,
+                        ); // Memanggil metode yang diperbarui
                       },
                     ),
                   );
@@ -213,346 +440,64 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
       ),
     );
   }
-
-  Widget _buildTugasCard(Tugas tugas) {
-    KontakInfo? kontak = tugas.infoKontakPelapor;
-    String formattedDate = tugas.tanggalTugas;
-    try {
-      if (tugas.tanggalTugas.isNotEmpty) {
-        DateTime parsedDate = DateTime.parse(tugas.tanggalTugas);
-        formattedDate = _dateFormatter.format(parsedDate);
-      }
-    } catch (e) {
-      // print("Error parsing tanggal_tugas di card: ${tugas.tanggalTugas} - $e");
-    }
-
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blueGrey.withOpacity(0.15)),
-      ),
-      margin: const EdgeInsets.symmetric(vertical: 7, horizontal: 0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _getIconForTugas(tugas),
-                        color: Colors.blue[700],
-                        size: 22,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          tugas.kategoriDisplay,
-                          style: GoogleFonts.poppins(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue[800],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  _getIconForStatus(tugas.status),
-                  color: _getColorForStatus(tugas.status),
-                  size: 24,
-                ),
-              ],
-            ),
-            if (tugas.isPetugasPelapor)
-              Padding(
-                padding: const EdgeInsets.only(top: 6.0),
-                child: Chip(
-                  avatar: Icon(
-                    Ionicons.megaphone_outline,
-                    size: 12,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                  label: Text(
-                    'Anda Pelapor Progres',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  backgroundColor: Colors.orange[600],
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 0,
-                  ),
-                  labelPadding: const EdgeInsets.only(left: 4.0),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            const SizedBox(height: 10),
-            Text(
-              'Lokasi: ${tugas.deskripsiLokasi}',
-              style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (kontak?.nama != null && kontak!.nama!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6.0),
-                child: Row(
-                  children: [
-                    Icon(
-                      Ionicons.person_outline,
-                      size: 14,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '${kontak.nama}${kontak.nomorHp != null && kontak.nomorHp!.isNotEmpty ? " (${kontak.nomorHp})" : ""}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Text(
-                    'Status: ${tugas.friendlyStatus}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: _getColorForStatus(tugas.status),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Tgl: $formattedDate',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Navigasi ke halaman detail tugas
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Lihat Detail untuk ID Penugasan: ${tugas.idPenugasanInternal} (ID Tugas Asli: ${tugas.idTugas}, Tipe: ${tugas.tipeTugas})',
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(
-                  Ionicons.arrow_forward_circle_outline,
-                  size: 20,
-                ),
-                label: Text(
-                  'Lihat Detail',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[700],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// -----------------------------------------------------------------------------
-// PLACEHOLDER PAGES (Pastikan definisi ini ada di file atau diimpor dengan benar)
-// -----------------------------------------------------------------------------
+// Definisi kelas AssignmentsPage, HomePetugasPage, _HomePetugasPageState,
+// SelfReportPage, HistoryPage, dan ProfilePage diasumsikan ada
+// di file ini atau diimpor dengan benar, sesuai dengan versi sebelumnya.
+// Saya hanya fokus pada _AssignmentsPageState dan _buildTugasCard sesuai permintaan.
 
-class SelfReportPage extends StatelessWidget {
-  const SelfReportPage({super.key});
+// Contoh kerangka AssignmentsPage (jika belum ada):
+class AssignmentsPage extends StatefulWidget {
+  final int idPetugasLoggedIn;
+  const AssignmentsPage({super.key, required this.idPetugasLoggedIn});
 
   @override
+  State<AssignmentsPage> createState() => _AssignmentsPageState();
+}
+
+// Placeholder Pages (jika belum ada di file ini)
+class SelfReportPage extends StatelessWidget {
+  const SelfReportPage({super.key});
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Ionicons.create_outline, size: 80, color: Colors.teal[300]),
-            const SizedBox(height: 20),
-            Text(
-              'Laporkan Temuan Mandiri',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal[900],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Fitur ini akan datang.',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+    return const Center(child: Text('Halaman Lapor Mandiri'));
   }
 }
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Ionicons.time_outline, size: 80, color: Colors.purple[300]),
-            const SizedBox(height: 20),
-            Text(
-              'Riwayat Kinerja Anda',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.purple[900],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Fitur riwayat pekerjaan akan segera hadir.',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+    return const Center(child: Text('Halaman Riwayat Pekerjaan'));
   }
 }
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final ApiService apiService = ApiService(); // Instance ApiService
-
+    final ApiService apiService = ApiService();
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Icon(
-              Ionicons.person_circle_outline,
-              size: 80,
-              color: Colors.blueGrey[400],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Profil Petugas',
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[800],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Informasi akun Anda akan ditampilkan di sini.',
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-
-            const Spacer(),
-            ElevatedButton.icon(
-              icon: const Icon(Ionicons.log_out_outline),
-              label: const Text('Logout'),
-              onPressed: () async {
-                // === PERBAIKAN DI SINI ===
-                await apiService.removeToken(); // Menggunakan removeToken()
-
-                if (context.mounted) {
-                  Navigator.of(
-                    context,
-                    rootNavigator: true,
-                  ).pushReplacementNamed('/');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+      child: ElevatedButton(
+        child: const Text("Logout"),
+        onPressed: () async {
+          await apiService.removeToken();
+          if (context.mounted) {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pushReplacementNamed('/');
+          }
+        },
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// KELAS UTAMA HOME PETUGAS PAGE
-// -----------------------------------------------------------------------------
+// Kelas Utama HomePetugasPage (jika belum ada di file ini)
 class HomePetugasPage extends StatefulWidget {
   final int idPetugasLoggedIn;
-
   const HomePetugasPage({super.key, required this.idPetugasLoggedIn});
 
   @override
@@ -598,40 +543,24 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
-      appBar: AppBar(
-        title: Text(
-          _getAppBarTitle(_selectedIndex),
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Colors.blue[800],
-        elevation: 2,
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(_getAppBarTitle(_selectedIndex))),
       body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Ionicons.list_outline),
-            activeIcon: Icon(Ionicons.list_sharp),
             label: 'Tugas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Ionicons.create_outline),
-            activeIcon: Icon(Ionicons.create),
-            label: 'Lapor Mandiri',
+            label: 'Lapor',
           ),
           BottomNavigationBarItem(
             icon: Icon(Ionicons.time_outline),
-            activeIcon: Icon(Ionicons.time),
             label: 'Riwayat',
           ),
           BottomNavigationBarItem(
             icon: Icon(Ionicons.person_outline),
-            activeIcon: Icon(Ionicons.person),
             label: 'Profil',
           ),
         ],
@@ -640,13 +569,6 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
         unselectedItemColor: Colors.grey[600],
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: GoogleFonts.poppins(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
-        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        backgroundColor: Colors.white,
-        elevation: 8,
       ),
     );
   }

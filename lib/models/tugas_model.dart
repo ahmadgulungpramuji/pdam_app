@@ -86,8 +86,10 @@ class PengaduanTugas extends Tugas {
   final String
   _kategoriInternal; // kategori asli dari API (e.g., 'air_tidak_mengalir')
   final KontakInfo? pelanggan;
+  final String? fotoRumahUrl; // Atau akses langsung dari detailTugasLengkap
 
   PengaduanTugas({
+    this.fotoRumahUrl,
     required super.idPenugasanInternal,
     required super.isPetugasPelapor,
     required super.idTugas,
@@ -116,6 +118,10 @@ class PengaduanTugas extends Tugas {
       status: json['status'] as String,
       tanggalTugas: json['tanggal_tugas'] as String,
       fotoBukti: json['foto_bukti'] as String?,
+      fotoRumahUrl:
+          (json['detail_tugas_lengkap']
+                  as Map<String, dynamic>?)?['foto_rumah_url']
+              as String?,
       tanggalDibuatPenugasan: DateTime.parse(
         json['tanggal_dibuat_penugasan'] as String,
       ),
