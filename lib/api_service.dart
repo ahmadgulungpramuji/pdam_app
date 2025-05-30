@@ -6,6 +6,7 @@ import 'dart:developer';
 import 'dart:io'; // Import untuk tipe File
 import 'package:http/http.dart' as http;
 import 'package:pdam_app/models/pengaduan_model.dart';
+import 'package:pdam_app/models/petugas_model.dart';
 import 'package:pdam_app/models/tugas_model.dart'; // Import model Tugas yang baru
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -733,6 +734,94 @@ class ApiService {
     } else {
       print('Error uploadFotoTugas (${response.statusCode}): ${response.body}');
       throw Exception('Gagal upload foto tugas: ${response.body}');
+    }
+  }
+
+  Future<Petugas> getPetugasProfile() async {
+    final token = await getToken();
+    if (token == null)
+      throw Exception('Token tidak ditemukan, silakan login ulang.');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/user/profile'), // Endpoint dari AuthController@me
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      // Asumsi API mengembalikan data user/petugas langsung di body atau di dalam key 'data'/'user'
+      final responseData = jsonDecode(response.body);
+      // Sesuaikan jika data petugas ada di dalam key tertentu, misal responseData['user']
+      return Petugas.fromJson(
+        responseData['user'] as Map<String, dynamic>? ?? responseData,
+      );
+    } else {
+      throw Exception('Gagal mengambil data profil: ${response.body}');
+    }
+  }
+
+  Future<Petugas> updatePetugasProfile({
+    required String nama,
+    required String email,
+    required String nomorHp,
+    String? password, // Opsional jika ingin ganti password
+    String? passwordConfirmation, // Opsional
+  }) async {
+    final token = await getToken();
+    if (token == null)
+      throw Exception('Token tidak ditemukan, silakan login ulang.');
+
+    Map<String, String> body = {
+      'nama': nama,
+      'email': email,
+      'nomor_hp': nomorHp,
+    };
+
+    if (password != null && password.isNotEmpty) {
+      body['password'] = password;
+      if (passwordConfirmation != null) {
+        body['password_confirmation'] = passwordConfirmation;
+      }
+    }
+
+    final response = await http.patch(
+      // Atau POST jika API Anda menggunakan POST untuk update
+      Uri.parse(
+        '$baseUrl/user/profile',
+      ), // Endpoint dari AuthController@updateProfile
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json', // Jika mengirim JSON body
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      // Asumsi API mengembalikan data user/petugas yang sudah terupdate
+      return Petugas.fromJson(
+        responseData['user'] as Map<String, dynamic>? ?? responseData,
+      );
+    } else {
+      // Coba parse error dari backend
+      String errorMessage = 'Gagal memperbarui profil.';
+      try {
+        final errorData = jsonDecode(response.body);
+        if (errorData['message'] != null) {
+          errorMessage += ' Pesan: ${errorData['message']}';
+        }
+        if (errorData['errors'] != null && errorData['errors'] is Map) {
+          (errorData['errors'] as Map).forEach((key, value) {
+            if (value is List) {
+              errorMessage += '\n- ${value.join(', ')}';
+            }
+          });
+        }
+      } catch (e) {
+        // Gagal parse error, gunakan body asli jika ada
+        errorMessage += ' Respons server: ${response.body}';
+      }
+      throw Exception(errorMessage);
     }
   }
 }

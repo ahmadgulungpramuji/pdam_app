@@ -1,35 +1,55 @@
+// lib/models/petugas_model.dart
+class CabangInfo {
+  // Model sederhana untuk info cabang
+  final int id;
+  final String namaCabang;
+
+  CabangInfo({required this.id, required this.namaCabang});
+
+  factory CabangInfo.fromJson(Map<String, dynamic> json) {
+    return CabangInfo(
+      id: json['id'] as int,
+      namaCabang: json['nama_cabang'] as String? ?? 'N/A',
+    );
+  }
+}
+
 class Petugas {
   final int id;
   final String nama;
   final String email;
   final String nomorHp;
-  final int idCabang;
+  final CabangInfo? cabang; // Menggunakan CabangInfo
 
   Petugas({
     required this.id,
     required this.nama,
     required this.email,
     required this.nomorHp,
-    required this.idCabang,
+    this.cabang,
   });
 
   factory Petugas.fromJson(Map<String, dynamic> json) {
     return Petugas(
-      id: json['id'],
-      nama: json['nama'],
-      email: json['email'],
-      nomorHp: json['nomor_hp'],
-      idCabang: json['id_cabang'],
+      id: json['id'] as int,
+      nama: json['nama'] as String? ?? 'N/A',
+      email: json['email'] as String? ?? 'N/A',
+      nomorHp: json['nomor_hp'] as String? ?? 'N/A',
+      cabang:
+          json['cabang'] != null
+              ? CabangInfo.fromJson(json['cabang'] as Map<String, dynamic>)
+              : null, // Asumsi API mengirim objek 'cabang'
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'nama': nama,
-      'email': email,
-      'nomor_hp': nomorHp,
-      'id_cabang': idCabang,
-    };
+  // Untuk membuat salinan dengan perubahan (berguna untuk update state)
+  Petugas copyWith({String? nama, String? email, String? nomorHp}) {
+    return Petugas(
+      id: id,
+      nama: nama ?? this.nama,
+      email: email ?? this.email,
+      nomorHp: nomorHp ?? this.nomorHp,
+      cabang: cabang, // Cabang biasanya tidak diubah oleh petugas
+    );
   }
 }

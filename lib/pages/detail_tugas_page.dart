@@ -327,16 +327,13 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                 isLink && label.toLowerCase().contains('peta')
                     ? InkWell(
                       child: Text(
-                        value.isNotEmpty
-                            ? value
-                            : "Tidak ada data peta", // Tampilkan pesan jika value kosong
+                        value.isNotEmpty ? value : "Data peta tidak tersedia",
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color:
                               value.isNotEmpty
                                   ? Colors.blue.shade800
-                                  : Colors
-                                      .grey, // Warna berbeda jika tidak ada data
+                                  : Colors.grey.shade600,
                           decoration:
                               value.isNotEmpty
                                   ? TextDecoration.underline
@@ -346,34 +343,23 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                       onTap:
                           value.isNotEmpty
                               ? () async {
-                                // Hanya aktifkan onTap jika value tidak kosong
-                                // Asumsi 'value' berisi "latitude,longitude"
-                                // atau URL Google Maps lengkap (misalnya dari share location WA)
+                                // Asumsi 'value' berisi "latitude,longitude" atau URL Google Maps lengkap
+                                String mapsUrl;
+                                // Hapus spasi jika ada dari input koordinat
+                                String cleanValue = value.replaceAll(" ", "");
 
-                                String url;
-                                // Cek apakah value adalah URL Google Maps yang valid
-                                if (value.startsWith(
-                                      'http://maps.google.com/',
-                                    ) ||
-                                    value.startsWith(
-                                      'https://maps.google.com/',
-                                    ) ||
-                                    value.startsWith(
-                                      'https://www.google.com/maps/',
-                                    )) {
-                                  url = value;
-                                } else if (value.contains(',')) {
+                                if (cleanValue.startsWith('http')) {
+                                  mapsUrl =
+                                      cleanValue; // Jika sudah URL, gunakan langsung
+                                } else if (cleanValue.contains(',')) {
                                   // Jika formatnya adalah "latitude,longitude"
-                                  // Kita buat URL untuk membuka Google Maps dengan pin di koordinat tersebut
-                                  // dan juga bisa menambahkan query untuk navigasi jika diinginkan.
-                                  // Format q=latitude,longitude akan menempatkan pin.
-                                  // Format daddr=latitude,longitude akan mencoba navigasi.
-                                  // Kita akan gunakan format untuk menempatkan pin terlebih dahulu.
-                                  url =
-                                      'https://www.google.com/maps/search/?api=1&query=$value';
-
-                                  // Alternatif untuk navigasi langsung (jika perangkat mendukung skema URL ini):
-                                  // url = 'google.navigation:q=$value&mode=d'; // mode=d (driving), w (walking), b (bicycling)
+                                  // Gunakan skema URL Google Maps yang lebih universal
+                                  mapsUrl =
+                                      'https://maps.google.com/?q=$cleanValue';
+                                  // Alternatif menggunakan skema 'geo:' yang lebih umum untuk semua aplikasi peta
+                                  // mapsUrl = 'geo:$cleanValue';
+                                  // Atau untuk navigasi langsung di Google Maps:
+                                  // mapsUrl = 'google.navigation:q=$cleanValue&mode=d';
                                 } else {
                                   _showSnackbar(
                                     'Format data peta tidak dikenali: $value',
@@ -382,7 +368,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                                   return;
                                 }
 
-                                final Uri targetUri = Uri.parse(url);
+                                final Uri targetUri = Uri.parse(mapsUrl);
 
                                 try {
                                   if (await canLaunchUrl(targetUri)) {
@@ -391,10 +377,23 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                                       mode: LaunchMode.externalApplication,
                                     );
                                   } else {
-                                    _showSnackbar(
-                                      'Tidak bisa membuka aplikasi peta untuk: $value',
-                                      isError: true,
+                                    // Jika canLaunchUrl gagal, coba dengan format URL yang sedikit berbeda atau fallback
+                                    // Ini bisa terjadi jika skema geo tidak terdaftar dengan baik di beberapa emulator
+                                    // atau jika format http maps.google.com tidak langsung dikenali sebagai map intent
+                                    Uri fallbackUri = Uri.parse(
+                                      'https://www.google.com/maps/search/?api=1&query=latitude,longitude',
                                     );
+                                    if (await canLaunchUrl(fallbackUri)) {
+                                      await launchUrl(
+                                        fallbackUri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
+                                    } else {
+                                      _showSnackbar(
+                                        'Tidak bisa membuka aplikasi peta untuk: $value',
+                                        isError: true,
+                                      );
+                                    }
                                   }
                                 } catch (e) {
                                   _showSnackbar(
@@ -403,7 +402,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                                   );
                                 }
                               }
-                              : null, // onTap menjadi null jika value kosong
+                              : null,
                     )
                     : Text(
                       value,

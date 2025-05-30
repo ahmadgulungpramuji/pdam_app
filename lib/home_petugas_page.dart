@@ -7,6 +7,8 @@ import 'package:intl/intl.dart'; // Untuk format tanggal
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:pdam_app/pages/detail_tugas_page.dart';
+import 'package:pdam_app/pages/edit_profile_page.dart';
+import 'package:pdam_app/models/petugas_model.dart';
 
 // Halaman Daftar Tugas (Sebelumnya AssignmentsPage)
 // Catatan: Sisa dari kelas AssignmentsPage dan _AssignmentsPageState diasumsikan sama
@@ -442,6 +444,268 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 }
 
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final ApiService _apiService = ApiService();
+  Future<Petugas>? _petugasFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  void _loadProfileData() {
+    setState(() {
+      _petugasFuture = _apiService.getPetugasProfile();
+    });
+  }
+
+  void _showSnackbar(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.poppins()),
+        backgroundColor: isError ? Colors.red[700] : Colors.green[700],
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildProfileInfoTile(IconData icon, String title, String? subtitle) {
+    return Card(
+      elevation: 1.5,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.blue[700], size: 26),
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        ),
+        subtitle: Text(
+          subtitle ?? 'Tidak ada data',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor:
+          Colors.grey[100], // Sedikit beda latar untuk halaman profil
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _loadProfileData();
+        },
+        child: FutureBuilder<Petugas>(
+          future: _petugasFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Ionicons.cloud_offline_outline,
+                        size: 60,
+                        color: Colors.red[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Gagal memuat profil',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${snapshot.error}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        icon: const Icon(Ionicons.refresh_outline),
+                        label: const Text('Coba Lagi'),
+                        onPressed: _loadProfileData,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            if (!snapshot.hasData) {
+              return Center(
+                child: Text(
+                  'Tidak ada data profil.',
+                  style: GoogleFonts.poppins(),
+                ),
+              );
+            }
+
+            final petugas = snapshot.data!;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.blue[700],
+                          child: Icon(
+                            Ionicons.person_outline,
+                            size: 70,
+                            color: Colors.white,
+                          ),
+                          // TODO: Ganti dengan Image.network jika sudah ada foto profil
+                          // backgroundImage: petugas.fotoProfilUrl != null
+                          //     ? NetworkImage(petugas.fotoProfilUrl!)
+                          //     : null,
+                        ),
+                        // Positioned( // Untuk tombol edit foto profil nanti
+                        //   bottom: 0,
+                        //   right: 0,
+                        //   child: CircleAvatar(
+                        //     radius: 20,
+                        //     backgroundColor: Colors.white,
+                        //     child: IconButton(
+                        //       icon: Icon(Ionicons.camera_outline, size: 20, color: Colors.blue[700]),
+                        //       onPressed: () { /* TODO: Edit foto profil */ },
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      petugas.nama,
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      petugas.email,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildProfileInfoTile(
+                    Ionicons.call_outline,
+                    'Nomor HP',
+                    petugas.nomorHp,
+                  ),
+                  _buildProfileInfoTile(
+                    Ionicons.business_outline,
+                    'Cabang',
+                    petugas.cabang?.namaCabang ?? 'N/A',
+                  ),
+
+                  // Tambahkan info lain jika perlu
+                  const SizedBox(height: 30),
+                  ElevatedButton.icon(
+                    icon: const Icon(Ionicons.create_outline, size: 20),
+                    label: Text(
+                      'Edit Profil',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () async {
+                      final result = await Navigator.push<Petugas>(
+                        // Tunggu hasil dari EditProfilePage
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  EditProfilePage(currentPetugas: petugas),
+                        ),
+                      );
+                      if (result != null && mounted) {
+                        // Jika ada data yang dikembalikan (profil diupdate), refresh data
+                        _loadProfileData();
+                        _showSnackbar(
+                          'Profil berhasil diperbarui dari halaman edit!',
+                          isError: false,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal[600],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Ionicons.log_out_outline),
+                    label: Text(
+                      'Logout',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () async {
+                      await _apiService.removeToken();
+                      if (mounted) {
+                        Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).pushNamedAndRemoveUntil('/', (route) => false);
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red[700],
+                      side: BorderSide(color: Colors.red[700]!),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 // Definisi kelas AssignmentsPage, HomePetugasPage, _HomePetugasPageState,
 // SelfReportPage, HistoryPage, dan ProfilePage diasumsikan ada
 // di file ini atau diimpor dengan benar, sesuai dengan versi sebelumnya.
@@ -470,28 +734,6 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: Text('Halaman Riwayat Pekerjaan'));
-  }
-}
-
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final ApiService apiService = ApiService();
-    return Center(
-      child: ElevatedButton(
-        child: const Text("Logout"),
-        onPressed: () async {
-          await apiService.removeToken();
-          if (context.mounted) {
-            Navigator.of(
-              context,
-              rootNavigator: true,
-            ).pushReplacementNamed('/');
-          }
-        },
-      ),
-    );
   }
 }
 
