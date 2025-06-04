@@ -20,9 +20,6 @@ class Pengaduan {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // You might want to add fields from 'petugas' or 'pelanggans' table if your API joins them
-  // For example: final String? namaPelanggan;
-
   Pengaduan({
     required this.id,
     required this.idPdam,
@@ -47,29 +44,78 @@ class Pengaduan {
 
   factory Pengaduan.fromJson(Map<String, dynamic> json) {
     return Pengaduan(
-      id: json['id'],
-      idPdam: json['id_pdam'],
-      idPelanggan: json['id_pelanggan'],
-      idCabang: json['id_cabang'],
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      kategori: json['kategori'] ?? 'N/A',
-      lokasiMaps: json['lokasi_maps'] ?? 'N/A',
-      deskripsiLokasi: json['deskripsi_lokasi'] ?? 'N/A',
-      deskripsi: json['deskripsi'] ?? 'N/A',
-      tanggalPengaduan: json['tanggal_pengaduan'] ?? 'N/A',
-      status: json['status'] ?? 'pending',
-      fotoBukti: json['foto_bukti'],
-      idPetugasPelapor: json['id_petugas_pelapor'],
-      fotoRumah: json['foto_rumah'],
-      fotoSebelum: json['foto_sebelum'],
-      fotoSesudah: json['foto_sesudah'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      // Handle fields that are int but might come as String from JSON
+      id: _parseToInt(json['id'], 'id'),
+      idPdam: _parseToInt(json['id_pdam'], 'id_pdam'),
+      idPelanggan: _parseToInt(json['id_pelanggan'], 'id_pelanggan'),
+      idCabang: _parseToInt(json['id_cabang'], 'id_cabang'),
+
+      // Handle nullable double fields
+      latitude: _tryParseDouble(json['latitude']),
+      longitude: _tryParseDouble(json['longitude']),
+
+      kategori: json['kategori'] as String? ?? 'N/A',
+      lokasiMaps: json['lokasi_maps'] as String? ?? 'N/A',
+      deskripsiLokasi: json['deskripsi_lokasi'] as String? ?? 'N/A',
+      deskripsi: json['deskripsi'] as String? ?? 'N/A',
+      tanggalPengaduan: json['tanggal_pengaduan'] as String? ?? 'N/A',
+      status: json['status'] as String? ?? 'pending',
+      fotoBukti: json['foto_bukti'] as String?,
+
+      // Handle nullable int field
+      idPetugasPelapor: _tryParseInt(json['id_petugas_pelapor']),
+
+      fotoRumah: json['foto_rumah'] as String?,
+      fotoSebelum: json['foto_sebelum'] as String?,
+      fotoSesudah: json['foto_sesudah'] as String?,
+
+      // Ensure DateTime fields are parsed from String
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
 
-  // Helper to display category more friendly
+  // Helper function to parse dynamic value to int (handles String or int)
+  // Throws error if null or not parsable, for required fields.
+  static int _parseToInt(dynamic value, String fieldName) {
+    if (value == null) {
+      throw FormatException("Field '$fieldName' is null, but expected an int.");
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is String) {
+      final parsedInt = int.tryParse(value);
+      if (parsedInt != null) {
+        return parsedInt;
+      } else {
+        throw FormatException(
+          "Field '$fieldName' (value: '$value') is not a valid integer string.",
+        );
+      }
+    }
+    throw FormatException(
+      "Field '$fieldName' (value: '$value') is not a parsable integer type.",
+    );
+  }
+
+  // Helper function to try parsing dynamic value to int? (handles String or int)
+  static int? _tryParseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null; // Or throw error if type is unexpected but not null
+  }
+
+  // Helper function to try parsing dynamic value to double? (handles String or num)
+  static double? _tryParseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble(); // Convert int to double
+    if (value is String) return double.tryParse(value);
+    return null; // Or throw error if type is unexpected but not null
+  }
+
   String get friendlyKategori {
     switch (kategori) {
       case 'air_tidak_mengalir':
@@ -80,7 +126,7 @@ class Pengaduan {
         return 'Water Meter Rusak';
       case 'angka_meter_tidak_sesuai':
         return 'Angka Meter Tidak Sesuai';
-      case 'water_meter_tidak_sesuai': // Assuming this is distinct from rusak
+      case 'water_meter_tidak_sesuai':
         return 'Water Meter Tidak Sesuai';
       case 'tagihan_membengkak':
         return 'Tagihan Membengkak';
@@ -89,7 +135,6 @@ class Pengaduan {
     }
   }
 
-  // Helper to display status more friendly
   String get friendlyStatus {
     switch (status) {
       case 'pending':
