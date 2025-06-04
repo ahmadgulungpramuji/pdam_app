@@ -1,11 +1,13 @@
 // ignore_for_file: unused_local_variable, unused_element
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_model.dart';
+import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +18,17 @@ class ApiService {
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
   final String _witAiApiVersion = '20240514';
+
+  String get rootBaseUrl {
+    if (baseUrl.endsWith('/api')) {
+      return baseUrl.substring(0, baseUrl.length - '/api'.length);
+    }
+    if (baseUrl.endsWith('/api/')) {
+      // jaga-jaga jika ada trailing slash setelah /api
+      return baseUrl.substring(0, baseUrl.length - '/api/'.length);
+    }
+    return baseUrl;
+  }
 
   Future<Map<String, dynamic>?> sendMessage(String message) async {
     if (_witAiServerAccessToken == 'YOUR_WIT_AI_SERVER_ACCESS_TOKEN') {
@@ -427,10 +440,96 @@ class ApiService {
     }
   }
 
-  Future<http.Response> trackReport(String trackingCode) async {
-    final headers = {'Accept': 'application/json'};
-    final url = Uri.parse('$baseUrl/track/$trackingCode');
-    return await http.get(url, headers: headers);
+  Future<TemuanKebocoran> trackReport(String trackingCode) async {
+    // Endpoint di Laravel Anda, contoh: /api/track/temuan/{trackingCode}
+    // Jika endpoint Anda hanya /track/{trackingCode}, sesuaikan di bawah
+    final String endpoint =
+        '/track/temuan/$trackingCode'; // Sesuaikan dengan rute Laravel Anda
+    final url = Uri.parse('$baseUrl$endpoint');
+
+    print('ApiService DEBUG: trackReport - Memanggil URL: $url');
+
+    final headers = {
+      'Accept': 'application/json',
+      // Tidak perlu token Authorization untuk endpoint publik ini
+    };
+
+    try {
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      print(
+        'ApiService DEBUG: trackReport - Status Code: ${response.statusCode}',
+      );
+      // print('ApiService DEBUG: trackReport - Response Body: ${response.body}'); // Aktifkan jika perlu debug body
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+
+        // Asumsi backend mengembalikan { "success": true, "data": { ...temuan... } }
+        // atau langsung objek temuan jika tidak ada wrapper 'data'
+        if (responseBody is Map<String, dynamic>) {
+          if (responseBody.containsKey('success') &&
+              responseBody['success'] == true &&
+              responseBody.containsKey('data')) {
+            // Jika ada wrapper 'success' dan 'data'
+            if (responseBody['data'] is Map<String, dynamic>) {
+              return TemuanKebocoran.fromJson(
+                responseBody['data'] as Map<String, dynamic>,
+              );
+            } else {
+              throw Exception(
+                'Format data temuan tidak sesuai (field "data" bukan Map).',
+              );
+            }
+          } else if (!responseBody.containsKey('success')) {
+            // Jika API langsung mengembalikan objek TemuanKebocoran tanpa wrapper 'data'
+            // Ini akan terjadi jika controller Laravel Anda langsung return response()->json($temuan);
+            return TemuanKebocoran.fromJson(responseBody);
+          } else {
+            // Ada 'success' key tapi nilainya false atau tidak ada 'data'
+            throw Exception(
+              responseBody['message'] ??
+                  'Laporan tidak ditemukan atau format respons salah.',
+            );
+          }
+        } else {
+          throw Exception(
+            'Format respons dari server tidak dikenali (bukan Map).',
+          );
+        }
+      } else if (response.statusCode == 404) {
+        final responseBody = jsonDecode(response.body);
+        throw Exception(
+          responseBody['message'] ??
+              'Laporan dengan kode tracking tersebut tidak ditemukan (404).',
+        );
+      } else {
+        // Error lainnya
+        String errorMessage =
+            'Gagal melacak laporan (Status: ${response.statusCode}).';
+        try {
+          final responseBody = jsonDecode(response.body);
+          errorMessage =
+              responseBody['message'] ??
+              errorMessage + " Respons: ${response.body}";
+        } catch (e) {
+          // Biarkan error message default jika body tidak bisa di-parse
+        }
+        throw Exception(errorMessage);
+      }
+    } on TimeoutException {
+      print('ApiService DEBUG: trackReport - Timeout saat menghubungi server.');
+      throw Exception('Server tidak merespons. Periksa koneksi internet Anda.');
+    } catch (e) {
+      print('ApiService DEBUG: trackReport - Error: $e');
+      // Lempar ulang error agar bisa ditangani di UI, atau ubah pesannya
+      if (e is Exception && e.toString().contains("FormatException")) {
+        throw Exception("Terjadi kesalahan format data dari server.");
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, String>> getHeaders() async {
@@ -468,6 +567,123 @@ class ApiService {
       'id_cabang': idCabang,
     });
     return await http.post(url, headers: headers, body: body);
+  }
+
+  Future<Map<String, dynamic>> unifiedLogin({
+    required String email,
+    required String password,
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/login/unified');
+    print('ApiService DEBUG: unifiedLogin - URL: $url');
+    // Jangan log password asli di produksi
+    // print('ApiService DEBUG: unifiedLogin - Body: ${jsonEncode({'email': email, 'password': 'SENSORED'})}');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      print(
+        'ApiService DEBUG: unifiedLogin - Status Code: ${response.statusCode}',
+      );
+      // print('ApiService DEBUG: unifiedLogin - Response Body: ${response.body}'); // Aktifkan jika perlu
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // Laravel biasanya 200 untuk login sukses dengan token
+        if (responseData is Map<String, dynamic> &&
+            responseData['success'] == true) {
+          if (responseData.containsKey('token') &&
+              responseData.containsKey('user_type') &&
+              responseData.containsKey('user') &&
+              responseData['user'] is Map<String, dynamic>) {
+            return responseData;
+          } else {
+            throw Exception('Format respons login tidak lengkap dari server.');
+          }
+        } else {
+          throw Exception(
+            responseData['message'] ??
+                'Login gagal (format respons tidak dikenal).',
+          );
+        }
+      } else if (response.statusCode == 401) {
+        // Unauthorized (email/password salah)
+        throw Exception(
+          responseData['message'] ?? 'Email atau password salah.',
+        );
+      } else if (response.statusCode == 422) {
+        // Validation errors
+        String errorMsg = "Input tidak valid:";
+        if (responseData.containsKey('errors') &&
+            responseData['errors'] is Map) {
+          (responseData['errors'] as Map).forEach((key, value) {
+            if (value is List && value.isNotEmpty) {
+              errorMsg += "\n- ${value[0]}";
+            }
+          });
+        } else {
+          errorMsg = responseData['message'] ?? errorMsg;
+        }
+        throw Exception(errorMsg);
+      } else {
+        throw Exception(
+          'Gagal login. Status: ${response.statusCode}. Pesan: ${responseData['message'] ?? response.body}',
+        );
+      }
+    } on TimeoutException {
+      print('ApiService DEBUG: unifiedLogin - Timeout');
+      throw Exception('Server tidak merespons. Periksa koneksi internet Anda.');
+    } catch (e) {
+      print('ApiService DEBUG: unifiedLogin - Error: $e');
+      if (e is Exception && e.toString().contains("Exception: ")) {
+        rethrow;
+      }
+      throw Exception('Terjadi kesalahan: ${e.toString()}');
+    }
+  }
+
+  Future<void> logout() async {
+    final token = await getToken();
+    if (token == null) {
+      print('ApiService DEBUG: logout - Tidak ada token, hanya hapus lokal.');
+      await removeToken();
+      return;
+    }
+
+    final url = Uri.parse('$baseUrl/auth/logout');
+    print('ApiService DEBUG: logout - URL: $url');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+
+      print('ApiService DEBUG: logout - Status Code: ${response.statusCode}');
+      // print('ApiService DEBUG: logout - Response Body: ${response.body}');
+    } catch (e) {
+      print(
+        'ApiService DEBUG: logout - Error saat request logout ke server: $e',
+      );
+      // Abaikan error jaringan saat logout, yang penting token lokal dihapus
+    } finally {
+      await removeToken(); // Selalu hapus token lokal
+      print('ApiService DEBUG: logout - Token lokal berhasil dihapus.');
+    }
   }
 
   Future<http.Response> createIdPdam({
@@ -740,46 +956,51 @@ class ApiService {
     }
   }
 
-  // Di dalam kelas ApiService
+  // Di dalam kelas ApiService di file api_service.dart
+
   Future<Map<String, dynamic>> submitRating({
-    required String tipeLaporan,
-    int? idLaporan,
-    String? trackingCode,
+    required String tipeLaporan, // 'pengaduan' atau 'temuan_kebocoran'
+    int? idLaporan, // Wajib jika tipeLaporan == 'pengaduan'
+    String? trackingCode, // Wajib jika tipeLaporan == 'temuan_kebocoran'
     required int rating,
     String? komentar,
-    required String token, // Token dari LacakLaporanSayaPage._getAuthToken()
+    String? token, // Akan dikirim jika tipeLaporan == 'pengaduan'
   }) async {
-    final url = Uri.parse('$baseUrl/laporan/rating');
+    final String endpointPath;
+    Map<String, dynamic> body = {'rating': rating};
 
-    final Map<String, String> headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token', // Token sudah disertakan di sini
-    };
-
-    Map<String, dynamic> body = {'tipe_laporan': tipeLaporan, 'rating': rating};
-
-    if (idLaporan != null && tipeLaporan == 'pengaduan') {
-      // Pastikan idLaporan hanya untuk pengaduan
+    if (tipeLaporan == 'pengaduan') {
+      if (idLaporan == null) {
+        throw ArgumentError("id_laporan wajib untuk tipe pengaduan.");
+      }
+      endpointPath = '/rating/pengaduan'; // Endpoint baru untuk pengaduan
       body['id_laporan'] = idLaporan;
-    } else if (trackingCode != null && tipeLaporan == 'temuan_kebocoran') {
-      // Pastikan trackingCode hanya untuk temuan
+    } else if (tipeLaporan == 'temuan_kebocoran') {
+      if (trackingCode == null) {
+        throw ArgumentError("tracking_code wajib untuk tipe temuan_kebocoran.");
+      }
+      endpointPath = '/rating/temuan-kebocoran'; // Endpoint baru untuk temuan
       body['tracking_code'] = trackingCode;
-    } else if (tipeLaporan == 'pengaduan' && idLaporan == null) {
-      throw ArgumentError("id_laporan wajib untuk tipe pengaduan.");
-    } else if (tipeLaporan == 'temuan_kebocoran' && trackingCode == null) {
-      throw ArgumentError("tracking_code wajib untuk tipe temuan_kebocoran.");
+    } else {
+      throw ArgumentError("tipe_laporan tidak valid.");
     }
 
     if (komentar != null && komentar.isNotEmpty) {
       body['komentar'] = komentar;
     }
 
-    // Debugging Print (sangat berguna)
+    final url = Uri.parse('$baseUrl$endpointPath');
+
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null)
+        'Authorization':
+            'Bearer $token', // Hanya kirim token jika ada (untuk pengaduan)
+    };
+
     print('ApiService DEBUG: submitRating - URL: $url');
-    print(
-      'ApiService DEBUG: submitRating - Headers: $headers',
-    ); // Periksa apakah token ada di sini
+    print('ApiService DEBUG: submitRating - Headers: $headers');
     print('ApiService DEBUG: submitRating - Body: ${jsonEncode(body)}');
 
     final response = await http.post(
@@ -788,40 +1009,30 @@ class ApiService {
       body: jsonEncode(body),
     );
 
+    // ... sisa logika respons sama seperti sebelumnya ...
     print(
       'ApiService DEBUG: submitRating - Status Code: ${response.statusCode}',
     );
-    print(
-      'ApiService DEBUG: submitRating - Response Body: ${response.body}',
-    ); // Penting untuk melihat pesan error dari backend
+    print('ApiService DEBUG: submitRating - Response Body: ${response.body}');
 
     final responseBody = jsonDecode(response.body);
-
     if (response.statusCode == 200 || response.statusCode == 201) {
-      // 201 Created juga sukses
-      // Jika API Anda mengembalikan { "success": true, "data": ... }
       if (responseBody is Map<String, dynamic> &&
           responseBody.containsKey('success') &&
           responseBody['success'] == true) {
         return responseBody;
       } else if (responseBody is Map<String, dynamic>) {
-        // Jika API hanya mengembalikan data tanpa 'success' key
-        return responseBody; // Anggap sukses jika status 200/201
+        return responseBody;
       } else {
         throw Exception(
           'Format respons tidak diharapkan setelah submit rating.',
         );
       }
     } else if (response.statusCode == 401) {
-      throw Exception(
-        responseBody['message'] ??
-            'Autentikasi gagal (401). Token tidak valid atau sesi berakhir.',
-      );
+      // Ini seharusnya tidak terjadi untuk temuan_kebocoran jika token tidak dikirim
+      throw Exception(responseBody['message'] ?? 'Autentikasi gagal (401).');
     } else if (response.statusCode == 403) {
-      throw Exception(
-        responseBody['message'] ??
-            'Akses ditolak (403). Anda tidak berhak melakukan aksi ini.',
-      );
+      throw Exception(responseBody['message'] ?? 'Akses ditolak (403).');
     } else if (response.statusCode == 422) {
       final errors = responseBody['errors'];
       throw Exception(

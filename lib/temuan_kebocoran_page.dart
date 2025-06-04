@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -381,89 +383,87 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   // --- Fungsi untuk mengirim data ke API ---
   // Termasuk penambahan logika untuk mengambil tracking_code dan navigasi
   Future<void> _submitForm() async {
-    // Validasi form
     if (!_formKey.currentState!.validate()) {
+      _showSnackbar(
+        'Harap perbaiki error pada form sebelum mengirim.',
+        isError: true,
+      );
       return;
     }
-
     if (_selectedCabangId == null) {
-      _showSnackbar('Silakan pilih cabang terlebih dahulu.');
+      _showSnackbar('Silakan pilih cabang terlebih dahulu.', isError: true);
       return;
     }
-    // Validasi lokasi_maps dan deskripsi_lokasi sudah di handle validator TextFormField
 
     setState(() {
-      _isLoading = true; // Loading untuk proses submit
+      _isLoading = true;
     });
 
     try {
+      // _apiUrlSubmit adalah '${_apiService.baseUrl}/temuan-kebocoran'
       var request = http.MultipartRequest('POST', Uri.parse(_apiUrlSubmit));
 
-      // --- START: Bagian yang perlu diubah/dihapus ---
-      // Dapatkan token dari storage untuk otentikasi (jika diperlukan oleh endpoint submit)
-      // Jika endpoint submit membutuhkan token (misal menggunakan auth:sanctum)
-      // Anda perlu menambahkan header Authorization
-      final token =
-          await _apiService
-              .getToken(); // Masih bisa ambil token, tapi tidak diwajibkan
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-        // Tambahkan header lain jika diperlukan oleh backend, misal Accept/Content-Type
-        request.headers['Accept'] = 'application/json';
-      }
-      // Hapus blok ELSE ini yang MENGHENTIKAN submit jika token == null
-      /*
-   else {
-    // Handle case where user is not logged in but accessing this page (shouldn't happen if route is protected)
-    print("Warning: Submitting form without authentication token.");
-    // Mungkin beri tahu user untuk login dulu atau batalkan submit
-    _showSnackbar(
-     'Anda harus login untuk mengirim laporan.',
-     isError: true,
-    );
-    if (mounted) {
-     setState(() {
-      _isLoading = false;
-     }); // Hentikan loading
-    }
-    return; // Hentikan proses submit
-   }
-        */
-      // --- END: Bagian yang perlu diubah/dihapus ---
+      // Untuk endpoint publik submit temuan kebocoran, kita TIDAK mengirim token.
+      // Header Accept disarankan untuk API yang merespons JSON.
+      request.headers['Accept'] = 'application/json';
 
-      // Tambahkan field data (bagian ini tetap)
-      // Add new fields for nama and nomor_hp
+      // Menambahkan field data ke request
       request.fields['nama_pelapor'] = _namaController.text;
       request.fields['nomor_hp_pelapor'] = _nomorHpController.text;
       request.fields['id_cabang'] = _selectedCabangId.toString();
       request.fields['lokasi_maps'] = _lokasiMapsController.text;
       request.fields['deskripsi_lokasi'] = _deskripsiLokasiController.text;
+      // Status dan tanggal_temuan akan di-generate oleh backend.
 
-      // Tambahkan foto bukti (bagian ini tetap)
+      // Menambahkan file gambar jika ada
       if (_imageFile != null) {
         request.files.add(
-          await http.MultipartFile.fromPath('foto_bukti', _imageFile!.path),
+          await http.MultipartFile.fromPath(
+            'foto_bukti', // Nama field di backend Laravel
+            _imageFile!.path,
+            filename:
+                _imageFile!.path
+                    .split('/')
+                    .last, // Opsional, tapi baik untuk ada
+          ),
         );
       }
 
-      // Kirim request (bagian ini tetap)
-      var streamedResponse = await request.send();
+      print(
+        "TemuanKebocoranPage: Mengirim data temuan kebocoran ke $_apiUrlSubmit...",
+      );
+      // Menambahkan timeout untuk request
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 45),
+        onTimeout: () {
+          // Timeout sedikit lebih lama untuk upload file
+          throw TimeoutException(
+            'Waktu pengiriman habis, server tidak merespons dalam 45 detik.',
+          );
+        },
+      );
       var response = await http.Response.fromStream(streamedResponse);
 
-      if (!mounted) return;
+      if (!mounted) return; // Cek jika widget masih ada di tree
 
-      // Proses respons (bagian ini tetap)
+      final responseData = jsonDecode(response.body);
+      print(
+        "TemuanKebocoranPage: Respons dari server (${response.statusCode}): $responseData",
+      );
+
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
+        // 201: Created, 200: OK
+        // Mengambil tracking_code dari dalam objek 'data'
         final String? trackingCode =
-            responseData['tracking_code']; // <<< Ambil tracking_code dari respons
+            responseData['data']?['tracking_code'] as String?;
 
         _showSnackbar(
-          responseData['message'] ?? 'Data temuan berhasil dikirim!',
+          responseData['message'] ??
+              'Laporan temuan kebocoran berhasil dikirim!',
           isError: false,
         );
 
-        // Reset form setelah berhasil (bagian ini tetap)
+        // Reset form setelah berhasil
         _formKey.currentState?.reset();
         setState(() {
           _namaController.clear();
@@ -472,56 +472,175 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           _imageFile = null;
           _lokasiMapsController.clear();
           _deskripsiLokasiController.clear();
-          _currentPosition = null; // Reset juga lokasi pengguna
+          _currentPosition =
+              null; // Reset juga lokasi pengguna agar bisa fetch ulang
         });
 
-        // <<< Navigasi ke halaman tracking jika kode tracking didapat (bagian ini tetap)
+        // Menampilkan tracking code kepada pengguna dengan opsi salin
         if (trackingCode != null && trackingCode.isNotEmpty) {
-          // Menggunakan pushReplacementNamed agar user tidak bisa kembali ke form submit setelah submit
-          // Jika ingin user bisa kembali ke form (misal untuk submit laporan lain), gunakan Navigator.pushNamed
-          Navigator.pushReplacementNamed(
-            context,
-            '/tracking_page', // Ganti dengan route halaman tracking Anda
-            arguments: trackingCode, // Kirim kode tracking sebagai argumen
+          print(
+            "TemuanKebocoranPage: Laporan Berhasil. Tracking Code: $trackingCode",
+          );
+          // ignore: use_build_context_synchronously
+          await showDialog(
+            context: context,
+            barrierDismissible:
+                false, // User harus menekan tombol untuk menutup
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                title: const Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.green,
+                      size: 28,
+                    ),
+                    SizedBox(width: 10),
+                    Text('Laporan Terkirim!'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Terima kasih, laporan Anda telah kami terima. Mohon simpan kode pelacakan berikut:',
+                    ),
+                    const SizedBox(height: 15),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              trackingCode,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 17,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy_all_rounded,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            tooltip: 'Salin Kode Pelacakan',
+                            onPressed: () {
+                              Clipboard.setData(
+                                ClipboardData(text: trackingCode),
+                              );
+                              ScaffoldMessenger.of(
+                                dialogContext,
+                              ).hideCurrentSnackBar(); // Sembunyikan snackbar sebelumnya jika ada
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Kode Pelacakan disalin ke clipboard!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'Anda dapat menggunakan kode ini untuk melacak status progres laporan Anda melalui fitur "Lacak Laporan" (biasanya ada di halaman login atau menu utama).',
+                    ),
+                  ],
+                ),
+                actionsAlignment: MainAxisAlignment.center,
+                actions: <Widget>[
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                    ),
+                    child: const Text('OK', style: TextStyle(fontSize: 16)),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(); // Tutup dialog
+                      // Setelah dialog ditutup, Anda bisa mengarahkan user, misalnya kembali ke halaman login atau home
+                      // if (mounted) {
+                      //   Navigator.of(context).pushNamedAndRemoveUntil('/nama_rute_halaman_login_anda', (Route<dynamic> route) => false);
+                      // }
+                    },
+                  ),
+                ],
+              );
+            },
           );
         } else {
-          // Jika tidak ada kode tracking dari backend
           print(
-            'Warning: No tracking code received from backend. Staying on form page.',
+            'TemuanKebocoranPage: Peringatan! Kode pelacakan tidak diterima dari backend.',
           );
-          // Anda bisa tambahkan navigasi ke halaman home atau lain jika diperlukan
-          // Navigator.pushReplacementNamed(context, '/home');
+          _showSnackbar(
+            'Laporan berhasil dikirim, namun kode pelacakan tidak tersedia saat ini.',
+            isError: true,
+          );
         }
       } else {
-        // Handle error status codes (bagian ini tetap)
+        // Handle error dari server (status code bukan 200/201)
         String errorMessage =
-            'Gagal mengirim data. Status: ${response.statusCode}';
-        try {
-          var responseBody = jsonDecode(response.body);
-          if (responseBody['message'] != null) {
-            errorMessage = '${responseBody['message']}';
+            'Gagal mengirim data (Status: ${response.statusCode})';
+        if (responseData != null && responseData['message'] != null) {
+          errorMessage = responseData['message'] as String;
+          if (responseData['errors'] != null && responseData['errors'] is Map) {
+            // Menampilkan error validasi dari Laravel jika ada
+            final errors = responseData['errors'] as Map<String, dynamic>;
+            errors.forEach((key, value) {
+              if (value is List && value.isNotEmpty) {
+                errorMessage +=
+                    '\n- ${value[0]}'; // Ambil pesan error pertama untuk setiap field
+              }
+            });
           }
-          // Cek jika ada detail error validasi dari Laravel (jika dikembalikan)
-          if (responseBody['errors'] != null) {
-            print("Errors from backend: ${responseBody['errors']}");
-            // Anda bisa menambahkan logika untuk menampilkan error validasi spesifik
-          }
-        } catch (e) {
-          print('Failed to parse error body: $e');
-          errorMessage += '. Body: ${response.body}';
+        } else if (responseData != null) {
+          errorMessage +=
+              '. Detail: ${responseData.toString().substring(0, 100)}...'; // Potong jika terlalu panjang
+        } else {
+          errorMessage += '. Tidak ada detail tambahan dari server.';
         }
-        _showSnackbar(errorMessage);
+        _showSnackbar(errorMessage, isError: true);
+        print("TemuanKebocoranPage: Error dari server: $responseData");
       }
     } catch (e) {
-      _showSnackbar(
-        'Terjadi kesalahan saat mengirim data: ${e.toString()}',
-        isError: true,
-      ); // Tampilkan error E
-      print("Error submitting form: $e");
+      if (mounted) {
+        String errorMsgToShow = 'Terjadi kesalahan saat mengirim laporan.';
+        if (e is TimeoutException) {
+          errorMsgToShow =
+              'Server tidak merespons. Periksa koneksi internet Anda.';
+        } else if (e.toString().isNotEmpty) {
+          errorMsgToShow = e.toString();
+          // Hapus prefix "Exception: " jika ada
+          if (errorMsgToShow.startsWith("Exception: ")) {
+            errorMsgToShow = errorMsgToShow.substring("Exception: ".length);
+          }
+        }
+        _showSnackbar(errorMsgToShow, isError: true);
+      }
+      print("TemuanKebocoranPage: Error saat _submitForm: $e");
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false; // Selesai loading submit
+          _isLoading = false;
         });
       }
     }

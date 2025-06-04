@@ -111,4 +111,6 @@ class TemuanKebocoran {
         return status.replaceAll('_', ' ').toUpperCase();
     }
   }
+
+  get cabang => null;
 }

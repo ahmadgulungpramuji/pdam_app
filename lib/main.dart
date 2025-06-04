@@ -1,5 +1,6 @@
 // main.dart
 import 'package:flutter/material.dart';
+import 'package:pdam_app/detail_temuan_page.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -9,6 +10,7 @@ import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/home_petugas_page.dart';
+import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/profil_page.dart';
 import 'package:pdam_app/tracking_page.dart'; // Jika ada halaman tracking anonim
 import 'package:pdam_app/temuan_kebocoran_page.dart'; // Sudah ada dari login
@@ -102,6 +104,15 @@ class MyApp extends StatelessWidget {
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
+        // import 'package:pdam_app/detail_temuan_page.dart'; // Halaman detail yang akan kita buat
+        // import 'package:pdam_app/models/temuan_kebocoran_model.dart'; // Impor modelnya
+
+        // ... di dalam routes:
+        '/detail_temuan_page': (context) {
+          final temuan =
+              ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
+          return DetailTemuanPage(temuanKebocoran: temuan);
+        },
         '/tracking_page': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           String? kodeTracking;

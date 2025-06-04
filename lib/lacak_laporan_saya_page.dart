@@ -594,19 +594,29 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   }
 
   Widget _buildPhotoDisplay(String fotoBuktiPath) {
-    // Pastikan _apiService.baseUrl sudah benar dan tidak ada double slash
-    String ScleanedBaseUrl =
-        _apiService.baseUrl.endsWith('/')
-            ? _apiService.baseUrl.substring(0, _apiService.baseUrl.length - 1)
-            : _apiService.baseUrl;
-    String ScleanedPath =
+    // Menggunakan rootBaseUrl dari ApiService
+    String rootUrl =
+        _apiService.rootBaseUrl; // Contoh: http://192.168.0.107:8000
+
+    // Pastikan rootUrl tidak memiliki trailing slash
+    if (rootUrl.endsWith('/')) {
+      rootUrl = rootUrl.substring(0, rootUrl.length - 1);
+    }
+
+    // Path dari server, contoh: "pengaduan_bukti/namafile.jpg"
+    String cleanedPath =
         fotoBuktiPath.startsWith('/')
             ? fotoBuktiPath.substring(1)
             : fotoBuktiPath;
-    final imageUrl =
-        '$ScleanedBaseUrl/storage/$ScleanedPath'; // Umumnya gambar ada di /storage/
 
-    print("LacakLaporanPage: Mencoba memuat gambar dari: $imageUrl");
+    // Asumsi umum: path dari server adalah relatif terhadap folder public,
+    // dan Laravel Storage Link membuat /storage/ mengarah ke storage/app/public.
+    // Jadi, kita tambahkan /storage/ di antara rootUrl dan cleanedPath.
+    final imageUrl = '$rootUrl/storage/$cleanedPath';
+
+    print(
+      "LacakLaporanPage: Mencoba memuat gambar dari: $imageUrl",
+    ); // Untuk debugging
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -622,17 +632,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           ),
           const SizedBox(height: 6),
           Container(
-            height: 200, // Sedikit lebih besar untuk tampilan foto
+            height: 200,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.grey.shade200, // Background color saat loading
+              color: Colors.grey.shade200,
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(
-                7,
-              ), // Sedikit lebih kecil dari border agar border terlihat
+              borderRadius: BorderRadius.circular(7),
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
