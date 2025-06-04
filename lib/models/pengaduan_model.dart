@@ -1,5 +1,8 @@
 // models/pengaduan_model.dart
+import 'petugas_simple_model.dart';
+
 class Pengaduan {
+  // ... (properti lainnya seperti yang sudah Anda definisikan atau saya sarankan sebelumnya) ...
   final int id;
   final int idPdam;
   final int idPelanggan;
@@ -7,8 +10,8 @@ class Pengaduan {
   final double? latitude;
   final double? longitude;
   final String kategori;
-  final String lokasiMaps; // misal sharelock WA
-  final String deskripsiLokasi; // nama jalan atau gang
+  final String lokasiMaps;
+  final String deskripsiLokasi;
   final String deskripsi;
   final String tanggalPengaduan;
   final String status;
@@ -17,8 +20,11 @@ class Pengaduan {
   final String? fotoRumah;
   final String? fotoSebelum;
   final String? fotoSesudah;
+  final int? rating;
+  final String? komentarRating;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<PetugasSimple>? petugasDitugaskan;
 
   Pengaduan({
     required this.id,
@@ -38,22 +44,22 @@ class Pengaduan {
     this.fotoRumah,
     this.fotoSebelum,
     this.fotoSesudah,
+    this.rating,
+    this.komentarRating,
     required this.createdAt,
     required this.updatedAt,
+    this.petugasDitugaskan,
   });
 
   factory Pengaduan.fromJson(Map<String, dynamic> json) {
+    // ...(implementasi fromJson seperti yang sudah ada atau saya sarankan)...
     return Pengaduan(
-      // Handle fields that are int but might come as String from JSON
       id: _parseToInt(json['id'], 'id'),
       idPdam: _parseToInt(json['id_pdam'], 'id_pdam'),
       idPelanggan: _parseToInt(json['id_pelanggan'], 'id_pelanggan'),
       idCabang: _parseToInt(json['id_cabang'], 'id_cabang'),
-
-      // Handle nullable double fields
       latitude: _tryParseDouble(json['latitude']),
       longitude: _tryParseDouble(json['longitude']),
-
       kategori: json['kategori'] as String? ?? 'N/A',
       lokasiMaps: json['lokasi_maps'] as String? ?? 'N/A',
       deskripsiLokasi: json['deskripsi_lokasi'] as String? ?? 'N/A',
@@ -61,61 +67,50 @@ class Pengaduan {
       tanggalPengaduan: json['tanggal_pengaduan'] as String? ?? 'N/A',
       status: json['status'] as String? ?? 'pending',
       fotoBukti: json['foto_bukti'] as String?,
-
-      // Handle nullable int field
       idPetugasPelapor: _tryParseInt(json['id_petugas_pelapor']),
-
       fotoRumah: json['foto_rumah'] as String?,
       fotoSebelum: json['foto_sebelum'] as String?,
       fotoSesudah: json['foto_sesudah'] as String?,
-
-      // Ensure DateTime fields are parsed from String
+      rating: _tryParseInt(json['rating']),
+      komentarRating: json['komentar_rating'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      petugasDitugaskan:
+          json['petugas_ditugaskan'] != null &&
+                  json['petugas_ditugaskan'] is List
+              ? List<PetugasSimple>.from(
+                (json['petugas_ditugaskan'] as List<dynamic>).map(
+                  (x) => PetugasSimple.fromJson(x),
+                ),
+              )
+              : null,
     );
   }
 
-  // Helper function to parse dynamic value to int (handles String or int)
-  // Throws error if null or not parsable, for required fields.
+  // Helper functions
   static int _parseToInt(dynamic value, String fieldName) {
-    if (value == null) {
-      throw FormatException("Field '$fieldName' is null, but expected an int.");
-    }
-    if (value is int) {
-      return value;
-    }
-    if (value is String) {
-      final parsedInt = int.tryParse(value);
-      if (parsedInt != null) {
-        return parsedInt;
-      } else {
-        throw FormatException(
-          "Field '$fieldName' (value: '$value') is not a valid integer string.",
-        );
-      }
-    }
-    throw FormatException(
-      "Field '$fieldName' (value: '$value') is not a parsable integer type.",
-    );
+    if (value == null) throw FormatException("Field '$fieldName' is null.");
+    if (value is int) return value;
+    if (value is String) return int.parse(value);
+    throw FormatException("Field '$fieldName' is not a parsable int.");
   }
 
-  // Helper function to try parsing dynamic value to int? (handles String or int)
   static int? _tryParseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
-    return null; // Or throw error if type is unexpected but not null
+    return null;
   }
 
-  // Helper function to try parsing dynamic value to double? (handles String or num)
   static double? _tryParseDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
-    if (value is int) return value.toDouble(); // Convert int to double
+    if (value is int) return value.toDouble();
     if (value is String) return double.tryParse(value);
-    return null; // Or throw error if type is unexpected but not null
+    return null;
   }
 
+  // Getter yang diperbaiki
   String get friendlyKategori {
     switch (kategori) {
       case 'air_tidak_mengalir':
@@ -126,12 +121,14 @@ class Pengaduan {
         return 'Water Meter Rusak';
       case 'angka_meter_tidak_sesuai':
         return 'Angka Meter Tidak Sesuai';
-      case 'water_meter_tidak_sesuai':
+      case 'water_meter_tidak_sesuai': // Anda punya dua case mirip, pastikan ini disengaja
         return 'Water Meter Tidak Sesuai';
       case 'tagihan_membengkak':
         return 'Tagihan Membengkak';
-      default:
-        return kategori.replaceAll('_', ' ').toUpperCase();
+      default: // Tambahkan default case
+        return kategori
+            .replaceAll('_', ' ')
+            .toUpperCase(); // Atau nilai default lain
     }
   }
 
@@ -151,8 +148,10 @@ class Pengaduan {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
-      default:
-        return status.replaceAll('_', ' ').toUpperCase();
+      default: // Tambahkan default case
+        return status
+            .replaceAll('_', ' ')
+            .toUpperCase(); // Atau nilai default lain
     }
   }
 }

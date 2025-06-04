@@ -1,4 +1,4 @@
-// ignore_for_file: unused_local_variable
+// ignore_for_file: unused_local_variable, unused_element
 
 import 'dart:convert';
 import 'dart:developer';
@@ -11,7 +11,7 @@ import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  final String baseUrl = 'http://10.0.164.160:8000/api';
+  final String baseUrl = 'http://192.168.0.107:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -737,6 +737,100 @@ class ApiService {
       );
     } else {
       throw Exception('Gagal mengambil data profil: ${response.body}');
+    }
+  }
+
+  // Di dalam kelas ApiService
+  Future<Map<String, dynamic>> submitRating({
+    required String tipeLaporan,
+    int? idLaporan,
+    String? trackingCode,
+    required int rating,
+    String? komentar,
+    required String token, // Token dari LacakLaporanSayaPage._getAuthToken()
+  }) async {
+    final url = Uri.parse('$baseUrl/laporan/rating');
+
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token', // Token sudah disertakan di sini
+    };
+
+    Map<String, dynamic> body = {'tipe_laporan': tipeLaporan, 'rating': rating};
+
+    if (idLaporan != null && tipeLaporan == 'pengaduan') {
+      // Pastikan idLaporan hanya untuk pengaduan
+      body['id_laporan'] = idLaporan;
+    } else if (trackingCode != null && tipeLaporan == 'temuan_kebocoran') {
+      // Pastikan trackingCode hanya untuk temuan
+      body['tracking_code'] = trackingCode;
+    } else if (tipeLaporan == 'pengaduan' && idLaporan == null) {
+      throw ArgumentError("id_laporan wajib untuk tipe pengaduan.");
+    } else if (tipeLaporan == 'temuan_kebocoran' && trackingCode == null) {
+      throw ArgumentError("tracking_code wajib untuk tipe temuan_kebocoran.");
+    }
+
+    if (komentar != null && komentar.isNotEmpty) {
+      body['komentar'] = komentar;
+    }
+
+    // Debugging Print (sangat berguna)
+    print('ApiService DEBUG: submitRating - URL: $url');
+    print(
+      'ApiService DEBUG: submitRating - Headers: $headers',
+    ); // Periksa apakah token ada di sini
+    print('ApiService DEBUG: submitRating - Body: ${jsonEncode(body)}');
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    print(
+      'ApiService DEBUG: submitRating - Status Code: ${response.statusCode}',
+    );
+    print(
+      'ApiService DEBUG: submitRating - Response Body: ${response.body}',
+    ); // Penting untuk melihat pesan error dari backend
+
+    final responseBody = jsonDecode(response.body);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // 201 Created juga sukses
+      // Jika API Anda mengembalikan { "success": true, "data": ... }
+      if (responseBody is Map<String, dynamic> &&
+          responseBody.containsKey('success') &&
+          responseBody['success'] == true) {
+        return responseBody;
+      } else if (responseBody is Map<String, dynamic>) {
+        // Jika API hanya mengembalikan data tanpa 'success' key
+        return responseBody; // Anggap sukses jika status 200/201
+      } else {
+        throw Exception(
+          'Format respons tidak diharapkan setelah submit rating.',
+        );
+      }
+    } else if (response.statusCode == 401) {
+      throw Exception(
+        responseBody['message'] ??
+            'Autentikasi gagal (401). Token tidak valid atau sesi berakhir.',
+      );
+    } else if (response.statusCode == 403) {
+      throw Exception(
+        responseBody['message'] ??
+            'Akses ditolak (403). Anda tidak berhak melakukan aksi ini.',
+      );
+    } else if (response.statusCode == 422) {
+      final errors = responseBody['errors'];
+      throw Exception(
+        'Data tidak valid (422): ${errors?.toString() ?? response.body}',
+      );
+    } else {
+      throw Exception(
+        'Gagal mengirim penilaian. Status: ${response.statusCode}. Pesan: ${responseBody['message'] ?? response.body}',
+      );
     }
   }
 
