@@ -48,7 +48,7 @@ class _ProfilPageState extends State<ProfilPage> {
     if (mounted) {
       if (data != null) {
         _userData = data;
-        _nameController.text = _userData?['username'] ?? '';
+        _nameController.text = _userData?['nama'] ?? '';
         _emailController.text = _userData?['email'] ?? '';
         _nomorHpController.text = _userData?['nomor_hp'] ?? '';
       } else {
