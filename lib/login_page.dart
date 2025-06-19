@@ -69,8 +69,9 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (mounted) {
         String errorMessage = e.toString();
-        if (errorMessage.startsWith("Exception: "))
+        if (errorMessage.startsWith("Exception: ")) {
           errorMessage = errorMessage.substring("Exception: ".length);
+        }
         _showSnackbar(errorMessage, isError: true);
       }
     } finally {
@@ -128,8 +129,9 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (mounted) {
         String errorMessage = e.toString();
-        if (errorMessage.startsWith("Exception: "))
+        if (errorMessage.startsWith("Exception: ")) {
           errorMessage = errorMessage.substring("Exception: ".length);
+        }
         _showSnackbar(errorMessage, isError: true);
       }
     } finally {
@@ -223,8 +225,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (val) {
-                  if (val == null || val.isEmpty)
+                  if (val == null || val.isEmpty) {
                     return 'Email tidak boleh kosong';
+                  }
                   if (!RegExp(
                     r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
                   ).hasMatch(val)) {

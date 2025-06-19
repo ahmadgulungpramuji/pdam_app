@@ -245,8 +245,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
             backgroundColor: Colors.green,
           ),
         );
-        if (Navigator.canPop(dialogContext))
+        if (Navigator.canPop(dialogContext)) {
           Navigator.of(dialogContext).pop(); // Tutup dialog rating
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -528,11 +529,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                 actionsPadding: const EdgeInsets.only(bottom: 12, top: 0),
                 actions: <Widget>[
                   TextButton(
-                    child: const Text('Tutup', style: TextStyle(fontSize: 16)),
                     onPressed:
                         _isDialogRatingLoading
                             ? null
                             : () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Tutup', style: TextStyle(fontSize: 16)),
                   ),
                 ],
               ),
@@ -549,8 +550,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     Color? statusColor,
     bool isMultiline = false,
   }) {
-    if (value.trim().isEmpty || value.trim() == 'N/A')
+    if (value.trim().isEmpty || value.trim() == 'N/A') {
       return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Row(

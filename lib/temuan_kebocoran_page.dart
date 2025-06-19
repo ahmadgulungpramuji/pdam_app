@@ -428,8 +428,9 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage>
             key,
             value,
           ) {
-            if (value is List && value.isNotEmpty)
+            if (value is List && value.isNotEmpty) {
               errorMessage += '\n- ${value[0]}';
+            }
           });
         }
         _showSnackbar(errorMessage, isError: true);
@@ -437,9 +438,9 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage>
     } catch (e) {
       if (mounted) {
         String errorMsg = 'Terjadi kesalahan.';
-        if (e is TimeoutException)
+        if (e is TimeoutException) {
           errorMsg = 'Server tidak merespons. Periksa koneksi Anda.';
-        else if (e.toString().isNotEmpty)
+        } else if (e.toString().isNotEmpty)
           errorMsg = e.toString().replaceFirst("Exception: ", "");
         _showSnackbar(errorMsg, isError: true);
       }
@@ -772,10 +773,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage>
                       keyboardType: TextInputType.phone,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'Nomor HP wajib diisi';
-                        if (v.length < 10 || v.length > 15)
+                        }
+                        if (v.length < 10 || v.length > 15) {
                           return 'Nomor HP 10-15 digit';
+                        }
                         return null;
                       },
                     ),
@@ -991,10 +994,10 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage>
                               ? null
                               : _submitForm,
                       style: theme.elevatedButtonTheme.style?.copyWith(
-                        padding: MaterialStateProperty.all(
+                        padding: WidgetStateProperty.all(
                           const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        textStyle: MaterialStateProperty.all(
+                        textStyle: WidgetStateProperty.all(
                           const TextStyle(fontSize: 16),
                         ),
                       ),

@@ -13,7 +13,7 @@ import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.0.107:8000/api';
+  final String baseUrl = 'http://192.168.222.148:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -513,7 +513,7 @@ class ApiService {
           final responseBody = jsonDecode(response.body);
           errorMessage =
               responseBody['message'] ??
-              errorMessage + " Respons: ${response.body}";
+              "$errorMessage Respons: ${response.body}";
         } catch (e) {
           // Biarkan error message default jika body tidak bisa di-parse
         }
@@ -938,8 +938,9 @@ class ApiService {
 
   Future<Petugas> getPetugasProfile() async {
     final token = await getToken();
-    if (token == null)
+    if (token == null) {
       throw Exception('Token tidak ditemukan, silakan login ulang.');
+    }
 
     final response = await http.get(
       Uri.parse('$baseUrl/user/profile'),
@@ -1053,8 +1054,9 @@ class ApiService {
     String? passwordConfirmation,
   }) async {
     final token = await getToken();
-    if (token == null)
+    if (token == null) {
       throw Exception('Token tidak ditemukan, silakan login ulang.');
+    }
 
     Map<String, String> body = {
       'nama': nama,

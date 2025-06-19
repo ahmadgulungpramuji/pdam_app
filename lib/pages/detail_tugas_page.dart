@@ -326,20 +326,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             child:
                 isLink && label.toLowerCase().contains('peta')
                     ? InkWell(
-                      child: Text(
-                        value.isNotEmpty ? value : "Data peta tidak tersedia",
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color:
-                              value.isNotEmpty
-                                  ? Colors.blue.shade800
-                                  : Colors.grey.shade600,
-                          decoration:
-                              value.isNotEmpty
-                                  ? TextDecoration.underline
-                                  : TextDecoration.none,
-                        ),
-                      ),
                       onTap:
                           value.isNotEmpty
                               ? () async {
@@ -403,6 +389,20 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                                 }
                               }
                               : null,
+                      child: Text(
+                        value.isNotEmpty ? value : "Data peta tidak tersedia",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color:
+                              value.isNotEmpty
+                                  ? Colors.blue.shade800
+                                  : Colors.grey.shade600,
+                          decoration:
+                              value.isNotEmpty
+                                  ? TextDecoration.underline
+                                  : TextDecoration.none,
+                        ),
+                      ),
                     )
                     : Text(
                       value,

@@ -201,8 +201,9 @@ class _RegisterPageState extends State<RegisterPage>
         _showSnackbar('Gagal melakukan registrasi: $errMsg', isError: true);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
+      }
       print("Error register: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -352,8 +353,9 @@ class _RegisterPageState extends State<RegisterPage>
                         icon: Ionicons.mail_outline,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return 'Email wajib diisi';
+                          }
                           if (!RegExp(
                             r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
                           ).hasMatch(value)) {
@@ -372,10 +374,12 @@ class _RegisterPageState extends State<RegisterPage>
                           FilteringTextInputFormatter.digitsOnly,
                         ],
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return 'Nomor HP wajib diisi';
-                          if (value.length < 10 || value.length > 15)
+                          }
+                          if (value.length < 10 || value.length > 15) {
                             return 'Nomor HP antara 10-15 digit';
+                          }
                           return null;
                         },
                       ),
@@ -428,7 +432,7 @@ class _RegisterPageState extends State<RegisterPage>
                           padding: const EdgeInsets.only(bottom: 15.0, top: 0),
                           child: Text(
                             _selectedCabangId != null
-                                ? 'Cabang terdeteksi: ID ${_selectedCabangId}.' // Anda bisa mapping ID ke Nama Cabang jika mau
+                                ? 'Cabang terdeteksi: ID $_selectedCabangId.' // Anda bisa mapping ID ke Nama Cabang jika mau
                                 : 'Format ID Pelanggan (NSL) tidak dikenali untuk cabang manapun.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
@@ -502,6 +506,7 @@ class _RegisterPageState extends State<RegisterPage>
     );
   }
 }
+
 extension StringExtension on String {
   String capitalize() {
     return substring(0, 1).toUpperCase() + substring(1).toLowerCase();

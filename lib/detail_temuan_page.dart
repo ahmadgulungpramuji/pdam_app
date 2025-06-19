@@ -498,8 +498,9 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
           } catch (e) {
             if (mounted) {
               String errorMessage = e.toString();
-              if (errorMessage.startsWith("Exception: "))
+              if (errorMessage.startsWith("Exception: ")) {
                 errorMessage = errorMessage.substring("Exception: ".length);
+              }
               _showSnackbar(errorMessage, isError: true);
             }
           }

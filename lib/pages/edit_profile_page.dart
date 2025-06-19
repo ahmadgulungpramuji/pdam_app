@@ -175,10 +175,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.emailAddress,
                 style: GoogleFonts.poppins(),
                 validator: (value) {
-                  if (value == null || value.isEmpty)
+                  if (value == null || value.isEmpty) {
                     return 'Email tidak boleh kosong';
-                  if (!value.contains('@') || !value.contains('.'))
+                  }
+                  if (!value.contains('@') || !value.contains('.')) {
                     return 'Format email tidak valid';
+                  }
                   return null;
                 },
               ),
