@@ -180,17 +180,17 @@ class _WelcomePageState extends State<WelcomePage>
                         0xFF005A9C,
                       ), // Warna biru solid yang kuat
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 20),
                       shape:
                           const StadiumBorder(), // Membuat bentuk kapsul/pill
                       elevation: 5, // Sedikit bayangan agar terangkat
                     ),
                     onPressed: () {
                       _setWelcomeScreenSeen();
-                      Navigator.pushReplacementNamed(context, '/register');
+                      Navigator.pushReplacementNamed(context, '/login');
                     },
                     child: const Text(
-                      'Gabung Sekarang',
+                      'KLIK UNTUK MASUK',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
