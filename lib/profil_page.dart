@@ -19,6 +19,8 @@ class _ProfilPageState extends State<ProfilPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nomorHpController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController(); // New
+  final TextEditingController _passwordConfirmationController = TextEditingController(); // New
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -33,6 +35,8 @@ class _ProfilPageState extends State<ProfilPage> {
     _nameController.dispose();
     _emailController.dispose();
     _nomorHpController.dispose();
+    _passwordController.dispose(); // Dispose new controllers
+    _passwordConfirmationController.dispose(); // Dispose new controllers
     super.dispose();
   }
 
@@ -51,6 +55,7 @@ class _ProfilPageState extends State<ProfilPage> {
         _nameController.text = _userData?['nama'] ?? '';
         _emailController.text = _userData?['email'] ?? '';
         _nomorHpController.text = _userData?['nomor_hp'] ?? '';
+        // Do not pre-fill password fields for security reasons
       } else {
         _showSnackbar(
           'Gagal memuat data profil. Silakan coba lagi.',
@@ -71,6 +76,18 @@ class _ProfilPageState extends State<ProfilPage> {
       return;
     }
 
+    // Password validation
+    if (_passwordController.text.isNotEmpty) {
+      if (_passwordController.text.length < 6) {
+        _showSnackbar('Password minimal 6 karakter.', isError: true);
+        return;
+      }
+      if (_passwordController.text != _passwordConfirmationController.text) {
+        _showSnackbar('Konfirmasi password tidak cocok.', isError: true);
+        return;
+      }
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -80,11 +97,21 @@ class _ProfilPageState extends State<ProfilPage> {
       'nomor_hp': _nomorHpController.text,
     };
 
+    // Add password to updatedData if provided
+    if (_passwordController.text.isNotEmpty) {
+      updatedData['password'] = _passwordController.text;
+      updatedData['password_confirmation'] = _passwordConfirmationController.text;
+    }
+
     final success = await _apiService.updateUserProfile(updatedData);
 
     if (mounted) {
       if (success != null) {
         _showSnackbar('Profil berhasil diperbarui!');
+        // Clear password fields after successful update
+        _passwordController.clear();
+        _passwordConfirmationController.clear();
+        // Optionally, pop the context to refresh the previous screen if needed
         Navigator.pop(context, true);
       } else {
         _showSnackbar(
@@ -259,6 +286,20 @@ class _ProfilPageState extends State<ProfilPage> {
                                     icon: FontAwesomeIcons.phone,
                                     keyboardType: TextInputType.phone,
                                   ),
+                                  const SizedBox(height: 20), // New
+                                  _buildTextField( // New Password field
+                                    controller: _passwordController,
+                                    label: 'Password Baru (opsional)',
+                                    icon: FontAwesomeIcons.lock,
+                                    obscureText: true,
+                                  ),
+                                  const SizedBox(height: 20), // New
+                                  _buildTextField( // New Password Confirmation field
+                                    controller: _passwordConfirmationController,
+                                    label: 'Konfirmasi Password Baru',
+                                    icon: FontAwesomeIcons.lockOpen,
+                                    obscureText: true,
+                                  ),
                                 ],
                               ),
                             ),
@@ -322,11 +363,13 @@ class _ProfilPageState extends State<ProfilPage> {
     required IconData icon,
     bool readOnly = false,
     TextInputType? keyboardType,
+    bool obscureText = false, // New parameter for password fields
   }) {
     return TextField(
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
+      obscureText: obscureText, // Apply obscureText
       style: GoogleFonts.poppins(fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
