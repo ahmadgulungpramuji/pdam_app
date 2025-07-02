@@ -1,10 +1,8 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:pdam_app/detail_temuan_page.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
-// Import halaman lain yang akan dibuat
 import 'package:pdam_app/buat_laporan_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
@@ -12,18 +10,29 @@ import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/home_petugas_page.dart';
 import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/profil_page.dart';
-import 'package:pdam_app/tracking_page.dart'; // Jika ada halaman tracking anonim
-import 'package:pdam_app/temuan_kebocoran_page.dart'; // Sudah ada dari login
-// import 'package:pdam_app/register_page.dart'; // Jika ada halaman register
+import 'package:pdam_app/tracking_page.dart';
+import 'package:pdam_app/temuan_kebocoran_page.dart';
+import 'package:pdam_app/register_page.dart';
+import 'package:pdam_app/pages/welcome_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // <-- Pastikan baris ini ada
-  await initializeDateFormatting('id_ID', null); // <-- Tambahkan baris ini
-  runApp(const MyApp());
+  // Logic untuk menentukan rute awal
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
+
+  final prefs = await SharedPreferences.getInstance();
+  // Cek jika key 'hasSeenWelcomeScreen' ada dan bernilai true. Defaultnya false.
+  final bool hasSeenWelcomeScreen =
+      prefs.getBool('hasSeenWelcomeScreen') ?? false;
+
+  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool hasSeenWelcomeScreen;
+
+  const MyApp({super.key, required this.hasSeenWelcomeScreen});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +41,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        useMaterial3: true, // Opsional, untuk tampilan Material 3
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlueAccent),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -56,13 +65,17 @@ class MyApp extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
         ),
       ),
-      initialRoute: '/', // Atau '/login' jika ingin langsung ke login
+      // Atur rute awal secara dinamis
+      // Jika sudah pernah lihat welcome screen, langsung ke login. Jika belum, ke welcome screen.
+      initialRoute: '/welcome',
       routes: {
-        '/': (context) => const LoginPage(), // Atau SplashScreen jika ada
+        // Rute untuk halaman-halaman yang sudah ada
+        '/': (context) => const LoginPage(), // Fallback ke login
         '/login': (context) => const LoginPage(),
-        // '/register': (context) => const RegisterPage(), // Jika ada
-
-        // MODIFIED ROUTE FOR /home_petugas
+        '/welcome': (context) => const WelcomePage(), // <-- RUTE HALAMAN BARU
+        '/register':
+            (context) => const RegisterPage(), // <-- RUTE REGISTER DIAKTIFKAN
+        // MODIFIED ROUTE FOR /home_petugas (sudah ada dari kode Anda)
         '/home_petugas': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           int petugasId;
@@ -71,27 +84,8 @@ class MyApp extends StatelessWidget {
               arguments.containsKey('idPetugasLoggedIn')) {
             petugasId = arguments['idPetugasLoggedIn'] as int;
           } else if (arguments is int) {
-            // Fallback if only an int is passed directly, though Map is preferred for clarity
             petugasId = arguments;
           } else {
-            // Fallback or error handling if argument is not passed or incorrect
-            // For now, let's throw an error or navigate to login.
-            // It's better to ensure the argument is always passed from LoginPage.
-            // If you want a default for testing, you can use a default ID,
-            // but this is not recommended for production.
-            // Example: petugasId = 0; // Default or placeholder
-            print(
-              'Error: idPetugasLoggedIn not provided for /home_petugas route. Navigating to login.',
-            );
-            // Optionally, navigate back or to an error page or login
-            // WidgetsBinding.instance.addPostFrameCallback((_) {
-            //   Navigator.of(context).pushReplacementNamed('/login');
-            // });
-            // return const Scaffold(body: Center(child: Text("Error: Missing Petugas ID")));
-            // For simplicity in this example, we'll assume login page will always pass it.
-            // If it can be null, HomePetugasPage needs to handle null idPetugasLoggedIn
-            // or you need a different flow.
-            // For now, throwing an error to make it explicit.
             throw FlutterError(
               'HomePetugasPage requires an idPetugasLoggedIn argument.',
             );
@@ -104,10 +98,6 @@ class MyApp extends StatelessWidget {
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
-        // import 'package:pdam_app/detail_temuan_page.dart'; // Halaman detail yang akan kita buat
-        // import 'package:pdam_app/models/temuan_kebocoran_model.dart'; // Impor modelnya
-
-        // ... di dalam routes:
         '/detail_temuan_page': (context) {
           final temuan =
               ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
@@ -122,14 +112,10 @@ class MyApp extends StatelessWidget {
           } else if (arguments is String?) {
             kodeTracking = arguments;
           }
-          // If kodeTracking is still null, TrackingPage should handle it (e.g., show a form to enter code)
           return TrackingPage(kodeTracking: kodeTracking);
         },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
-
-        // Tambahkan rute lain jika ada
       },
-      // Optional: Add onUnknownRoute for better error handling of undefined routes
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder:

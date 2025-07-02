@@ -1,29 +1,35 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pdam_app/main.dart';
+import 'package:pdam_app/main.dart'; // Ganti 'pdam_app' jika nama package Anda berbeda
+import 'package:pdam_app/login_page.dart';
+import 'package:pdam_app/pages/welcome_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(MyApp());
+  testWidgets('Displays WelcomePage when app is opened for the first time', (
+    WidgetTester tester,
+  ) async {
+    // Bangun aplikasi dengan hasSeenWelcomeScreen diatur ke false.
+    await tester.pumpWidget(const MyApp(hasSeenWelcomeScreen: false));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verifikasi bahwa WelcomePage yang tampil.
+    expect(find.byType(WelcomePage), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verifikasi bahwa LoginPage TIDAK tampil.
+    expect(find.byType(LoginPage), findsNothing);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Anda juga bisa memverifikasi berdasarkan teks spesifik.
+    expect(find.text('Selamat Datang di Aplikasi PDAM'), findsOneWidget);
+  });
+
+  testWidgets('Displays LoginPage when app has been opened before', (
+    WidgetTester tester,
+  ) async {
+    // Bangun aplikasi dengan hasSeenWelcomeScreen diatur ke true.
+    await tester.pumpWidget(const MyApp(hasSeenWelcomeScreen: true));
+
+    // Verifikasi bahwa LoginPage yang tampil.
+    expect(find.byType(LoginPage), findsOneWidget);
+
+    // Verifikasi bahwa WelcomePage TIDAK tampil.
+    expect(find.byType(WelcomePage), findsNothing);
   });
 }
