@@ -367,10 +367,8 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> updateUserProfile(
-    Map<String, dynamic> updatedData, { // Tambahkan parameter opsional
-    String? password,
-    String? passwordConfirmation,
-  }) async {
+    Map<String, dynamic> updatedData,
+  ) async {
     print('ApiService DEBUG: Attempting to update user profile.');
     final token = await getToken();
     if (token == null) {
@@ -378,14 +376,6 @@ class ApiService {
         'ApiService DEBUG: updateUserProfile - No token found, returning null.',
       );
       return null;
-    }
-
-    // Gabungkan updatedData dengan password jika ada
-    if (password != null && password.isNotEmpty) {
-      updatedData['password'] = password;
-      if (passwordConfirmation != null) {
-        updatedData['password_confirmation'] = passwordConfirmation;
-      }
     }
 
     try {
@@ -436,32 +426,16 @@ class ApiService {
         print(
           'ApiService DEBUG: updateUserProfile - Received 422 Validation Error. Body: ${response.body}',
         );
-        // Tangani error validasi dari backend
-        try {
-          final errorData = jsonDecode(response.body);
-          String errorMessage = 'Validasi gagal:';
-          if (errorData['errors'] is Map) {
-            (errorData['errors'] as Map).forEach((key, value) {
-              if (value is List && value.isNotEmpty) {
-                errorMessage += '\n- ${value[0]}';
-              }
-            });
-          } else {
-            errorMessage = errorData['message'] ?? errorMessage;
-          }
-          throw Exception(errorMessage); // Lempar Exception dengan pesan validasi
-        } catch (e) {
-          throw Exception('Gagal memperbarui profil: ${response.body}');
-        }
+        return null;
       } else {
         print(
           'ApiService DEBUG: updateUserProfile - Failed to update profile with status code: ${response.statusCode}. Body: ${response.body}',
         );
-        throw Exception('Gagal memperbarui profil. Status: ${response.statusCode}.');
+        return null;
       }
     } catch (e) {
       print('ApiService DEBUG: Error updating profile: $e');
-      rethrow; // Lempar ulang error agar bisa ditangkap di UI
+      return null;
     }
   }
 
