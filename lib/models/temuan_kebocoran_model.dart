@@ -1,5 +1,5 @@
 // models/temuan_kebocoran_model.dart
-import 'petugas_simple_model.dart'; // Impor model PetugasSimple
+import 'petugas_simple_model.dart';
 
 class TemuanKebocoran {
   final int id;
@@ -14,10 +14,15 @@ class TemuanKebocoran {
   final String? fotoSebelum;
   final String? fotoSesudah;
   final String? trackingCode;
-  final int? rating; // BARU: Rating yang diberikan
-  final String? komentarRating; // BARU: Komentar rating
-  final List<PetugasSimple>?
-  petugasDitugaskan; // BARU: Daftar petugas yang menangani
+  // DIUBAH: Mengganti satu rating menjadi tiga
+  final int? ratingKecepatan;
+  final int? ratingPelayanan;
+  final int? ratingHasil;
+  final String? komentarRating;
+  final List<PetugasSimple>? petugasDitugaskan;
+
+  // BARU: Menambahkan properti cabang untuk data yang lebih lengkap
+  final dynamic cabang;
 
   TemuanKebocoran({
     required this.id,
@@ -32,9 +37,13 @@ class TemuanKebocoran {
     this.fotoSebelum,
     this.fotoSesudah,
     this.trackingCode,
-    this.rating, // BARU
-    this.komentarRating, // BARU
-    this.petugasDitugaskan, // BARU
+    // DIUBAH: Tambahkan field baru di constructor
+    this.ratingKecepatan,
+    this.ratingPelayanan,
+    this.ratingHasil,
+    this.komentarRating,
+    this.petugasDitugaskan,
+    this.cabang, // BARU
   });
 
   factory TemuanKebocoran.fromJson(Map<String, dynamic> json) {
@@ -51,8 +60,11 @@ class TemuanKebocoran {
       fotoSebelum: json['foto_sebelum'] as String?,
       fotoSesudah: json['foto_sesudah'] as String?,
       trackingCode: json['tracking_code'] as String?,
-      rating: _tryParseInt(json['rating']), // BARU
-      komentarRating: json['komentar_rating'] as String?, // BARU
+      // DIUBAH: Ambil data rating yang baru dari JSON
+      ratingKecepatan: _tryParseInt(json['rating_kecepatan']),
+      ratingPelayanan: _tryParseInt(json['rating_pelayanan']),
+      ratingHasil: _tryParseInt(json['rating_hasil']),
+      komentarRating: json['komentar_rating'] as String?,
       petugasDitugaskan:
           json['petugas_ditugaskan'] != null &&
                   json['petugas_ditugaskan'] is List
@@ -61,21 +73,36 @@ class TemuanKebocoran {
                   (x) => PetugasSimple.fromJson(x),
                 ),
               )
-              : null, // BARU
+              : null,
+      // BARU: Ambil data cabang jika ada dari JSON
+      cabang: json['cabang'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    // ... implementasi jika diperlukan ...
     return {
-      // ... field lain ...
-      'rating': rating,
+      'id': id,
+      'nama_pelapor': namaPelapor,
+      'nomor_hp_pelapor': nomorHpPelapor,
+      'id_cabang': idCabang,
+      'lokasi_maps': lokasiMaps,
+      'deskripsi_lokasi': deskripsiLokasi,
+      'foto_bukti': fotoBukti,
+      'status': status,
+      'tanggal_temuan': tanggalTemuan.toIso8601String(),
+      'foto_sebelum': fotoSebelum,
+      'foto_sesudah': fotoSesudah,
+      'tracking_code': trackingCode,
+      'rating_kecepatan': ratingKecepatan,
+      'rating_pelayanan': ratingPelayanan,
+      'rating_hasil': ratingHasil,
       'komentar_rating': komentarRating,
-      // ...
+      'petugas_ditugaskan': petugasDitugaskan?.map((e) => e.toJson()).toList(),
+      'cabang': cabang,
     };
   }
 
-  // Helper functions (bisa diletakkan di file utilitas terpisah)
+  // Helper functions
   static int _parseToInt(dynamic value, String fieldName) {
     if (value == null) throw FormatException("Field '$fieldName' is null.");
     if (value is int) return value;
@@ -90,7 +117,6 @@ class TemuanKebocoran {
     return null;
   }
 
-  // Getter untuk tampilan status (opsional, jika ingin konsisten seperti Pengaduan)
   String get friendlyStatus {
     switch (status) {
       case 'pending':
@@ -111,6 +137,4 @@ class TemuanKebocoran {
         return status.replaceAll('_', ' ').toUpperCase();
     }
   }
-
-  get cabang => null;
 }

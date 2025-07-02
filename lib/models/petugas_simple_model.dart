@@ -2,7 +2,6 @@
 class PetugasSimple {
   final int id;
   final String nama;
-  // Tambahkan properti lain jika diperlukan, misal foto profil petugas
 
   PetugasSimple({required this.id, required this.nama});
 
@@ -13,7 +12,13 @@ class PetugasSimple {
     );
   }
 
-  // Helper function (bisa diletakkan di file utilitas global jika sering dipakai)
+  /// **BARU: Menambahkan metode toJson**
+  /// Metode ini mengubah instance PetugasSimple menjadi Map.
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'nama': nama};
+  }
+
+  // Helper function
   static int _parseToInt(dynamic value, String fieldName) {
     if (value == null) {
       throw FormatException("Field '$fieldName' is null, but expected an int.");

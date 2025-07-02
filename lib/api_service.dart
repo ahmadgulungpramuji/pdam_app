@@ -962,31 +962,40 @@ class ApiService {
     required String tipeLaporan, // 'pengaduan' atau 'temuan_kebocoran'
     int? idLaporan, // Wajib jika tipeLaporan == 'pengaduan'
     String? trackingCode, // Wajib jika tipeLaporan == 'temuan_kebocoran'
-    required int rating,
+    // DIUBAH: Menerima tiga parameter rating
+    required int ratingKecepatan,
+    required int ratingPelayanan,
+    required int ratingHasil,
     String? komentar,
     String? token, // Akan dikirim jika tipeLaporan == 'pengaduan'
   }) async {
     final String endpointPath;
-    Map<String, dynamic> body = {'rating': rating};
+    // DIUBAH: Body sekarang berisi tiga field rating
+    Map<String, dynamic> body = {
+      'rating_kecepatan': ratingKecepatan,
+      'rating_pelayanan': ratingPelayanan,
+      'rating_hasil': ratingHasil,
+    };
 
     if (tipeLaporan == 'pengaduan') {
       if (idLaporan == null) {
         throw ArgumentError("id_laporan wajib untuk tipe pengaduan.");
       }
-      endpointPath = '/rating/pengaduan'; // Endpoint baru untuk pengaduan
+      endpointPath = '/rating/pengaduan';
       body['id_laporan'] = idLaporan;
     } else if (tipeLaporan == 'temuan_kebocoran') {
       if (trackingCode == null) {
         throw ArgumentError("tracking_code wajib untuk tipe temuan_kebocoran.");
       }
-      endpointPath = '/rating/temuan-kebocoran'; // Endpoint baru untuk temuan
+      endpointPath = '/rating/temuan-kebocoran';
       body['tracking_code'] = trackingCode;
     } else {
       throw ArgumentError("tipe_laporan tidak valid.");
     }
 
     if (komentar != null && komentar.isNotEmpty) {
-      body['komentar'] = komentar;
+      // Backend Anda sepertinya menerima 'komentar' bukan 'komentar_rating' saat submit
+      body['komentar_rating'] = komentar;
     }
 
     final url = Uri.parse('$baseUrl$endpointPath');
@@ -994,9 +1003,7 @@ class ApiService {
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      if (token != null)
-        'Authorization':
-            'Bearer $token', // Hanya kirim token jika ada (untuk pengaduan)
+      if (token != null) 'Authorization': 'Bearer $token',
     };
 
     print('ApiService DEBUG: submitRating - URL: $url');
@@ -1009,7 +1016,6 @@ class ApiService {
       body: jsonEncode(body),
     );
 
-    // ... sisa logika respons sama seperti sebelumnya ...
     print(
       'ApiService DEBUG: submitRating - Status Code: ${response.statusCode}',
     );
@@ -1029,7 +1035,6 @@ class ApiService {
         );
       }
     } else if (response.statusCode == 401) {
-      // Ini seharusnya tidak terjadi untuk temuan_kebocoran jika token tidak dikirim
       throw Exception(responseBody['message'] ?? 'Autentikasi gagal (401).');
     } else if (response.statusCode == 403) {
       throw Exception(responseBody['message'] ?? 'Akses ditolak (403).');

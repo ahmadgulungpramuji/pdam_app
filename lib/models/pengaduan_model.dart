@@ -2,7 +2,6 @@
 import 'petugas_simple_model.dart';
 
 class Pengaduan {
-  // ... (properti lainnya seperti yang sudah Anda definisikan atau saya sarankan sebelumnya) ...
   final int id;
   final int idPdam;
   final int idPelanggan;
@@ -20,7 +19,10 @@ class Pengaduan {
   final String? fotoRumah;
   final String? fotoSebelum;
   final String? fotoSesudah;
-  final int? rating;
+  // DIUBAH: Mengganti satu rating menjadi tiga
+  final int? ratingKecepatan;
+  final int? ratingPelayanan;
+  final int? ratingHasil;
   final String? komentarRating;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -44,7 +46,10 @@ class Pengaduan {
     this.fotoRumah,
     this.fotoSebelum,
     this.fotoSesudah,
-    this.rating,
+    // DIUBAH: Tambahkan field baru di constructor
+    this.ratingKecepatan,
+    this.ratingPelayanan,
+    this.ratingHasil,
     this.komentarRating,
     required this.createdAt,
     required this.updatedAt,
@@ -52,7 +57,6 @@ class Pengaduan {
   });
 
   factory Pengaduan.fromJson(Map<String, dynamic> json) {
-    // ...(implementasi fromJson seperti yang sudah ada atau saya sarankan)...
     return Pengaduan(
       id: _parseToInt(json['id'], 'id'),
       idPdam: _parseToInt(json['id_pdam'], 'id_pdam'),
@@ -71,7 +75,10 @@ class Pengaduan {
       fotoRumah: json['foto_rumah'] as String?,
       fotoSebelum: json['foto_sebelum'] as String?,
       fotoSesudah: json['foto_sesudah'] as String?,
-      rating: _tryParseInt(json['rating']),
+      // DIUBAH: Ambil data rating yang baru dari JSON
+      ratingKecepatan: _tryParseInt(json['rating_kecepatan']),
+      ratingPelayanan: _tryParseInt(json['rating_pelayanan']),
+      ratingHasil: _tryParseInt(json['rating_hasil']),
       komentarRating: json['komentar_rating'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -84,6 +91,42 @@ class Pengaduan {
                 ),
               )
               : null,
+    );
+  }
+
+  // BARU: Method copyWith untuk mempermudah update state
+  Pengaduan copyWith({
+    int? ratingKecepatan,
+    int? ratingPelayanan,
+    int? ratingHasil,
+    String? komentarRating,
+    DateTime? updatedAt,
+  }) {
+    return Pengaduan(
+      id: id,
+      idPdam: idPdam,
+      idPelanggan: idPelanggan,
+      idCabang: idCabang,
+      latitude: latitude,
+      longitude: longitude,
+      kategori: kategori,
+      lokasiMaps: lokasiMaps,
+      deskripsiLokasi: deskripsiLokasi,
+      deskripsi: deskripsi,
+      tanggalPengaduan: tanggalPengaduan,
+      status: status,
+      fotoBukti: fotoBukti,
+      idPetugasPelapor: idPetugasPelapor,
+      fotoRumah: fotoRumah,
+      fotoSebelum: fotoSebelum,
+      fotoSesudah: fotoSesudah,
+      ratingKecepatan: ratingKecepatan ?? this.ratingKecepatan,
+      ratingPelayanan: ratingPelayanan ?? this.ratingPelayanan,
+      ratingHasil: ratingHasil ?? this.ratingHasil,
+      komentarRating: komentarRating ?? this.komentarRating,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      petugasDitugaskan: petugasDitugaskan,
     );
   }
 
@@ -110,7 +153,6 @@ class Pengaduan {
     return null;
   }
 
-  // Getter yang diperbaiki
   String get friendlyKategori {
     switch (kategori) {
       case 'air_tidak_mengalir':
@@ -121,14 +163,12 @@ class Pengaduan {
         return 'Water Meter Rusak';
       case 'angka_meter_tidak_sesuai':
         return 'Angka Meter Tidak Sesuai';
-      case 'water_meter_tidak_sesuai': // Anda punya dua case mirip, pastikan ini disengaja
+      case 'water_meter_tidak_sesuai':
         return 'Water Meter Tidak Sesuai';
       case 'tagihan_membengkak':
         return 'Tagihan Membengkak';
-      default: // Tambahkan default case
-        return kategori
-            .replaceAll('_', ' ')
-            .toUpperCase(); // Atau nilai default lain
+      default:
+        return kategori.replaceAll('_', ' ').toUpperCase();
     }
   }
 
@@ -148,10 +188,8 @@ class Pengaduan {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
-      default: // Tambahkan default case
-        return status
-            .replaceAll('_', ' ')
-            .toUpperCase(); // Atau nilai default lain
+      default:
+        return status.replaceAll('_', ' ').toUpperCase();
     }
   }
 }
