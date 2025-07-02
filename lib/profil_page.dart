@@ -113,106 +113,192 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final width = MediaQuery.of(context).size.width;
+    final isLargeScreen = width > 600;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profil Saya', style: GoogleFonts.poppins()),
-        backgroundColor: Colors.blueAccent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blueAccent, Colors.tealAccent],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Text(
+          'Profil Saya',
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
+        elevation: 0, // Remove shadow
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 500),
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _userData == null && !_isSaving
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _userData == null && !_isSaving
                 ? FadeInDown(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          FontAwesomeIcons.circleExclamation,
-                          color: Colors.red,
-                          size: 60,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Tidak dapat memuat data profil.',
-                          style: GoogleFonts.poppins(),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: _fetchUserData,
-                          label: const Text('Coba Lagi'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            FontAwesomeIcons.circleExclamation,
+                            color: Colors.red,
+                            size: 60,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: FadeInUp(
-                    child: Column(
-                      children: [
-                        _buildTextField(
-                          controller: _nameController,
-                          label: 'Nama Lengkap / Username',
-                          icon: FontAwesomeIcons.user,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _emailController,
-                          label: 'Email',
-                          icon: FontAwesomeIcons.envelope,
-                          readOnly: true,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _nomorHpController,
-                          label: 'Nomor Telepon',
-                          icon: FontAwesomeIcons.phone,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 30),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          width: width,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: const LinearGradient(
-                              colors: [Colors.blueAccent, Colors.lightBlue],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.blue.withOpacity(0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
+                          const SizedBox(height: 12),
+                          Text(
+                            'Tidak dapat memuat data profil.',
+                            style: GoogleFonts.poppins(),
                           ),
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _saveChanges,
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _fetchUserData,
+                            label: const Text('Coba Lagi'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white, // Text color
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child:
-                                _isSaving
-                                    ? const CircularProgressIndicator(
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: isLargeScreen ? width * 0.15 : 20,
+                        vertical: 20),
+                    child: FadeInUp(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // User Avatar Section
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 2,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                CircleAvatar(
+                                  radius: isLargeScreen ? 60 : 48,
+                                  backgroundColor: Colors.blue.shade100,
+                                  child: Icon(
+                                    FontAwesomeIcons.userCircle,
+                                    size: isLargeScreen ? 70 : 55,
+                                    color: Colors.blueAccent,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _nameController.text.isNotEmpty
+                                      ? _nameController.text
+                                      : 'Pengguna',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: isLargeScreen ? 24 : 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  _emailController.text,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: isLargeScreen ? 16 : 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // User Information Card
+                          Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  _buildTextField(
+                                    controller: _nameController,
+                                    label: 'Nama Lengkap / Username',
+                                    icon: FontAwesomeIcons.user,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildTextField(
+                                    controller: _emailController,
+                                    label: 'Email',
+                                    icon: FontAwesomeIcons.envelope,
+                                    readOnly: true,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildTextField(
+                                    controller: _nomorHpController,
+                                    label: 'Nomor Telepon',
+                                    icon: FontAwesomeIcons.phone,
+                                    keyboardType: TextInputType.phone,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          // Save Changes Button
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: width,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              gradient: const LinearGradient(
+                                colors: [Colors.blueAccent, Colors.lightBlue],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _isSaving ? null : _saveChanges,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isSaving
+                                  ? const CircularProgressIndicator(
                                       color: Colors.white,
                                     )
-                                    : Text(
+                                  : Text(
                                       'Simpan Perubahan',
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
@@ -220,12 +306,12 @@ class _ProfilPageState extends State<ProfilPage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
       ),
     );
   }
@@ -241,14 +327,27 @@ class _ProfilPageState extends State<ProfilPage> {
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
-      style: GoogleFonts.poppins(),
+      style: GoogleFonts.poppins(fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.poppins(),
+        labelStyle: GoogleFonts.poppins(color: Colors.grey.shade600),
         prefixIcon: Icon(icon, color: Colors.blueAccent),
         filled: true,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none, // Remove default border
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       ),
     );
   }
