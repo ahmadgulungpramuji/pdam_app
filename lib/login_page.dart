@@ -26,10 +26,25 @@ class _LoginPageState extends State<LoginPage> {
   bool _passwordVisible = false;
 
   @override
+  void initState() {
+    super.initState();
+    // =======================================================================
+    // == PERBAIKAN: Tambahkan listener untuk memperbarui UI saat teks berubah ==
+    // =======================================================================
+    _trackCodeController.addListener(() {
+      if (mounted) {
+        setState(() {
+          // Cukup panggil setState untuk memberitahu UI agar rebuild
+        });
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _trackCodeController.dispose();
+    _trackCodeController.dispose(); // Listener akan otomatis dihapus oleh dispose
     super.dispose();
   }
 
@@ -213,16 +228,13 @@ class _LoginPageState extends State<LoginPage> {
                       : Ionicons.eye_off_outline,
                   color: Colors.blue.shade700,
                 ),
-                onPressed:
-                    () => setState(() => _passwordVisible = !_passwordVisible),
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
             obscureText: !_passwordVisible,
-            validator:
-                (val) =>
-                    val == null || val.isEmpty
-                        ? 'Password tidak boleh kosong'
-                        : null,
+            validator: (val) =>
+                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
           ),
           const SizedBox(height: 28),
           SizedBox(
@@ -233,28 +245,27 @@ class _LoginPageState extends State<LoginPage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 5,
               ),
               onPressed: _isLoading ? null : _login,
-              child:
-                  _isLoading
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                      : const Text(
-                        'LOGIN',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
                       ),
+                    )
+                  : const Text(
+                      'LOGIN',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -270,10 +281,9 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed:
-                    _isLoading
-                        ? null
-                        : () => Navigator.push(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const RegisterPage(),
@@ -326,32 +336,31 @@ class _LoginPageState extends State<LoginPage> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed:
-                (_trackCodeController.text.trim().isEmpty ||
-                        _isTrackingReport ||
-                        _isLoading)
-                    ? null
-                    : _trackReportFromLogin,
-            child:
-                _isTrackingReport
-                    ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                    : const Text(
-                      "LACAK LAPORAN",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+            // Logika onPressed sudah benar, tidak perlu diubah
+            onPressed: (_trackCodeController.text.trim().isEmpty ||
+                    _isTrackingReport ||
+                    _isLoading)
+                ? null
+                : _trackReportFromLogin,
+            child: _isTrackingReport
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
                     ),
+                  )
+                : const Text(
+                    "LACAK LAPORAN",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -360,10 +369,9 @@ class _LoginPageState extends State<LoginPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text("BUAT LAPORAN BARU"),
-            onPressed:
-                _isLoading || _isTrackingReport
-                    ? null
-                    : () => Navigator.push(
+            onPressed: _isLoading || _isTrackingReport
+                ? null
+                : () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TemuanKebocoranPage(),
@@ -374,7 +382,7 @@ class _LoginPageState extends State<LoginPage> {
               side: const BorderSide(color: Color(0xFF005A9C), width: 2),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
@@ -395,15 +403,15 @@ class _LoginPageState extends State<LoginPage> {
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(vertical: 18),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12), // <-- PERUBAHAN
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
       ),
     );
