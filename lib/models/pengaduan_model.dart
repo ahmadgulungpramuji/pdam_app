@@ -1,4 +1,5 @@
-// models/pengaduan_model.dart
+// lib/models/pengaduan_model.dart
+// KODE ANDA SUDAH BENAR, TIDAK PERLU DIUBAH
 import 'petugas_simple_model.dart';
 
 class Pengaduan {
@@ -18,8 +19,7 @@ class Pengaduan {
   final int? idPetugasPelapor;
   final String? fotoRumah;
   final String? fotoSebelum;
-  final String? fotoSesudah;
-  // DIUBAH: Mengganti satu rating menjadi tiga
+  final String? fotoSesudah; // INI AKAN KITA GUNAKAN SEBAGAI FOTO HASIL
   final int? ratingKecepatan;
   final int? ratingPelayanan;
   final int? ratingHasil;
@@ -46,7 +46,6 @@ class Pengaduan {
     this.fotoRumah,
     this.fotoSebelum,
     this.fotoSesudah,
-    // DIUBAH: Tambahkan field baru di constructor
     this.ratingKecepatan,
     this.ratingPelayanan,
     this.ratingHasil,
@@ -75,7 +74,6 @@ class Pengaduan {
       fotoRumah: json['foto_rumah'] as String?,
       fotoSebelum: json['foto_sebelum'] as String?,
       fotoSesudah: json['foto_sesudah'] as String?,
-      // DIUBAH: Ambil data rating yang baru dari JSON
       ratingKecepatan: _tryParseInt(json['rating_kecepatan']),
       ratingPelayanan: _tryParseInt(json['rating_pelayanan']),
       ratingHasil: _tryParseInt(json['rating_hasil']),
@@ -86,15 +84,14 @@ class Pengaduan {
           json['petugas_ditugaskan'] != null &&
                   json['petugas_ditugaskan'] is List
               ? List<PetugasSimple>.from(
-                (json['petugas_ditugaskan'] as List<dynamic>).map(
-                  (x) => PetugasSimple.fromJson(x),
-                ),
-              )
+                  (json['petugas_ditugaskan'] as List<dynamic>).map(
+                    (x) => PetugasSimple.fromJson(x),
+                  ),
+                )
               : null,
     );
   }
 
-  // BARU: Method copyWith untuk mempermudah update state
   Pengaduan copyWith({
     int? ratingKecepatan,
     int? ratingPelayanan,
