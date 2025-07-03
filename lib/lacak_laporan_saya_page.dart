@@ -4,8 +4,6 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import GoogleFonts
-import 'package:animate_do/animate_do.dart'; // Import Animate_Do
 
 class LacakLaporanSayaPage extends StatefulWidget {
   const LacakLaporanSayaPage({super.key});
@@ -111,9 +109,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
         token: token,
       );
 
+      // --- PERBAIKAN UTAMA ADA DI SINI ---
       if (mounted && responseData['success'] == true) {
+        // Cek apakah server mengembalikan objek 'data' yang sudah diperbarui
         if (responseData['data'] != null &&
             responseData['data'] is Map<String, dynamic>) {
+          // Buat objek Pengaduan baru dari data yang dikembalikan server
           final updatedLaporan = Pengaduan.fromJson(responseData['data']);
 
           final index = _laporanList.indexWhere(
@@ -121,10 +122,13 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           );
           if (index != -1) {
             setState(() {
+              // Ganti item lama di list dengan item baru yang datanya paling akurat dari server
               _laporanList[index] = updatedLaporan;
             });
           }
         } else {
+          // Fallback jika 'data' tidak ada (seharusnya tidak terjadi)
+          // Tetap update UI secara lokal agar responsif
           final index = _laporanList.indexWhere(
             (item) => item.id == laporan.id,
           );
@@ -208,187 +212,125 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                 allRatingsGiven && ratingsChanged && !_isDialogRatingLoading;
 
             return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent, // For a cleaner look on newer Flutter versions
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Text(
-                'Detail Laporan #${laporan.id}',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
+              title: Text('Laporan #${laporan.id}'),
               content: SingleChildScrollView(
-                child: FadeInUp( // <-- Animasi untuk seluruh konten dialog
-                  duration: const Duration(milliseconds: 300),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDetailRowDialog(
-                        'Kategori:',
-                        laporan.friendlyKategori,
-                      ),
-                      _buildDetailRowDialog('Status:', laporan.friendlyStatus,
-                          valueColor: _getStatusColor(laporan.status)),
-                      _buildDetailRowDialog(
-                        'Tanggal Lapor:',
-                        laporan.tanggalPengaduan,
-                      ),
-                      _buildDetailRowDialog(
-                        'Deskripsi:',
-                        laporan.deskripsi,
-                        isMultiline: true,
-                      ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRowDialog(
+                      'Kategori:',
+                      laporan.friendlyKategori,
+                    ),
+                    _buildDetailRowDialog('Status:', laporan.friendlyStatus),
+                    _buildDetailRowDialog(
+                      'Tanggal Lapor:',
+                      laporan.tanggalPengaduan,
+                    ),
+                    _buildDetailRowDialog(
+                      'Deskripsi:',
+                      laporan.deskripsi,
+                      isMultiline: true,
+                    ),
 
-                      if (laporan.status.toLowerCase() == 'selesai') ...[
-                        const Divider(height: 24, thickness: 1, color: Colors.grey),
-                        FadeIn( // <-- Animasi untuk judul "Beri Penilaian"
-                          duration: const Duration(milliseconds: 400),
+                    if (laporan.status.toLowerCase() == 'selesai') ...[
+                      const Divider(height: 24, thickness: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          laporan.ratingHasil == null
+                              ? 'Beri Penilaian:'
+                              : 'Penilaian Anda:',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      _buildRatingBar(
+                        title: 'Kecepatan Respon',
+                        currentRating: _dialogRatingKecepatan,
+                        onRatingUpdate:
+                            (rating) => setDialogState(
+                              () => _dialogRatingKecepatan = rating,
+                            ),
+                        isLoading: _isDialogRatingLoading,
+                      ),
+                      _buildRatingBar(
+                        title: 'Pelayanan Petugas',
+                        currentRating: _dialogRatingPelayanan,
+                        onRatingUpdate:
+                            (rating) => setDialogState(
+                              () => _dialogRatingPelayanan = rating,
+                            ),
+                        isLoading: _isDialogRatingLoading,
+                      ),
+                      _buildRatingBar(
+                        title: 'Hasil Penanganan',
+                        currentRating: _dialogRatingHasil,
+                        onRatingUpdate:
+                            (rating) => setDialogState(
+                              () => _dialogRatingHasil = rating,
+                            ),
+                        isLoading: _isDialogRatingLoading,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _komentarRatingController,
+                        decoration: InputDecoration(
+                          labelText: 'Komentar (Opsional)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                        ),
+                        maxLines: 3,
+                        minLines: 2,
+                        readOnly: _isDialogRatingLoading,
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_isDialogRatingLoading)
+                        const Center(
                           child: Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: Text(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (allRatingsGiven)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: Icon(
                               laporan.ratingHasil == null
-                                  ? 'Beri Penilaian:'
-                                  : 'Penilaian Anda:',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 17,
-                                color: Colors.grey.shade800,
-                              ),
+                                  ? Icons.send_rounded
+                                  : Icons.edit_note_rounded,
                             ),
-                          ),
-                        ),
-                        FadeInUp( // <-- Animasi untuk Rating Kecepatan
-                          duration: const Duration(milliseconds: 500),
-                          child: _buildRatingBar(
-                            title: 'Kecepatan Respon',
-                            currentRating: _dialogRatingKecepatan,
-                            onRatingUpdate:
-                                (rating) => setDialogState(
-                                  () => _dialogRatingKecepatan = rating,
-                                ),
-                            isLoading: _isDialogRatingLoading,
-                          ),
-                        ),
-                        FadeInUp( // <-- Animasi untuk Rating Pelayanan
-                          duration: const Duration(milliseconds: 550),
-                          child: _buildRatingBar(
-                            title: 'Pelayanan Petugas',
-                            currentRating: _dialogRatingPelayanan,
-                            onRatingUpdate:
-                                (rating) => setDialogState(
-                                  () => _dialogRatingPelayanan = rating,
-                                ),
-                            isLoading: _isDialogRatingLoading,
-                          ),
-                        ),
-                        FadeInUp( // <-- Animasi untuk Rating Hasil
-                          duration: const Duration(milliseconds: 600),
-                          child: _buildRatingBar(
-                            title: 'Hasil Penanganan',
-                            currentRating: _dialogRatingHasil,
-                            onRatingUpdate:
-                                (rating) => setDialogState(
-                                  () => _dialogRatingHasil = rating,
-                                ),
-                            isLoading: _isDialogRatingLoading,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        FadeInUp( // <-- Animasi untuk TextField Komentar
-                          duration: const Duration(milliseconds: 650),
-                          child: TextField(
-                            controller: _komentarRatingController,
-                            decoration: InputDecoration(
-                              labelText: 'Komentar (Opsional)',
-                              labelStyle: GoogleFonts.poppins(color: Colors.grey.shade600),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            label: Text(
+                              laporan.ratingHasil == null
+                                  ? 'Kirim Penilaian'
+                                  : 'Update Penilaian',
                             ),
-                            maxLines: 3,
-                            minLines: 2,
-                            readOnly: _isDialogRatingLoading,
-                            onChanged: (_) => setDialogState(() {}),
-                            style: GoogleFonts.poppins(fontSize: 14),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed:
+                                !canSubmit
+                                    ? null
+                                    : () {
+                                      _handleRatingSubmission(
+                                        laporan,
+                                        _dialogRatingKecepatan,
+                                        _dialogRatingPelayanan,
+                                        _dialogRatingHasil,
+                                        _komentarRatingController.text.trim(),
+                                        dialogContext,
+                                        updateDialogLoadingState,
+                                      );
+                                    },
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        if (_isDialogRatingLoading)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        else if (allRatingsGiven)
-                          FadeInUp( // <-- Animasi untuk tombol Submit
-                            duration: const Duration(milliseconds: 700),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                icon: Icon(
-                                  laporan.ratingHasil == null
-                                      ? Icons.send_rounded
-                                      : Icons.edit_note_rounded,
-                                  color: Colors.white,
-                                ),
-                                label: Text(
-                                  laporan.ratingHasil == null
-                                      ? 'Kirim Penilaian'
-                                      : 'Update Penilaian',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).primaryColor,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 5,
-                                  shadowColor: Theme.of(context).primaryColor.withOpacity(0.4),
-                                ),
-                                onPressed:
-                                    !canSubmit
-                                        ? null
-                                        : () {
-                                            _handleRatingSubmission(
-                                              laporan,
-                                              _dialogRatingKecepatan,
-                                              _dialogRatingPelayanan,
-                                              _dialogRatingHasil,
-                                              _komentarRatingController.text.trim(),
-                                              dialogContext,
-                                              updateDialogLoadingState,
-                                            );
-                                          },
-                              ),
-                            ),
-                          ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
               actions: <Widget>[
@@ -397,13 +339,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                       _isDialogRatingLoading
                           ? null
                           : () => Navigator.of(dialogContext).pop(),
-                  child: Text(
-                    'Tutup',
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  child: const Text('Tutup'),
                 ),
               ],
             );
@@ -420,15 +356,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     required bool isLoading,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Center(
             child: RatingBar.builder(
               initialRating: currentRating,
@@ -436,8 +372,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
               direction: Axis.horizontal,
               allowHalfRating: false,
               itemCount: 5,
-              itemSize: 36.0,
-              itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+              itemSize: 34.0,
+              itemPadding: const EdgeInsets.symmetric(horizontal: 3.0),
               itemBuilder:
                   (context, _) =>
                       Icon(Icons.star_rounded, color: Colors.amber.shade600),
@@ -454,7 +390,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     String label,
     String value, {
     bool isMultiline = false,
-    Color? valueColor,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
@@ -465,23 +400,18 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
             width: 100,
             child: Text(
               label,
-              style: GoogleFonts.poppins(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade700,
-                fontSize: 14,
               ),
             ),
           ),
-          const Text(": ", style: TextStyle(fontSize: 14)),
+          const Text(": "),
           Expanded(
             child: Text(
               value,
               maxLines: isMultiline ? 5 : 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: valueColor ?? Colors.black87,
-              ),
             ),
           ),
         ],
@@ -507,84 +437,24 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Riwayat Laporan Saya',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Theme.of(context).primaryColor,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: FadeInUp(
-                    duration: const Duration(milliseconds: 500),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: Colors.red.shade400,
-                          size: 60,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: Colors.red.shade700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => _fetchLaporan(),
-                          icon: const Icon(Icons.refresh),
-                          label: Text('Coba Lagi', style: GoogleFonts.poppins()),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
+      appBar: AppBar(title: const Text('Riwayat Laporan Saya')),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
+              ? Center(child: Text(_errorMessage!))
               : RefreshIndicator(
-                  onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
-                  color: Theme.of(context).primaryColor,
-                  child: _laporanList.isEmpty
-                      ? Center(
-                          child: FadeInUp(
-                            duration: const Duration(milliseconds: 500),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.assignment_rounded,
-                                  color: Colors.grey.shade400,
-                                  size: 80,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  "Belum ada laporan pengaduan.",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
+                onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
+                child:
+                    _laporanList.isEmpty
+                        ? Center(
+                          child: Text(
+                            "Belum ada laporan pengaduan.",
+                            style: TextStyle(color: Colors.grey.shade600),
                           ),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(12),
+                        : ListView.builder(
+                          padding: const EdgeInsets.all(8),
                           itemCount: _laporanList.length,
                           itemBuilder: (context, index) {
                             final laporan = _laporanList[index];
@@ -593,105 +463,63 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                               laporan.status,
                             );
 
-                            return FadeInUp(
-                              duration: Duration(milliseconds: 300 + index * 50),
-                              child: Card(
-                                elevation: 5,
-                                margin: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
+                            return Card(
+                              elevation: 2,
+                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
                                 ),
-                                shadowColor: Colors.grey.withOpacity(0.3),
-                                child: InkWell(
-                                  onTap: () => _showDetailAndRatingDialog(laporan),
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                laporan.friendlyKategori,
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 17,
-                                                  color: Colors.blueAccent.shade700,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            if (isRated)
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.star_rounded,
-                                                    color: Colors.amber.shade700,
-                                                    size: 24,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    (laporan.ratingHasil ?? 0).toStringAsFixed(0),
-                                                    style: GoogleFonts.poppins(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.amber.shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'ID Laporan: ${laporan.id}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Tanggal: ${laporan.tanggalPengaduan}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Align(
-                                          alignment: Alignment.bottomRight,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: statusColor.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(20),
-                                              border: Border.all(color: statusColor, width: 1),
-                                            ),
-                                            child: Text(
-                                              laporan.friendlyStatus,
-                                              style: GoogleFonts.poppins(
-                                                color: statusColor,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                title: Text(
+                                  laporan.friendlyKategori,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'ID: ${laporan.id} | Tanggal: ${laporan.tanggalPengaduan}',
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        laporan.friendlyStatus,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing:
+                                    isRated
+                                        ? Icon(
+                                          Icons.star_rounded,
+                                          color: Colors.amber.shade700,
+                                          size: 28,
+                                        )
+                                        : null,
+                                onTap:
+                                    () => _showDetailAndRatingDialog(laporan),
                               ),
                             );
                           },
                         ),
-                ),
+              ),
     );
   }
 }
