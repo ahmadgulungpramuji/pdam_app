@@ -32,6 +32,9 @@ dependencies:
   # Paket yang dipindahkan ke sini
   intl: ^0.19.0
   flutter_staggered_animations: ^1.1.1
+  smooth_page_indicator: ^1.1.0 # <-- Tambahkan baris ini
+
+
 
 dev_dependencies:
   flutter_test:

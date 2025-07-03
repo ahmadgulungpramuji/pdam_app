@@ -21,6 +21,9 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
 
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
   bool _isLoading = false;
   bool _isTrackingReport = false;
   bool _passwordVisible = false;
@@ -28,23 +31,21 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    // =======================================================================
-    // == PERBAIKAN: Tambahkan listener untuk memperbarui UI saat teks berubah ==
-    // =======================================================================
+    // Listener untuk text field tetap ada jika diperlukan
     _trackCodeController.addListener(() {
       if (mounted) {
-        setState(() {
-          // Cukup panggil setState untuk memberitahu UI agar rebuild
-        });
+        setState(() {});
       }
     });
+    // Listener untuk PageController yang lama sudah dihapus karena diganti onPageChanged
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _trackCodeController.dispose(); // Listener akan otomatis dihapus oleh dispose
+    _trackCodeController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -76,10 +77,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = e.toString();
-        if (errorMessage.startsWith("Exception: ")) {
-          errorMessage = errorMessage.substring("Exception: ".length);
-        }
+        String errorMessage = e.toString().replaceFirst("Exception: ", "");
         _showSnackbar(errorMessage, isError: true);
       }
     } finally {
@@ -128,10 +126,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = e.toString();
-        if (errorMessage.startsWith("Exception: ")) {
-          errorMessage = errorMessage.substring("Exception: ".length);
-        }
+        String errorMessage = e.toString().replaceFirst("Exception: ", "");
         _showSnackbar(errorMessage, isError: true);
       }
     } finally {
@@ -151,44 +146,73 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 30,
+          child: Column(
+            children: [
+              // Bagian header yang statis
+              const SizedBox(height: 30),
+              Icon(Ionicons.water, size: 60, color: Colors.blue.shade700),
+              const SizedBox(height: 15),
+              Text(
+                'Selamat Datang',
+                style: GoogleFonts.lato(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0D47A1),
+                ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Ionicons.water, size: 60, color: Colors.blue.shade700),
-                  const SizedBox(height: 15),
-                  Text(
-                    'Selamat Datang',
-                    style: GoogleFonts.lato(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Login untuk mengakses layanan PDAM",
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.lato(
-                      fontSize: 16,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  _buildLoginForm(),
-                  const SizedBox(height: 30),
-                  const Divider(thickness: 1),
-                  const SizedBox(height: 30),
-                  _buildTrackingSection(),
-                  const SizedBox(height: 20),
-                ],
+              const SizedBox(height: 8),
+              Text(
+                _currentPage == 0
+                    ? "Login untuk mengakses layanan PDAM"
+                    : "Lacak atau buat laporan kebocoran baru",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lato(
+                  fontSize: 16,
+                  color: Colors.grey.shade700,
+                ),
               ),
-            ),
+              const SizedBox(height: 20),
+
+              // Bagian konten yang bisa di-swipe
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  // =======================================================
+                  // == PERBAIKAN: Logika indikator yang akurat           ==
+                  // =======================================================
+                  onPageChanged: (int page) {
+                    setState(() {
+                      _currentPage = page;
+                    });
+                  },
+                  children: [
+                    // =======================================================
+                    // == PERUBAHAN: Menambahkan Center agar posisi di tengah ==
+                    // =======================================================
+                    Center(
+                      child: SingleChildScrollView(
+                        key: const PageStorageKey('loginPage'),
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _buildLoginForm(),
+                      ),
+                    ),
+                    Center(
+                      child: SingleChildScrollView(
+                        key: const PageStorageKey('trackingPage'),
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _buildTrackingSection(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Bagian footer dengan indikator
+              _buildPageIndicator(),
+              const SizedBox(height: 10),
+              _buildSwipeHint(),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
@@ -199,6 +223,7 @@ class _LoginPageState extends State<LoginPage> {
     return Form(
       key: _formKey,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TextFormField(
             controller: _emailController,
@@ -228,18 +253,24 @@ class _LoginPageState extends State<LoginPage> {
                       : Ionicons.eye_off_outline,
                   color: Colors.blue.shade700,
                 ),
-                onPressed: () =>
-                    setState(() => _passwordVisible = !_passwordVisible),
+                onPressed:
+                    () => setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
             obscureText: !_passwordVisible,
-            validator: (val) =>
-                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
+            validator:
+                (val) =>
+                    val == null || val.isEmpty
+                        ? 'Password tidak boleh kosong'
+                        : null,
           ),
           const SizedBox(height: 28),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              // =======================================================
+              // == PERUBAHAN: Gaya tombol disederhanakan               ==
+              // =======================================================
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF005A9C),
                 foregroundColor: Colors.white,
@@ -247,25 +278,26 @@ class _LoginPageState extends State<LoginPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 5,
+                elevation: 2, // Mengurangi bayangan agar lebih simpel
               ),
-              onPressed: _isLoading ? null : _login,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
+              onPressed: _isLoading || _isTrackingReport ? null : _login,
+              child:
+                  _isLoading
+                      ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                      : const Text(
+                        'LOGIN',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'LOGIN',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -281,9 +313,10 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.push(
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const RegisterPage(),
@@ -309,16 +342,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildTrackingSection() {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          "Atau Lacak Laporan Anda",
-          style: GoogleFonts.lato(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            color: const Color(0xFF0D47A1),
-          ),
-        ),
-        const SizedBox(height: 16),
         TextFormField(
           controller: _trackCodeController,
           decoration: _inputDecoration(
@@ -331,6 +356,9 @@ class _LoginPageState extends State<LoginPage> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
+            // =======================================================
+            // == PERUBAHAN: Gaya tombol disederhanakan               ==
+            // =======================================================
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF005A9C),
               foregroundColor: Colors.white,
@@ -338,29 +366,31 @@ class _LoginPageState extends State<LoginPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 2, // Mengurangi bayangan
             ),
-            // Logika onPressed sudah benar, tidak perlu diubah
-            onPressed: (_trackCodeController.text.trim().isEmpty ||
-                    _isTrackingReport ||
-                    _isLoading)
-                ? null
-                : _trackReportFromLogin,
-            child: _isTrackingReport
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
+            onPressed:
+                (_trackCodeController.text.trim().isEmpty ||
+                        _isTrackingReport ||
+                        _isLoading)
+                    ? null
+                    : _trackReportFromLogin,
+            child:
+                _isTrackingReport
+                    ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                    : const Text(
+                      "LACAK LAPORAN",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  )
-                : const Text(
-                    "LACAK LAPORAN",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -369,17 +399,24 @@ class _LoginPageState extends State<LoginPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text("BUAT LAPORAN BARU"),
-            onPressed: _isLoading || _isTrackingReport
-                ? null
-                : () => Navigator.push(
+            onPressed:
+                _isLoading || _isTrackingReport
+                    ? null
+                    : () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TemuanKebocoranPage(),
                       ),
                     ),
+            // =======================================================
+            // == PERUBAHAN: Gaya tombol disederhanakan               ==
+            // =======================================================
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF005A9C),
-              side: const BorderSide(color: Color(0xFF005A9C), width: 2),
+              side: const BorderSide(
+                color: Color(0xFF005A9C),
+                width: 1.5,
+              ), // Border lebih tipis
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -413,6 +450,42 @@ class _LoginPageState extends State<LoginPage> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+      ),
+    );
+  }
+
+  Widget _buildPageIndicator() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(2, (index) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 5.0),
+          height: 10.0,
+          width: _currentPage == index ? 25.0 : 10.0,
+          decoration: BoxDecoration(
+            color:
+                _currentPage == index
+                    ? const Color(0xFF005A9C)
+                    : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildSwipeHint() {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 400),
+      opacity: _currentPage == 0 ? 1.0 : 0.0,
+      child: const Text(
+        'Geser ke kanan untuk melacak atau membuat laporan',
+        style: TextStyle(
+          color: Color(0xFF005A9C),
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
