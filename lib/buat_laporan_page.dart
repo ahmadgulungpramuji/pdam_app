@@ -255,6 +255,21 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           case '15':
             _selectedCabangId = 3;
             break;
+          case '20':
+            _selectedCabangId = 4;
+            break;
+          case '30':
+            _selectedCabangId = 5;
+            break;
+          case '40':
+            _selectedCabangId = 6;
+            break;
+          case '50':
+            _selectedCabangId = 7;
+            break;
+          case '60':
+            _selectedCabangId = 8;
+            break;
           default:
             _selectedCabangId = null;
         }
