@@ -11,7 +11,7 @@ import 'package:pdam_app/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-import 'package:url_launcher/url_launcher.dart'; // Import untuk membuka URL/peta
+import 'package:url_launcher/url_launcher.dart';
 
 class BuatLaporanPage extends StatefulWidget {
   const BuatLaporanPage({super.key});
@@ -33,7 +33,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
 
   // --- State Variables ---
   int _currentPage = 0;
-  bool _isLoading = true; // Start with loading true
+  bool _isLoading = true;
   bool _isSubmitting = false;
 
   // Data Laporan
@@ -135,56 +135,105 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
   }
 
+  // Ganti fungsi lama Anda dengan yang baru ini
   Future<void> _getCurrentLocationAndAddress() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showSnackbar('Layanan lokasi dinonaktifkan.');
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse &&
-          permission != LocationPermission.always) {
-        _showSnackbar('Izin lokasi ditolak.');
-        return;
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Memperbarui lokasi...'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
 
     try {
+      // --- LANGKAH 1: Mendapatkan Koordinat GPS (Bagian Paling Penting) ---
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showSnackbar('Layanan lokasi dinonaktifkan.');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission != LocationPermission.whileInUse &&
+            permission != LocationPermission.always) {
+          _showSnackbar('Izin lokasi ditolak.');
+          return;
+        }
+      }
+
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      );
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
+        timeLimit: const Duration(seconds: 15),
       );
 
-      if (placemarks.isNotEmpty && mounted) {
-        Placemark place = placemarks[0];
-        String address =
-            '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}, ${place.postalCode}';
+      // Langsung simpan posisi setelah berhasil didapat
+      setState(() {
+        _currentPosition = position;
+      });
 
+      // --- LANGKAH 2: Mencoba Mendapatkan Nama Alamat (Bagian Opsional) ---
+      // Dibungkus dalam try-catch terpisah untuk mengisolasi kegagalan
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty && mounted) {
+          Placemark place = placemarks[0];
+          final addressParts = <String>[];
+          if (place.street != null && place.street!.isNotEmpty)
+            addressParts.add(place.street!);
+          if (place.subLocality != null && place.subLocality!.isNotEmpty)
+            addressParts.add(place.subLocality!);
+          if (place.locality != null && place.locality!.isNotEmpty)
+            addressParts.add(place.locality!);
+          if (place.subAdministrativeArea != null &&
+              place.subAdministrativeArea!.isNotEmpty)
+            addressParts.add(place.subAdministrativeArea!);
+          if (place.postalCode != null && place.postalCode!.isNotEmpty)
+            addressParts.add(place.postalCode!);
+
+          String address = addressParts.join(', ');
+
+          setState(() {
+            _deskripsiLokasiManualController.text = address;
+          });
+        }
+      } catch (e) {
+        // Jika GAGAL mendapatkan nama alamat, JANGAN HENTIKAN APLIKASI.
+        // Cukup tampilkan pesan dan gunakan koordinat sebagai fallback.
+        _showSnackbar('Gagal mendapatkan nama alamat. Menggunakan koordinat.');
         setState(() {
-          _currentPosition = position;
-          _deskripsiLokasiManualController.text = address;
+          _deskripsiLokasiManualController.text =
+              'Lat: ${position.latitude}, Lng: ${position.longitude}';
         });
       }
     } catch (e) {
-      _showSnackbar('Gagal mendapatkan lokasi: $e');
+      // Catch ini hanya untuk kegagalan di LANGKAH 1 (mendapatkan koordinat)
+      _showSnackbar('Gagal mendapatkan koordinat GPS: ${e.toString()}');
     }
   }
 
   Future<void> _openMapApp() async {
-    if (_currentPosition == null) return;
+    if (_currentPosition == null) {
+      _showSnackbar('Lokasi belum ditemukan, coba lagi.');
+      return;
+    }
     final lat = _currentPosition!.latitude;
     final lng = _currentPosition!.longitude;
+
+    // --- PERBAIKAN UTAMA: Menggunakan URL yang benar untuk membuka peta ---
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
     );
+
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       _showSnackbar('Tidak dapat membuka aplikasi peta.');
     }
@@ -193,7 +242,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   void _onPdamNumberChanged(String? value) {
     setState(() {
       _selectedPdamIdNumber = value;
-      _selectedCabangId = null; // Reset
+      _selectedCabangId = null;
       if (value != null && value.length >= 2) {
         final duaDigit = value.substring(0, 2);
         switch (duaDigit) {
@@ -280,6 +329,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -429,14 +479,14 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   }
 
   Widget _buildStep2_Lokasi() {
-    // URL untuk gambar peta statis dari OpenStreetMap
     String staticMapUrl = '';
     if (_currentPosition != null) {
       final lat = _currentPosition!.latitude;
       final lng = _currentPosition!.longitude;
-      // Menggunakan penyedia peta statis gratis
+      // Menggunakan API Key yang Anda berikan
+      const apiKey = 'aWxXDWpJ8Zo4ZasFgJ1VkKwFjdqBz6KB';
       staticMapUrl =
-          'https://www.mapquestapi.com/staticmap/v5/map?key=YOUR_KEY_HERE&center=$lat,$lng&zoom=15&size=600,300&markers=red-1,$lat,$lng';
+          'https://www.mapquestapi.com/staticmap/v5/map?key=$apiKey&center=$lat,$lng&zoom=15&size=600,300&markers=red-1,$lat,$lng';
     }
 
     return _buildStepWrapper(
