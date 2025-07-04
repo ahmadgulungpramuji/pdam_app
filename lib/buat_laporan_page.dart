@@ -47,7 +47,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   File? _fotoRumahFile;
 
   final List<Map<String, String>> _jenisLaporanOptions = [
-    {'value': 'air_tidak_mengalir', 'label': 'Kebocoran Pipa'},
+    {'value': 'air_tidak_mengalir', 'label': 'Air Tidak Mengalir'},
     {'value': 'air_keruh', 'label': 'Air Keruh'},
     {'value': 'water_meter_rusak', 'label': 'Meteran Rusak'},
     {'value': 'angka_meter_tidak_sesuai', 'label': 'Angka Meter Tidak Sesuai'},
