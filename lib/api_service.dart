@@ -12,7 +12,7 @@ import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.100.13:8000/api';
+  final String baseUrl = 'http://10.136.211.196:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
