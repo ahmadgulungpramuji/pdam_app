@@ -5,7 +5,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart'; // Import intl
+import 'package:intl/intl.dart';
 
 class LacakLaporanSayaPage extends StatefulWidget {
   const LacakLaporanSayaPage({super.key});
@@ -29,7 +29,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi format locale Indonesia untuk tanggal
     Intl.defaultLocale = 'id_ID';
     _fetchLaporan();
   }
@@ -158,7 +157,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     }
   }
 
-  /// **[MODIFIKASI UTAMA]** Mengganti AlertDialog dengan ModalBottomSheet
   void _showDetailAndRatingSheet(Pengaduan laporan) {
     _dialogRatingKecepatan = laporan.ratingKecepatan?.toDouble() ?? 0;
     _dialogRatingPelayanan = laporan.ratingPelayanan?.toDouble() ?? 0;
@@ -200,7 +198,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                   ),
                   child: Column(
                     children: [
-                      // Handle
                       Container(
                         width: 40,
                         height: 5,
@@ -210,7 +207,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      // Konten
                       Expanded(
                         child: ListView(
                           controller: scrollController,
@@ -227,6 +223,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                             _buildDetailRowSheet('Kategori', laporan.friendlyKategori),
                             _buildDetailRowSheet('Tanggal Lapor', DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt)),
                             _buildDetailRowSheet('Deskripsi', laporan.deskripsi, isMultiline: true),
+                            
+                            // Menggunakan fotoSesudah dari model Anda
+                            if (laporan.status.toLowerCase() == 'selesai' &&
+                                laporan.fotoSesudah != null &&
+                                laporan.fotoSesudah!.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _buildFotoHasil(laporan.fotoSesudah!),
+                            ],
 
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32, thickness: 1),
@@ -235,7 +239,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 16),
-                              _buildRatingBar(
+                               _buildRatingBar(
                                 title: 'Kecepatan Respon',
                                 currentRating: _dialogRatingKecepatan,
                                 onRatingUpdate: (rating) => setSheetState(() => _dialogRatingKecepatan = rating),
@@ -289,7 +293,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                               _dialogRatingPelayanan,
                                               _dialogRatingHasil,
                                               _komentarRatingController.text.trim(),
-                                              context, // Menggunakan context dari bottom sheet
+                                              context,
                                               updateSheetLoadingState,
                                             ),
                                   ),
@@ -310,7 +314,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-  // Helper widget untuk rating bar di bottom sheet
   Widget _buildRatingBar({
     required String title,
     required double currentRating,
@@ -340,8 +343,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
       ),
     );
   }
-
-  // Helper widget untuk baris detail di bottom sheet
   Widget _buildDetailRowSheet(String label, String value, {bool isMultiline = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -356,7 +357,85 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-  // Helper untuk mendapatkan warna dan ikon berdasarkan status
+  Widget _buildFotoHasil(String imageUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Foto Hasil Pengerjaan',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _showFullScreenImage(context, imageUrl),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: 200,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 200,
+                  color: Colors.grey.shade200,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey.shade200,
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                        SizedBox(height: 8),
+                        Text('Gagal memuat gambar'),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4,
+              child: Image.network(imageUrl),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -372,7 +451,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     }
   }
 
-  // Widget badge status baru
   Widget _buildStatusBadge(String status) {
     final meta = _getStatusMeta(status);
     return Container(
@@ -395,7 +473,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-  /// **[MODIFIKASI UTAMA]** Widget kartu laporan dengan desain timeline
   Widget _buildLaporanCard(Pengaduan laporan) {
     final statusMeta = _getStatusMeta(laporan.status);
     final bool isRated = laporan.ratingHasil != null;
@@ -403,7 +480,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Kolom Timeline
         Column(
           children: [
             Container(
@@ -416,13 +492,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
             ),
             Container(
               width: 2,
-              height: 100, // Sesuaikan tinggi garis
+              height: 100,
               color: Colors.grey.shade300,
             ),
           ],
         ),
         const SizedBox(width: 12),
-        // Kolom Konten
         Expanded(
           child: Card(
             elevation: 3,
@@ -480,7 +555,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-  // Widget untuk tampilan kosong
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -503,7 +577,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -520,7 +593,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                   onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
                   child: _laporanList.isEmpty
                       ? _buildEmptyState()
-                      // **[MODIFIKASI UTAMA]** Menggunakan AnimationLimiter untuk animasi list
                       : AnimationLimiter(
                           child: ListView.builder(
                             padding: const EdgeInsets.all(16),
