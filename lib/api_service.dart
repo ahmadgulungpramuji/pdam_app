@@ -130,6 +130,39 @@ class ApiService {
     }
   }
 
+  Future<List<Tugas>> getRiwayatPetugas(int idPetugas, int page) async {
+    // URL endpoint untuk riwayat dengan parameter halaman
+    final url = Uri.parse('$baseUrl/petugas/history/$idPetugas?page=$page');
+
+    // Mengambil token dari SharedPreferences atau tempat Anda menyimpannya
+    final token = await getToken();
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      // Response dari Laravel Paginator memiliki data di dalam key 'data'
+      final responseBody = json.decode(response.body);
+      final List<dynamic> riwayatJson = responseBody['data'];
+
+      // Jika 'data' kosong, berarti tidak ada lagi item
+      if (riwayatJson.isEmpty) {
+        return [];
+      }
+
+      // Mapping JSON menjadi List<Tugas>
+      return riwayatJson.map((json) => Tugas.fromJson(json)).toList();
+    } else {
+      // Jika gagal, lemparkan error
+      throw Exception('Gagal memuat data riwayat dari API');
+    }
+  }
+
   // METHOD BARU: Untuk mendaftarkan calon pelanggan baru (dengan upload foto)
   Future<Map<String, dynamic>> registerCalonPelanggan({
     required Map<String, String> data,
