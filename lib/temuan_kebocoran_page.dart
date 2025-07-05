@@ -12,6 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+// ignore: unused_import
 import 'package:url_launcher/url_launcher.dart';
 
 class TemuanKebocoranPage extends StatefulWidget {

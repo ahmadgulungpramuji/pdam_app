@@ -3,6 +3,7 @@ import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:pdam_app/calon_pelanggan_register_page.dart';
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -59,6 +60,88 @@ class _LoginPageState extends State<LoginPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(10),
       ),
+    );
+  }
+
+  void _showRegistrationChoice(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pilih Tipe Pendaftaran',
+                  style: GoogleFonts.lato(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Silakan pilih status Anda saat ini.'),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: const Icon(
+                    Ionicons.person_circle_outline,
+                    color: Colors.blue,
+                    size: 30,
+                  ),
+                  title: const Text('Sudah Punya ID Pelanggan'),
+                  subtitle: const Text(
+                    'Daftarkan akun untuk mengakses layanan pelanggan.',
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tileColor: Colors.blue.withOpacity(0.05),
+                  onTap: () {
+                    Navigator.of(ctx).pop(); // Tutup bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(
+                    Ionicons.person_add_outline,
+                    color: Colors.green,
+                    size: 30,
+                  ),
+                  title: const Text('Belum Punya ID Pelanggan'),
+                  subtitle: const Text(
+                    'Ajukan pendaftaran untuk menjadi pelanggan baru.',
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tileColor: Colors.green.withOpacity(0.05),
+                  onTap: () {
+                    Navigator.of(ctx).pop(); // Tutup bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => const CalonPelangganRegisterPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -268,9 +351,6 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              // =======================================================
-              // == PERUBAHAN: Gaya tombol disederhanakan               ==
-              // =======================================================
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF005A9C),
                 foregroundColor: Colors.white,
@@ -278,7 +358,7 @@ class _LoginPageState extends State<LoginPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 2, // Mengurangi bayangan agar lebih simpel
+                elevation: 2,
               ),
               onPressed: _isLoading || _isTrackingReport ? null : _login,
               child:
@@ -313,15 +393,10 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                // === INI BAGIAN YANG DIUBAH ===
                 onPressed:
-                    _isLoading
-                        ? null
-                        : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterPage(),
-                          ),
-                        ),
+                    _isLoading ? null : () => _showRegistrationChoice(context),
+                // ==============================
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(

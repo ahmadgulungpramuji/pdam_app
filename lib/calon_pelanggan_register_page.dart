@@ -32,6 +32,7 @@ class _CalonPelangganRegisterPageState
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _isLocationLoading = false; // Untuk status tombol lokasi
+  // ignore: unused_field
   String? _cabangError;
   bool _isCabangLoading = true;
   List<Cabang> _cabangOptions = [];

@@ -8,11 +8,12 @@ import 'package:http/http.dart' as http;
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_model.dart';
 import 'package:pdam_app/models/temuan_kebocoran_model.dart';
+import 'package:pdam_app/models/cabang_model.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  final String baseUrl = 'http://10.136.211.196:8000/api';
+  final String baseUrl = 'http://192.168.0.108:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -91,6 +92,89 @@ class ApiService {
     await prefs.remove('user_token');
     await prefs.remove('user_data');
     await prefs.remove('pdam_ids');
+  }
+
+  Future<List<Cabang>> getCabangList() async {
+    // Endpoint ini sudah ada di api.php Anda: Route::apiResource('cabangs', CabangController::class);
+    final url = Uri.parse('$baseUrl/cabangs');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        // Data dari Laravel kemungkinan besar ada di dalam key 'data' jika menggunakan apiResource
+        final dynamic body = jsonDecode(response.body);
+        List<dynamic> dataList;
+
+        if (body is Map<String, dynamic> && body.containsKey('data')) {
+          dataList = body['data'] as List;
+        } else if (body is List) {
+          dataList = body;
+        } else {
+          throw Exception('Format respons data cabang tidak dikenali.');
+        }
+
+        return dataList
+            .map((json) => Cabang.fromJson(json as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw Exception(
+          'Gagal memuat data cabang (Status: ${response.statusCode})',
+        );
+      }
+    } catch (e) {
+      print('ApiService Error getCabangList: $e');
+      rethrow;
+    }
+  }
+
+  // METHOD BARU: Untuk mendaftarkan calon pelanggan baru (dengan upload foto)
+  Future<Map<String, dynamic>> registerCalonPelanggan({
+    required Map<String, String> data,
+    required String imagePath,
+  }) async {
+    // Endpoint ini sudah ada di api.php Anda: Route::post('/calon-pelanggan/daftar', ...);
+    final url = Uri.parse('$baseUrl/calon-pelanggan/daftar');
+    var request = http.MultipartRequest('POST', url);
+
+    // Tambahkan header
+    request.headers['Accept'] = 'application/json';
+
+    // Tambahkan data teks
+    request.fields.addAll(data);
+
+    // Tambahkan file gambar
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'foto_ktp', // 'foto_ktp' harus cocok dengan nama field di backend Laravel
+        imagePath,
+      ),
+    );
+
+    try {
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        // 201 Created
+        return responseData;
+      } else if (response.statusCode == 422) {
+        // Validation Error
+        throw Exception('Data tidak valid: ${responseData['errors']}');
+      } else {
+        throw Exception(
+          'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}',
+        );
+      }
+    } catch (e) {
+      print('ApiService Error registerCalonPelanggan: $e');
+      rethrow;
+    }
   }
 
   // =======================================================================
