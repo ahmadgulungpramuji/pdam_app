@@ -26,6 +26,12 @@ abstract class Tugas {
   final String status;
   final String tanggalTugas; // tanggal_pengaduan atau tanggal_temuan
   final String? fotoBukti;
+
+  // --- START Perbaikan: Tambahkan properti untuk URL foto sebelum/sesudah ---
+  final String? fotoSebelumUrl;
+  final String? fotoSesudahUrl;
+  // --- END Perbaikan ---
+
   final DateTime tanggalDibuatPenugasan; // created_at dari tabel pivot
   final Map<String, dynamic>? detailTugasLengkap; // data JSON asli
 
@@ -40,6 +46,10 @@ abstract class Tugas {
     required this.status,
     required this.tanggalTugas,
     this.fotoBukti,
+    // --- START Perbaikan: Tambahkan parameter konstruktor ---
+    this.fotoSebelumUrl,
+    this.fotoSesudahUrl,
+    // --- END Perbaikan ---
     required this.tanggalDibuatPenugasan,
     this.detailTugasLengkap,
   });
@@ -64,6 +74,8 @@ abstract class Tugas {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
+      case 'menemukan_masalah': // Pastikan status ini juga ada jika digunakan
+        return 'Menemukan Masalah';
       default:
         return status.replaceAll('_', ' ').toUpperCase();
     }
@@ -84,12 +96,10 @@ abstract class Tugas {
 
 class PengaduanTugas extends Tugas {
   final String
-  _kategoriInternal; // kategori asli dari API (e.g., 'air_tidak_mengalir')
+      _kategoriInternal; // kategori asli dari API (e.g., 'air_tidak_mengalir')
   final KontakInfo? pelanggan;
-  final String? fotoRumahUrl; // Atau akses langsung dari detailTugasLengkap
 
   PengaduanTugas({
-    this.fotoRumahUrl,
     required super.idPenugasanInternal,
     required super.isPetugasPelapor,
     required super.idTugas,
@@ -100,13 +110,20 @@ class PengaduanTugas extends Tugas {
     required super.status,
     required super.tanggalTugas,
     super.fotoBukti,
+    // --- START Perbaikan: Meneruskan properti foto ke superclass ---
+    super.fotoSebelumUrl,
+    super.fotoSesudahUrl,
+    // --- END Perbaikan ---
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelanggan,
   }) : _kategoriInternal = kategori,
-       super(tipeTugas: 'pengaduan');
+        super(tipeTugas: 'pengaduan');
 
   factory PengaduanTugas.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? detailLengkap =
+        json['detail_tugas_lengkap'] as Map<String, dynamic>?;
+
     return PengaduanTugas(
       idPenugasanInternal: json['id_penugasan_internal'] as String,
       isPetugasPelapor: json['is_petugas_pelapor'] as bool,
@@ -118,14 +135,19 @@ class PengaduanTugas extends Tugas {
       status: json['status'] as String,
       tanggalTugas: json['tanggal_tugas'] as String,
       fotoBukti: json['foto_bukti'] as String?,
-      fotoRumahUrl:
-          (json['detail_tugas_lengkap']
-                  as Map<String, dynamic>?)?['foto_rumah_url']
-              as String?,
+      // --- START Perbaikan: Parsing properti foto ---
+      // PENTING: Pilih salah satu baris di bawah yang sesuai dengan struktur JSON backend Anda.
+      // Asumsi: foto_sebelum_url dan foto_sesudah_url ada di root JSON tugas.
+      fotoSebelumUrl: json['foto_sebelum_url'] as String?,
+      fotoSesudahUrl: json['foto_sesudah_url'] as String?,
+      // ATAU: Jika foto_sebelum_url/sesudah_url ada di dalam 'detail_tugas_lengkap':
+      // fotoSebelumUrl: detailLengkap?['foto_sebelum_url'] as String?,
+      // fotoSesudahUrl: detailLengkap?['foto_sesudah_url'] as String?,
+      // --- END Perbaikan ---
       tanggalDibuatPenugasan: DateTime.parse(
         json['tanggal_dibuat_penugasan'] as String,
       ),
-      detailTugasLengkap: json['detail_tugas_lengkap'] as Map<String, dynamic>?,
+      detailTugasLengkap: detailLengkap,
       pelanggan:
           json['pelanggan'] != null
               ? KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>)
@@ -135,7 +157,6 @@ class PengaduanTugas extends Tugas {
 
   @override
   String get kategoriDisplay {
-    // Mengubah kategori internal menjadi teks yang lebih ramah
     switch (_kategoriInternal) {
       case 'air_tidak_mengalir':
         return 'Air Tidak Mengalir';
@@ -171,33 +192,47 @@ class TemuanTugas extends Tugas {
     required super.status,
     required super.tanggalTugas,
     super.fotoBukti,
+    // --- START Perbaikan: Meneruskan properti foto ke superclass ---
+    super.fotoSebelumUrl,
+    super.fotoSesudahUrl,
+    // --- END Perbaikan ---
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelaporTemuan,
   }) : super(tipeTugas: 'temuan_kebocoran');
 
   factory TemuanTugas.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? detailLengkap =
+        json['detail_tugas_lengkap'] as Map<String, dynamic>?;
+
     return TemuanTugas(
       idPenugasanInternal: json['id_penugasan_internal'] as String,
       isPetugasPelapor: json['is_petugas_pelapor'] as bool,
       idTugas: json['id_tugas'] as int,
-      // Kategori untuk temuan sudah ditetapkan di API sebagai "Temuan Kebocoran"
-      // dan akan diakses melalui getter 'kategoriDisplay' di bawah
       deskripsi: json['deskripsi'] as String,
       deskripsiLokasi: json['deskripsi_lokasi'] as String,
       lokasiMaps: json['lokasi_maps'] as String,
       status: json['status'] as String,
       tanggalTugas: json['tanggal_tugas'] as String,
       fotoBukti: json['foto_bukti'] as String?,
+      // --- START Perbaikan: Parsing properti foto ---
+      // PENTING: Pilih salah satu baris di bawah yang sesuai dengan struktur JSON backend Anda.
+      // Asumsi: foto_sebelum_url dan foto_sesudah_url ada di root JSON tugas.
+      fotoSebelumUrl: json['foto_sebelum_url'] as String?,
+      fotoSesudahUrl: json['foto_sesudah_url'] as String?,
+      // ATAU: Jika foto_sebelum_url/sesudah_url ada di dalam 'detail_tugas_lengkap':
+      // fotoSebelumUrl: detailLengkap?['foto_sebelum_url'] as String?,
+      // fotoSesudahUrl: detailLengkap?['foto_sesudah_url'] as String?,
+      // --- END Perbaikan ---
       tanggalDibuatPenugasan: DateTime.parse(
         json['tanggal_dibuat_penugasan'] as String,
       ),
-      detailTugasLengkap: json['detail_tugas_lengkap'] as Map<String, dynamic>?,
+      detailTugasLengkap: detailLengkap,
       pelaporTemuan:
           json['pelapor_temuan'] != null
               ? KontakInfo.fromJson(
-                json['pelapor_temuan'] as Map<String, dynamic>,
-              )
+                  json['pelapor_temuan'] as Map<String, dynamic>,
+                )
               : null,
     );
   }
