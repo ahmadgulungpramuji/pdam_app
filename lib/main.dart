@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/detail_temuan_page.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
@@ -98,6 +99,9 @@ class MyApp extends StatelessWidget {
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
+        '/register_calon_pelanggan':
+            (context) => const CalonPelangganRegisterPage(),
+
         '/detail_temuan_page': (context) {
           final temuan =
               ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
