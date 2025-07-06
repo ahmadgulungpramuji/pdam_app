@@ -3,7 +3,7 @@ import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-import 'package:pdam_app/calon_pelanggan_register_page.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import for launching URLs
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -29,16 +29,19 @@ class _LoginPageState extends State<LoginPage> {
   bool _isTrackingReport = false;
   bool _passwordVisible = false;
 
+  // URL untuk cek tagihan
+  final String _checkBillUrl = 'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
+
   @override
   void initState() {
     super.initState();
-    // Listener untuk text field tetap ada jika diperlukan
+
     _trackCodeController.addListener(() {
       if (mounted) {
         setState(() {});
       }
     });
-    // Listener untuk PageController yang lama sudah dihapus karena diganti onPageChanged
+
   }
 
   @override
@@ -60,88 +63,6 @@ class _LoginPageState extends State<LoginPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(10),
       ),
-    );
-  }
-
-  void _showRegistrationChoice(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pilih Tipe Pendaftaran',
-                  style: GoogleFonts.lato(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text('Silakan pilih status Anda saat ini.'),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: const Icon(
-                    Ionicons.person_circle_outline,
-                    color: Colors.blue,
-                    size: 30,
-                  ),
-                  title: const Text('Sudah Punya ID Pelanggan'),
-                  subtitle: const Text(
-                    'Daftarkan akun untuk mengakses layanan pelanggan.',
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  tileColor: Colors.blue.withOpacity(0.05),
-                  onTap: () {
-                    Navigator.of(ctx).pop(); // Tutup bottom sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterPage(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(
-                    Ionicons.person_add_outline,
-                    color: Colors.green,
-                    size: 30,
-                  ),
-                  title: const Text('Belum Punya ID Pelanggan'),
-                  subtitle: const Text(
-                    'Ajukan pendaftaran untuk menjadi pelanggan baru.',
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  tileColor: Colors.green.withOpacity(0.05),
-                  onTap: () {
-                    Navigator.of(ctx).pop(); // Tutup bottom sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => const CalonPelangganRegisterPage(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -217,6 +138,16 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Fungsi untuk membuka URL
+  Future<void> _launchBillUrl() async {
+    final Uri url = Uri.parse(_checkBillUrl);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        _showSnackbar('Tidak dapat membuka tautan cek tagihan. Pastikan Anda memiliki aplikasi browser.', isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -260,18 +191,18 @@ class _LoginPageState extends State<LoginPage> {
               Expanded(
                 child: PageView(
                   controller: _pageController,
-                  // =======================================================
-                  // == PERBAIKAN: Logika indikator yang akurat           ==
-                  // =======================================================
+
+
+
                   onPageChanged: (int page) {
                     setState(() {
                       _currentPage = page;
                     });
                   },
                   children: [
-                    // =======================================================
-                    // == PERUBAHAN: Menambahkan Center agar posisi di tengah ==
-                    // =======================================================
+
+
+
                     Center(
                       child: SingleChildScrollView(
                         key: const PageStorageKey('loginPage'),
@@ -351,6 +282,9 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+
+
+
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF005A9C),
                 foregroundColor: Colors.white,
@@ -393,10 +327,15 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                // === INI BAGIAN YANG DIUBAH ===
                 onPressed:
-                    _isLoading ? null : () => _showRegistrationChoice(context),
-                // ==============================
+                    _isLoading
+                        ? null
+                        : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterPage(),
+                          ),
+                        ),
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(
@@ -431,9 +370,9 @@ class _LoginPageState extends State<LoginPage> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            // =======================================================
-            // == PERUBAHAN: Gaya tombol disederhanakan               ==
-            // =======================================================
+
+
+
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF005A9C),
               foregroundColor: Colors.white,
@@ -441,7 +380,7 @@ class _LoginPageState extends State<LoginPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 2, // Mengurangi bayangan
+              elevation: 2,
             ),
             onPressed:
                 (_trackCodeController.text.trim().isEmpty ||
@@ -478,20 +417,43 @@ class _LoginPageState extends State<LoginPage> {
                 _isLoading || _isTrackingReport
                     ? null
                     : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TemuanKebocoranPage(),
-                      ),
-                    ),
-            // =======================================================
-            // == PERUBAHAN: Gaya tombol disederhanakan               ==
-            // =======================================================
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TemuanKebocoranPage(),
+                          ),
+                        ),
+
+
+
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF005A9C),
               side: const BorderSide(
                 color: Color(0xFF005A9C),
                 width: 1.5,
-              ), // Border lebih tipis
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16), // Added spacing for the new button
+        // =======================================================
+        // == PERUBAHAN BARU: Tombol Cek Tagihan                  ==
+        // =======================================================
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Ionicons.wallet_outline, size: 20), // Wallet icon for bill
+            label: const Text("CEK TAGIHAN"),
+            onPressed: _isLoading || _isTrackingReport ? null : _launchBillUrl,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green.shade700, // Green color for bill button
+              side: BorderSide(
+                color: Colors.green.shade700,
+                width: 1.5,
+              ),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
