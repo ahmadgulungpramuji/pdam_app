@@ -163,10 +163,10 @@ class ApiService {
     }
   }
 
-  // METHOD BARU: Untuk mendaftarkan calon pelanggan baru (dengan upload foto)
   Future<Map<String, dynamic>> registerCalonPelanggan({
     required Map<String, String> data,
-    required String imagePath,
+    required String imagePathKtp, // Diubah namanya agar lebih jelas
+    required String imagePathRumah, // TAMBAHKAN INI, nullable
   }) async {
     // Endpoint ini sudah ada di api.php Anda: Route::post('/calon-pelanggan/daftar', ...);
     final url = Uri.parse('$baseUrl/calon-pelanggan/daftar');
@@ -174,16 +174,17 @@ class ApiService {
 
     // Tambahkan header
     request.headers['Accept'] = 'application/json';
-
-    // Tambahkan data teks
     request.fields.addAll(data);
 
-    // Tambahkan file gambar
+    // Tambahkan file gambar KTP
     request.files.add(
       await http.MultipartFile.fromPath(
         'foto_ktp', // 'foto_ktp' harus cocok dengan nama field di backend Laravel
-        imagePath,
+        imagePathKtp,
       ),
+    );
+    request.files.add(
+      await http.MultipartFile.fromPath('foto_rumah', imagePathRumah),
     );
 
     try {
@@ -198,7 +199,17 @@ class ApiService {
         return responseData;
       } else if (response.statusCode == 422) {
         // Validation Error
-        throw Exception('Data tidak valid: ${responseData['errors']}');
+        final errors = responseData['errors'];
+        // Menggabungkan pesan error menjadi satu string
+        String errorMessage = "Data tidak valid:\n";
+        if (errors is Map) {
+          errors.forEach((key, value) {
+            if (value is List) {
+              errorMessage += "- ${value.join(', ')}\n";
+            }
+          });
+        }
+        throw Exception(errorMessage);
       } else {
         throw Exception(
           'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}',

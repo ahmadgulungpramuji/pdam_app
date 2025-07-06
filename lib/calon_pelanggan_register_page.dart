@@ -23,23 +23,23 @@ class _CalonPelangganRegisterPageState
   final _apiService = ApiService();
   final _namaController = TextEditingController();
   final _noKtpController = TextEditingController();
-  final _alamatController =
-      TextEditingController(); // Tetap digunakan untuk menampilkan Lat/Lng
+  final _alamatController = TextEditingController();
   final _deskripsiAlamatController = TextEditingController();
   final _noWaController = TextEditingController();
 
   // --- State Variables ---
   bool _isLoading = true;
   bool _isSubmitting = false;
-  bool _isLocationLoading = false; // Untuk status tombol lokasi
+  bool _isLocationLoading = false;
+  bool _isCabangLoading = true;
   // ignore: unused_field
   String? _cabangError;
-  bool _isCabangLoading = true;
   List<Cabang> _cabangOptions = [];
   int? _selectedCabangId;
   String? _detectedCabangName;
   Position? _currentPosition;
-  File? _imageFile;
+  File? _imageFileKtp;
+  File? _imageFileRumah;
   final _picker = ImagePicker();
 
   @override
@@ -58,7 +58,8 @@ class _CalonPelangganRegisterPageState
     super.dispose();
   }
 
-  // --- Core Logic ---
+  // --- CORE LOGIC METHODS ---
+
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _fetchCabangOptions();
@@ -86,7 +87,6 @@ class _CalonPelangganRegisterPageState
     }
   }
 
-  // === FUNGSI INI DIMODIFIKASI ===
   Future<void> _getCurrentLocation() async {
     setState(() {
       _isLocationLoading = true;
@@ -114,7 +114,6 @@ class _CalonPelangganRegisterPageState
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          // Mengisi controller alamat dengan Latitude dan Longitude
           _alamatController.text =
               '${position.latitude}, ${position.longitude}';
         });
@@ -184,36 +183,47 @@ class _CalonPelangganRegisterPageState
     }
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source, {required bool isKtp}) async {
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
         imageQuality: 70,
         maxWidth: 1024,
       );
-      if (pickedFile != null)
-        setState(() => _imageFile = File(pickedFile.path));
+      if (pickedFile != null) {
+        setState(() {
+          if (isKtp) {
+            _imageFileKtp = File(pickedFile.path);
+          } else {
+            _imageFileRumah = File(pickedFile.path);
+          }
+        });
+      }
     } catch (e) {
       _showSnackbar('Gagal memilih gambar: $e', isError: true);
     }
   }
 
   Future<void> _submitRegistration() async {
+    // --- Validations ---
     if (!(_formKey.currentState?.validate() ?? false)) {
       _showSnackbar('Harap periksa kembali semua data yang wajib diisi.');
-      return;
-    }
-    if (_imageFile == null) {
-      _showSnackbar('Foto KTP wajib diunggah.');
       return;
     }
     if (_selectedCabangId == null) {
       _showSnackbar('Cabang pelaporan wajib dipilih.', isError: true);
       return;
     }
-    // Validasi tambahan untuk memastikan lokasi sudah didapatkan
     if (_currentPosition == null) {
       _showSnackbar('Lokasi GPS wajib didapatkan sebelum mendaftar.');
+      return;
+    }
+    if (_imageFileKtp == null) {
+      _showSnackbar('Foto KTP wajib diunggah.');
+      return;
+    }
+    if (_imageFileRumah == null) {
+      _showSnackbar('Foto Rumah wajib diunggah.');
       return;
     }
 
@@ -231,7 +241,8 @@ class _CalonPelangganRegisterPageState
 
       await _apiService.registerCalonPelanggan(
         data: data,
-        imagePath: _imageFile!.path,
+        imagePathKtp: _imageFileKtp!.path,
+        imagePathRumah: _imageFileRumah!.path,
       );
 
       _showSuccessDialog();
@@ -247,7 +258,8 @@ class _CalonPelangganRegisterPageState
     }
   }
 
-  // --- UI Widgets ---
+  // --- UI WIDGET BUILDERS ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -274,7 +286,7 @@ class _CalonPelangganRegisterPageState
                     _buildTextFormField(
                       controller: _noKtpController,
                       label: 'Nomor KTP (16 digit)',
-                      icon: Ionicons.md_card_outline,
+                      icon: Ionicons.card_outline,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -302,13 +314,15 @@ class _CalonPelangganRegisterPageState
                       },
                     ),
                     const SizedBox(height: 24),
-                    _buildSectionTitle('Foto KTP'),
-                    _buildImagePicker(),
+                    _buildSectionTitle('Foto KTP (Wajib)'),
+                    _buildImagePicker(isKtp: true),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Foto Tampak Depan Rumah (Wajib)'),
+                    _buildImagePicker(isKtp: false),
                     const SizedBox(height: 24),
                     _buildSectionTitle('Informasi Alamat Pemasangan'),
                     _buildCabangDropdown(),
                     const SizedBox(height: 16),
-                    // === BAGIAN ALAMAT DIUBAH DI SINI ===
                     _buildLocationField(),
                     const SizedBox(height: 16),
                     _buildTextFormField(
@@ -316,8 +330,8 @@ class _CalonPelangganRegisterPageState
                       label: 'Deskripsi Tambahan Alamat',
                       icon: Ionicons.map_outline,
                       hint: 'Contoh: Rumah cat biru, dekat masjid',
-                      isRequired: false,
-                    ), // Dibuat tidak wajib
+                      isRequired: false, // Deskripsi alamat tidak wajib
+                    ),
                     const SizedBox(height: 32),
                     ElevatedButton(
                       onPressed: _isSubmitting ? null : _submitRegistration,
@@ -342,59 +356,6 @@ class _CalonPelangganRegisterPageState
                   ],
                 ),
               ),
-    );
-  }
-
-  // === WIDGET BARU UNTUK FIELD LOKASI ===
-  Widget _buildLocationField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: _alamatController,
-          readOnly: true, // Field ini tidak bisa di-edit manual
-          decoration: InputDecoration(
-            labelText: 'Lokasi GPS Pemasangan',
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-            hintText: 'Latitude, Longitude akan muncul di sini',
-            prefixIcon: const Icon(Ionicons.navigate_circle_outline),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: Colors.grey.shade100,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty || _currentPosition == null) {
-              return 'Lokasi GPS wajib didapatkan';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: TextButton.icon(
-            onPressed: _isLocationLoading ? null : _getCurrentLocation,
-            icon:
-                _isLocationLoading
-                    ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Ionicons.locate_outline),
-            label: Text(
-              _isLocationLoading ? 'MENCARI...' : 'DAPATKAN LOKASI SAAT INI',
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.blue.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -470,9 +431,65 @@ class _CalonPelangganRegisterPageState
     );
   }
 
-  Widget _buildImagePicker() {
+  Widget _buildLocationField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _alamatController,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: 'Lokasi GPS Pemasangan',
+            labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            hintText: 'Latitude, Longitude akan muncul di sini',
+            prefixIcon: const Icon(Ionicons.navigate_circle_outline),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty || _currentPosition == null) {
+              return 'Lokasi GPS wajib didapatkan';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: _isLocationLoading ? null : _getCurrentLocation,
+            icon:
+                _isLocationLoading
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Ionicons.locate_outline),
+            label: Text(
+              _isLocationLoading ? 'MENCARI...' : 'DAPATKAN LOKASI SAAT INI',
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.blue.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker({required bool isKtp}) {
+    final File? imageFile = isKtp ? _imageFileKtp : _imageFileRumah;
+    final String placeholderText =
+        isKtp ? 'Ketuk untuk unggah foto KTP' : 'Ketuk untuk unggah foto Rumah';
+
     return GestureDetector(
-      onTap: () => _showImageSourceActionSheet(context),
+      onTap: () => _showImageSourceActionSheet(context, isKtp: isKtp),
       child: Container(
         width: double.infinity,
         height: 200,
@@ -486,34 +503,38 @@ class _CalonPelangganRegisterPageState
           ),
         ),
         child:
-            _imageFile == null
-                ? const Center(
+            imageFile == null
+                ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Ionicons.camera_outline,
                         size: 50,
                         color: Colors.grey,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
-                        'Ketuk untuk unggah foto KTP',
-                        style: TextStyle(color: Colors.grey),
+                        placeholderText,
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ],
                   ),
                 )
                 : ClipRRect(
                   borderRadius: BorderRadius.circular(10.5),
-                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                  child: Image.file(imageFile, fit: BoxFit.cover),
                 ),
       ),
     );
   }
 
-  // --- Dialogs & Helpers ---
-  void _showImageSourceActionSheet(BuildContext context) {
+  // --- DIALOGS & HELPERS ---
+
+  void _showImageSourceActionSheet(
+    BuildContext context, {
+    required bool isKtp,
+  }) {
     showModalBottomSheet(
       context: context,
       builder:
@@ -525,7 +546,7 @@ class _CalonPelangganRegisterPageState
                   leading: const Icon(Ionicons.image_outline),
                   title: const Text('Galeri'),
                   onTap: () {
-                    _pickImage(ImageSource.gallery);
+                    _pickImage(ImageSource.gallery, isKtp: isKtp);
                     Navigator.of(ctx).pop();
                   },
                 ),
@@ -533,7 +554,7 @@ class _CalonPelangganRegisterPageState
                   leading: const Icon(Ionicons.camera_outline),
                   title: const Text('Kamera'),
                   onTap: () {
-                    _pickImage(ImageSource.camera);
+                    _pickImage(ImageSource.camera, isKtp: isKtp);
                     Navigator.of(ctx).pop();
                   },
                 ),
@@ -575,7 +596,7 @@ class _CalonPelangganRegisterPageState
                 child: const Text('OK'),
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pop(); // Kembali ke halaman login
+                  Navigator.of(context).pop();
                 },
               ),
             ],

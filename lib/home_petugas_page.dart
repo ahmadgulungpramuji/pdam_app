@@ -310,7 +310,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  if (kontak?.nama != null && kontak!.nama!.isNotEmpty)
+                  if (kontak?.nama != null && kontak!.nama.isNotEmpty)
                     _buildInfoRow(
                       Ionicons.person_outline,
                       '${kontak.nama} (${kontak.nomorHp})',
@@ -610,10 +610,10 @@ class _HistoryPageState extends State<HistoryPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  if (kontak?.nama != null && kontak!.nama!.isNotEmpty)
+                  if (kontak?.nama != null && kontak!.nama.isNotEmpty)
                     _buildInfoRow(
                       Ionicons.person_outline,
-                      '${kontak.nama} (${kontak.nomorHp ?? 'No HP'})',
+                      '${kontak.nama} (${kontak.nomorHp})',
                     ),
                   _buildInfoRow(
                     Ionicons.calendar_outline,
