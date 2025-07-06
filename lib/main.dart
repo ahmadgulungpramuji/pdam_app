@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/detail_temuan_page.dart';
+import 'package:pdam_app/lapor_foto_meter_page.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -97,6 +98,7 @@ class MyApp extends StatelessWidget {
         '/buat_laporan': (context) => const BuatLaporanPage(),
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
+        '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
         '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
         '/register_calon_pelanggan':

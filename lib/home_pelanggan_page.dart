@@ -39,6 +39,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       'subtitle': 'Cek tunggakan & ID',
       'route': '/cek_tunggakan',
     },
+    // --- ITEM MENU BARU ---
+    {
+      'icon': Ionicons.camera_outline, // <-- IKON BARU
+      'title': 'Lapor Foto Meter', // <-- JUDUL BARU
+      'subtitle': 'Kirim foto meteran Anda', // <-- SUBTITLE BARU
+      'route': '/lapor_foto_meter', // <-- ROUTE BARU
+    },
+    // ----------------------
     {
       'icon': Ionicons.chatbubbles_outline,
       'title': 'Hubungi Kami',
@@ -124,7 +132,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Color _lightenColor(Color color, [double amount = .15]) {
     assert(amount >= 0 && amount <= 1);
     final hsl = HSLColor.fromColor(color);
-    final hslLight = hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0));
+    final hslLight = hsl.withLightness(
+      (hsl.lightness + amount).clamp(0.0, 1.0),
+    );
     return hslLight.toColor();
   }
 
@@ -144,8 +154,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
         // Clamp values to ensure they don't get too small or too large
         iconSize = iconSize.clamp(32.0, 40.0); // Slightly larger icons
-        titleFontSize = titleFontSize.clamp(15.0, 18.0); // Slightly larger title
-        subtitleFontSize = subtitleFontSize.clamp(12.0, 14.0); // Slightly larger subtitle
+        titleFontSize = titleFontSize.clamp(
+          15.0,
+          18.0,
+        ); // Slightly larger title
+        subtitleFontSize = subtitleFontSize.clamp(
+          12.0,
+          14.0,
+        ); // Slightly larger subtitle
 
         return Card(
           elevation: 4.0, // Increased elevation for more depth
@@ -158,15 +174,22 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16), // Adjusted padding
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 16,
+              ), // Adjusted padding
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(iconSize * 0.3), // Adjusted padding relative to icon size
+                    padding: EdgeInsets.all(
+                      iconSize * 0.3,
+                    ), // Adjusted padding relative to icon size
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.18), // Increased opacity for background color
+                      color: color.withOpacity(
+                        0.18,
+                      ), // Increased opacity for background color
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, size: iconSize, color: color),
@@ -190,7 +213,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lato(
                         fontSize: subtitleFontSize,
-                        color: Colors.grey.shade700, // Darker grey for better readability
+                        color:
+                            Colors
+                                .grey
+                                .shade700, // Darker grey for better readability
                         height: 1.3, // Slightly increased line height
                       ),
                       maxLines: 2,
@@ -211,17 +237,26 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     return FadeInAnimation(
       delay: 0.1, // Animasi muncul setelah 0.1 detik
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0), // Padding to keep content from edge and below app bar title
+        padding: const EdgeInsets.fromLTRB(
+          16.0,
+          50.0,
+          16.0,
+          16.0,
+        ), // Padding to keep content from edge and below app bar title
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end, // Align content to the bottom of the flexible space
+          mainAxisAlignment:
+              MainAxisAlignment
+                  .end, // Align content to the bottom of the flexible space
           children: [
             Text(
               'Halo,',
               style: GoogleFonts.lato(
                 fontSize: 24, // Larger font for "Halo,"
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.9), // White with slight transparency for header text
+                color: Colors.white.withOpacity(
+                  0.9,
+                ), // White with slight transparency for header text
               ),
             ),
             Text(
@@ -237,11 +272,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(
-                    Ionicons.mail_outline,
-                    size: 16,
-                    color: Colors.white70,
-                  ),
+                  Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
                   const SizedBox(width: 8),
                   Text(
                     _userData!['email'],
@@ -262,7 +293,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Widget _buildLaporTemuanButton(ColorScheme colorScheme) {
     return Center(
       child: FadeInAnimation(
-        delay: 0.5 + (_menuItems.length * 0.08), // Animasi muncul setelah semua kartu
+        delay:
+            0.5 +
+            (_menuItems.length * 0.08), // Animasi muncul setelah semua kartu
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -274,8 +307,12 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 offset: const Offset(0, 4), // Shadow for depth
               ),
             ],
-            gradient: LinearGradient( // Subtle gradient for a modern look
-              colors: [colorScheme.tertiary, _darkenColor(colorScheme.tertiary, 0.15)], // Use the helper to darken
+            gradient: LinearGradient(
+              // Subtle gradient for a modern look
+              colors: [
+                colorScheme.tertiary,
+                _darkenColor(colorScheme.tertiary, 0.15),
+              ], // Use the helper to darken
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -288,7 +325,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               },
               borderRadius: BorderRadius.circular(16),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16), // More generous padding
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 30,
+                  vertical: 16,
+                ), // More generous padding
                 child: Row(
                   mainAxisSize: MainAxisSize.min, // Make row wrap its content
                   children: [
@@ -331,24 +371,37 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             const SizedBox(height: 20),
             Text(
               "Oops!",
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
-              _errorMessage ?? "Terjadi kesalahan tidak diketahui. Silakan coba lagi.", // More descriptive message
+              _errorMessage ??
+                  "Terjadi kesalahan tidak diketahui. Silakan coba lagi.", // More descriptive message
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
             ),
             const SizedBox(height: 28), // Increased spacing
             ElevatedButton.icon(
               icon: const Icon(Ionicons.refresh_outline, size: 20),
               label: Text(
                 "Coba Lagi",
-                style: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold),
+                style: GoogleFonts.lato(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _loadUserData,
             ),
@@ -366,210 +419,253 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     final List<Color> menuColors = [
       colorScheme.tertiary, // Buat Laporan
       colorScheme.secondary, // Lacak Laporan
-      colorScheme.primary,   // Info Tagihan
-      colorScheme.error,     // Hubungi Kami (atau warna lain yang sesuai)
+      colorScheme.primary, // Info Tagihan
+      Colors.orange.shade700, // Lapor Foto Meter (Warna Baru)
+      colorScheme.error, // Hubungi Kami (atau warna lain yang sesuai)
     ];
-
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
               ? _buildErrorView()
               : RefreshIndicator(
-                  onRefresh: _loadUserData,
-                  color: colorScheme.primary,
-                  child: CustomScrollView( // Use CustomScrollView for flexible app bar and slivers
-                    slivers: [
-                      SliverAppBar(
-                        expandedHeight: 220.0, // Increased expanded height for more space
-                        floating: true,
-                        pinned: true, // App bar will pin at the top when scrolled up
-                        snap: false,
-                        elevation: 4.0, // Add a subtle shadow
-                        backgroundColor: colorScheme.primary, // Default background color when collapsed
-                        foregroundColor: colorScheme.onPrimary, // Icon/text color
-                        actions: [
-                          IconButton(
-                            icon: Icon(
-                              Ionicons.person_circle_outline,
-                              color: colorScheme.onPrimary, // White icon when expanded, adapts on collapse
-                              size: 26,
-                            ),
-                            tooltip: 'Profil Saya',
-                            onPressed: () async {
-                              final result = await Navigator.pushNamed(context, '/profil_page');
-                              if (result == true && mounted) {
-                                _loadUserData();
-                              }
-                            },
+                onRefresh: _loadUserData,
+                color: colorScheme.primary,
+                child: CustomScrollView(
+                  // Use CustomScrollView for flexible app bar and slivers
+                  slivers: [
+                    SliverAppBar(
+                      expandedHeight:
+                          220.0, // Increased expanded height for more space
+                      floating: true,
+                      pinned:
+                          true, // App bar will pin at the top when scrolled up
+                      snap: false,
+                      elevation: 4.0, // Add a subtle shadow
+                      backgroundColor:
+                          colorScheme
+                              .primary, // Default background color when collapsed
+                      foregroundColor: colorScheme.onPrimary, // Icon/text color
+                      actions: [
+                        IconButton(
+                          icon: Icon(
+                            Ionicons.person_circle_outline,
+                            color:
+                                colorScheme
+                                    .onPrimary, // White icon when expanded, adapts on collapse
+                            size: 26,
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Ionicons.log_out_outline,
-                              color: colorScheme.onErrorContainer, // A more distinct error color for logout
-                              size: 26,
-                            ),
-                            tooltip: 'Logout',
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  title: const Text('Konfirmasi Logout'),
-                                  content: const Text(
-                                    'Apakah Anda yakin ingin keluar dari akun ini?',
-                                  ),
-                                  actionsAlignment: MainAxisAlignment.end,
-                                  actions: [
-                                    TextButton(
-                                      child: const Text('Batal'),
-                                      onPressed: () => Navigator.of(ctx).pop(),
+                          tooltip: 'Profil Saya',
+                          onPressed: () async {
+                            final result = await Navigator.pushNamed(
+                              context,
+                              '/profil_page',
+                            );
+                            if (result == true && mounted) {
+                              _loadUserData();
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Ionicons.log_out_outline,
+                            color:
+                                colorScheme
+                                    .onErrorContainer, // A more distinct error color for logout
+                            size: 26,
+                          ),
+                          tooltip: 'Logout',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                    TextButton(
-                                      child: Text(
-                                        'Logout',
-                                        style: TextStyle(
-                                          color: colorScheme.error,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    title: const Text('Konfirmasi Logout'),
+                                    content: const Text(
+                                      'Apakah Anda yakin ingin keluar dari akun ini?',
+                                    ),
+                                    actionsAlignment: MainAxisAlignment.end,
+                                    actions: [
+                                      TextButton(
+                                        child: const Text('Batal'),
+                                        onPressed:
+                                            () => Navigator.of(ctx).pop(),
                                       ),
-                                      onPressed: () {
-                                        Navigator.of(ctx).pop();
-                                        _logout();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                        flexibleSpace: FlexibleSpaceBar(
-                          centerTitle: false,
-                          titlePadding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
-                          title: LayoutBuilder(
-                            builder: (context, constraints) {
-                              // Dynamically change title visibility or style based on collapse
-                              // This will make 'Beranda' appear/disappear smoothly
-                              return AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: constraints.biggest.height < kToolbarHeight + 40 ? 1.0 : 0.0, // Show 'Beranda' when collapsed
-                                child: Text(
-                                  'Beranda',
-                                  style: GoogleFonts.lato(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.onPrimary,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          background: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // Background image or gradient for the header area
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    // Menggunakan fungsi _darkenColor dan _lightenColor
-                                    colors: [
-                                      _darkenColor(colorScheme.primary, 0.2), // Lebih gelap dari primary
-                                      colorScheme.primary,
-                                      _lightenColor(colorScheme.primary, 0.1), // Sedikit lebih terang dari primary
+                                      TextButton(
+                                        child: Text(
+                                          'Logout',
+                                          style: TextStyle(
+                                            color: colorScheme.error,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.of(ctx).pop();
+                                          _logout();
+                                        },
+                                      ),
                                     ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
                                   ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      flexibleSpace: FlexibleSpaceBar(
+                        centerTitle: false,
+                        titlePadding: const EdgeInsets.only(
+                          left: 16.0,
+                          bottom: 16.0,
+                        ),
+                        title: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Dynamically change title visibility or style based on collapse
+                            // This will make 'Beranda' appear/disappear smoothly
+                            return AnimatedOpacity(
+                              duration: const Duration(milliseconds: 200),
+                              opacity:
+                                  constraints.biggest.height <
+                                          kToolbarHeight + 40
+                                      ? 1.0
+                                      : 0.0, // Show 'Beranda' when collapsed
+                              child: Text(
+                                'Beranda',
+                                style: GoogleFonts.lato(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onPrimary,
+                                  fontSize: 20,
                                 ),
                               ),
-                              // You can add an image here for more branding
-                              // Image.asset(
-                              //   'assets/images/water_patterns.png', // Replace with a water-related illustration
-                              //   fit: BoxFit.cover,
-                              //   opacity: const AlwaysStoppedAnimation(0.2), // Subtle overlay
-                              // ),
-                              _buildWelcomeHeader(colorScheme), // Your welcome header
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 16.0),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate(
-                            [
-                              // Animasi untuk judul "Menu Layanan Utama"
-                              FadeInAnimation(
-                                delay: 0.2, // Muncul setelah header
-                                slideDistance: 0.05, // Sedikit geser ke atas
-                                child: Text(
-                                  "Menu Layanan Utama",
-                                  style: GoogleFonts.lato(
-                                    fontSize: 20, // Slightly larger heading
-                                    fontWeight: FontWeight.w700, // Bolder
-                                    color: colorScheme.onSurface, // Main text color
-                                  ),
+                        background: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Background image or gradient for the header area
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  // Menggunakan fungsi _darkenColor dan _lightenColor
+                                  colors: [
+                                    _darkenColor(
+                                      colorScheme.primary,
+                                      0.2,
+                                    ), // Lebih gelap dari primary
+                                    colorScheme.primary,
+                                    _lightenColor(
+                                      colorScheme.primary,
+                                      0.1,
+                                    ), // Sedikit lebih terang dari primary
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
+                            ),
+                            // You can add an image here for more branding
+                            // Image.asset(
+                            //   'assets/images/water_patterns.png', // Replace with a water-related illustration
+                            //   fit: BoxFit.cover,
+                            //   opacity: const AlwaysStoppedAnimation(0.2), // Subtle overlay
+                            // ),
+                            _buildWelcomeHeader(
+                              colorScheme,
+                            ), // Your welcome header
+                          ],
                         ),
                       ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        sliver: SliverGrid(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2, // Responsive grid: 3 columns on wider screens, 2 on smaller
-                            crossAxisSpacing: 16.0, // Increased spacing
-                            mainAxisSpacing: 16.0, // Increased spacing
-                            childAspectRatio: 0.95, // Slightly adjusted for better card height
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final item = _menuItems[index];
-                              return FadeInAnimation(
-                                delay: 0.25 + (index * 0.08), // Animasi tertunda untuk setiap kartu
-                                slideDistance: 0.05, // Setiap kartu geser sedikit
-                                child: _buildFeatureCard(
-                                  icon: item['icon'] as IconData,
-                                  title: item['title'] as String,
-                                  subtitle: item['subtitle'] as String,
-                                  color: menuColors[index % menuColors.length], // Assign color from our list
-                                  onTap: () {
-                                    if (item['route'] != null) {
-                                      Navigator.pushNamed(
-                                        context,
-                                        item['route'] as String,
-                                      );
-                                    }
-                                  },
-                                ),
-                              );
-                            },
-                            childCount: _menuItems.length,
-                          ),
-                        ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16.0,
+                        20.0,
+                        16.0,
+                        16.0,
                       ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 30.0, 16.0, 20.0),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate(
-                            [
-                              _buildLaporTemuanButton(colorScheme),
-                            ],
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          // Animasi untuk judul "Menu Layanan Utama"
+                          FadeInAnimation(
+                            delay: 0.2, // Muncul setelah header
+                            slideDistance: 0.05, // Sedikit geser ke atas
+                            child: Text(
+                              "Menu Layanan Utama",
+                              style: GoogleFonts.lato(
+                                fontSize: 20, // Slightly larger heading
+                                fontWeight: FontWeight.w700, // Bolder
+                                color: colorScheme.onSurface, // Main text color
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                        ]),
                       ),
-                    ],
-                  ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount:
+                              MediaQuery.of(context).size.width > 600
+                                  ? 3
+                                  : 2, // Responsive grid: 3 columns on wider screens, 2 on smaller
+                          crossAxisSpacing: 16.0, // Increased spacing
+                          mainAxisSpacing: 16.0, // Increased spacing
+                          childAspectRatio:
+                              0.95, // Slightly adjusted for better card height
+                        ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final item = _menuItems[index];
+                          return FadeInAnimation(
+                            delay:
+                                0.25 +
+                                (index *
+                                    0.08), // Animasi tertunda untuk setiap kartu
+                            slideDistance: 0.05, // Setiap kartu geser sedikit
+                            child: _buildFeatureCard(
+                              icon: item['icon'] as IconData,
+                              title: item['title'] as String,
+                              subtitle: item['subtitle'] as String,
+                              color:
+                                  menuColors[index %
+                                      menuColors
+                                          .length], // Assign color from our list
+                              onTap: () {
+                                if (item['route'] != null) {
+                                  Navigator.pushNamed(
+                                    context,
+                                    item['route'] as String,
+                                  );
+                                }
+                              },
+                            ),
+                          );
+                        }, childCount: _menuItems.length),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16.0,
+                        30.0,
+                        16.0,
+                        20.0,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          _buildLaporTemuanButton(colorScheme),
+                        ]),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
     );
   }
 }
@@ -605,13 +701,15 @@ class _FadeInAnimationState extends State<FadeInAnimation>
       vsync: this,
     );
 
-    _opacityAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine)); // Kurva animasi lebih smooth
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutSine),
+    ); // Kurva animasi lebih smooth
 
     _slideAnimation = Tween<Offset>(
-      begin: Offset(0, widget.slideDistance), // Menggunakan slideDistance dari widget
+      begin: Offset(
+        0,
+        widget.slideDistance,
+      ), // Menggunakan slideDistance dari widget
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine));
 

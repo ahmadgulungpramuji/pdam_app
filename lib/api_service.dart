@@ -221,6 +221,50 @@ class ApiService {
     }
   }
 
+  Future<http.Response> submitLaporanFotoWaterMeter({
+    required String idPdam,
+    required String imagePath,
+    required int idCabang, // <-- TAMBAHKAN PARAMETER INI
+    String? komentar,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Otentikasi diperlukan. Silakan login kembali.');
+    }
+
+    final url = Uri.parse('$baseUrl/lapor-foto-water-meter');
+    var request = http.MultipartRequest('POST', url);
+
+    // Tambahkan headers
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+
+    // Tambahkan fields dari form
+    request.fields['id_pdam'] = idPdam;
+    request.fields['id_cabang'] =
+        idCabang.toString(); // <-- TAMBAHKAN FIELD INI
+
+    if (komentar != null && komentar.isNotEmpty) {
+      request.fields['komentar'] = komentar;
+    }
+
+    // Tambahkan file gambar
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'foto_meter', // Nama field ini HARUS SAMA dengan di backend Laravel
+        imagePath,
+      ),
+    );
+
+    try {
+      final streamedResponse = await request.send();
+      return await http.Response.fromStream(streamedResponse);
+    } catch (e) {
+      // Handle network error, etc.
+      throw Exception('Gagal menghubungi server: $e');
+    }
+  }
+
   // =======================================================================
   // == METHOD BARU UNTUK MENGAMBIL LAPORAN PENGADUAN PENGGUNA (PELANGGAN) ==
   // =======================================================================
