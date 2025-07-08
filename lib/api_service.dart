@@ -751,13 +751,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> unifiedLogin({
-    required String email,
+    required String identifier, // Menggunakan 'identifier' generik
     required String password,
   }) async {
     final url = Uri.parse('$baseUrl/auth/login/unified');
     print('ApiService DEBUG: unifiedLogin - URL: $url');
-    // Jangan log password asli di produksi
-    // print('ApiService DEBUG: unifiedLogin - Body: ${jsonEncode({'email': email, 'password': 'SENSORED'})}');
 
     try {
       final response = await http
@@ -767,19 +765,20 @@ class ApiService {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: jsonEncode({'email': email, 'password': password}),
+            body: jsonEncode({
+              'identifier': identifier, // Mengirim 'identifier'
+              'password': password,
+            }),
           )
           .timeout(const Duration(seconds: 25));
 
       print(
         'ApiService DEBUG: unifiedLogin - Status Code: ${response.statusCode}',
       );
-      // print('ApiService DEBUG: unifiedLogin - Response Body: ${response.body}'); // Aktifkan jika perlu
 
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Laravel biasanya 200 untuk login sukses dengan token
         if (responseData is Map<String, dynamic> &&
             responseData['success'] == true) {
           if (responseData.containsKey('token') &&
@@ -796,13 +795,11 @@ class ApiService {
                 'Login gagal (format respons tidak dikenal).',
           );
         }
-      } else if (response.statusCode == 401) {
-        // Unauthorized (email/password salah)
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
         throw Exception(
-          responseData['message'] ?? 'Email atau password salah.',
+          responseData['message'] ?? 'ID, Nomor HP, atau password salah.',
         );
       } else if (response.statusCode == 422) {
-        // Validation errors
         String errorMsg = "Input tidak valid:";
         if (responseData.containsKey('errors') &&
             responseData['errors'] is Map) {
@@ -877,28 +874,6 @@ class ApiService {
     };
     final url = Uri.parse('$baseUrl/id-pdam');
     final body = jsonEncode({'nomor': nomor, 'id_pelanggan': idPelanggan});
-    return await http.post(url, headers: headers, body: body);
-  }
-
-  Future<http.Response> loginUser({
-    required String email,
-    required String password,
-    required String userType,
-  }) async {
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    final String loginEndpoint;
-    if (userType == 'pelanggan') {
-      loginEndpoint = '$baseUrl/auth/login/pelanggan';
-    } else if (userType == 'petugas') {
-      loginEndpoint = '$baseUrl/auth/login/petugas';
-    } else {
-      throw ArgumentError('Tipe pengguna tidak valid: $userType');
-    }
-    final url = Uri.parse(loginEndpoint);
-    final body = jsonEncode({'email': email, 'password': password});
     return await http.post(url, headers: headers, body: body);
   }
 

@@ -5,7 +5,6 @@ import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
-// import 'package:animate_do/animate_do.dart'; // Hapus atau komentari ini jika tidak digunakan sama sekali
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -20,7 +19,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _trackCodeController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  // DIUBAH: Menggunakan controller generik untuk identifier
+  final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
 
@@ -37,7 +37,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-
     _trackCodeController.addListener(() {
       if (mounted) {
         setState(() {});
@@ -47,7 +46,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    // DIUBAH: Dispose controller yang benar
+    _identifierController.dispose();
     _passwordController.dispose();
     _trackCodeController.dispose();
     _pageController.dispose();
@@ -94,8 +94,9 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() => _isLoading = true);
     try {
+      // DIUBAH: Mengirim identifier ke service
       final Map<String, dynamic> responseData = await _apiService.unifiedLogin(
-        email: _emailController.text.trim(),
+        identifier: _identifierController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -190,7 +191,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _buildSwipeHint(), // Menggunakan widget _buildSwipeHint yang baru tanpa animasi
+                  _buildSwipeHint(),
                 ],
               ),
               const SizedBox(height: 20),
@@ -238,16 +239,16 @@ class _LoginPageState extends State<LoginPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TextFormField(
-            controller: _emailController,
-            decoration: _inputDecoration("Email", Ionicons.mail_outline),
-            keyboardType: TextInputType.emailAddress,
+            // DIUBAH: Menggunakan controller & dekorasi baru
+            controller: _identifierController,
+            decoration: _inputDecoration(
+              "ID PDAM / No. HP / Email",
+              Ionicons.person_circle_outline,
+            ),
+            keyboardType: TextInputType.text,
             validator: (val) {
-              if (val == null || val.isEmpty) return 'Email tidak boleh kosong';
-              if (!RegExp(
-                r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-              ).hasMatch(val)) {
-                return 'Masukkan format email yang valid';
-              }
+              if (val == null || val.isEmpty)
+                return 'Kolom ini tidak boleh kosong';
               return null;
             },
           ),
@@ -527,23 +528,18 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildSwipeHint() {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
-      opacity: _currentPage == 0 ? 1.0 : 0.0,
-      // Hapus FadeInUp jika tidak ingin ada animasi muncul
+      opacity: 1.0,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Hapus SpinPerfect jika tidak ingin ada animasi putar
           Icon(
-            // Menggunakan icon Ionicons.swap_horizontal
             Ionicons.swap_horizontal,
-            size: 28, // Ukuran ikon yang pas
+            size: 28,
             color: const Color(0xFF005A9C),
           ),
-          const SizedBox(width: 8), // Jarak antara ikon dan teks
+          const SizedBox(width: 8),
           Text(
-            _currentPage == 0
-                ? 'Geser untuk opsi lainnya'
-                : 'Geser untuk melacak laporan',
+            'Geser untuk opsi lainnya',
             style: TextStyle(
               color: Colors.grey.shade700,
               fontSize: 14,
