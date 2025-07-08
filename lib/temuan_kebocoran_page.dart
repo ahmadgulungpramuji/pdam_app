@@ -160,11 +160,13 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied)
+        if (permission == LocationPermission.denied) {
           throw Exception('Izin lokasi ditolak.');
+        }
       }
-      if (permission == LocationPermission.deniedForever)
+      if (permission == LocationPermission.deniedForever) {
         throw Exception('Izin lokasi ditolak permanen.');
+      }
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -177,11 +179,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         _findNearestBranch();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         _showSnackbar(
           e.toString().replaceFirst("Exception: ", ""),
           isError: true,
         );
+      }
     }
   }
 
@@ -237,8 +240,9 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         imageQuality: 70,
         maxWidth: 1024,
       );
-      if (pickedFile != null)
+      if (pickedFile != null) {
         setState(() => _imageFile = File(pickedFile.path));
+      }
     } catch (e) {
       _showSnackbar('Gagal memilih gambar: $e', isError: true);
     }

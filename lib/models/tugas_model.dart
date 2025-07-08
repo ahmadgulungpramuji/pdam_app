@@ -82,12 +82,64 @@ abstract class Tugas {
       return PengaduanTugas.fromJson(json);
     } else if (tipe == 'temuan_kebocoran') {
       return TemuanTugas.fromJson(json);
-    } else if (tipe == 'laporan_mandiri') {
-      return LaporanMandiriTugas.fromJson(json);
+    } else if (tipe == 'calon_pelanggan') {
+      return CalonPelangganTugas.fromJson(json);
     } else {
       throw Exception('Tipe tugas tidak dikenal: $tipe');
     }
   }
+}
+
+class CalonPelangganTugas extends Tugas {
+  final KontakInfo pelanggan; // Menggunakan kembali KontakInfo untuk data calon
+  final String jenisTugasInternal; // 'survey' atau 'pemasangan'
+
+  CalonPelangganTugas({
+    required super.idPenugasanInternal,
+    required super.isPetugasPelapor,
+    required super.idTugas,
+    required super.deskripsi,
+    required super.deskripsiLokasi,
+    required super.status,
+    required super.tanggalTugas,
+    required super.tanggalDibuatPenugasan,
+    required String kategori,
+    required this.pelanggan,
+    super.detailTugasLengkap,
+  }) : jenisTugasInternal = kategori,
+       super(
+         tipeTugas: 'calon_pelanggan',
+         lokasiMaps: '', // Tidak ada maps
+         // URL Foto bisa diambil dari detailTugasLengkap jika diperlukan
+         fotoBuktiUrl: detailTugasLengkap?['foto_ktp_url'],
+         fotoRumahUrl: detailTugasLengkap?['foto_rumah_url'],
+         fotoSebelumUrl: detailTugasLengkap?['foto_survey_url'],
+         fotoSesudahUrl: detailTugasLengkap?['foto_pemasangan_url'],
+       );
+
+  factory CalonPelangganTugas.fromJson(Map<String, dynamic> json) {
+    return CalonPelangganTugas(
+      idPenugasanInternal: json['id_penugasan_internal'] ?? '',
+      isPetugasPelapor: json['is_petugas_pelapor'] ?? false,
+      idTugas: json['id_tugas'] ?? 0,
+      deskripsi: json['deskripsi'] ?? 'Tugas Pendaftaran Baru',
+      deskripsiLokasi: json['deskripsi_lokasi'] ?? 'Alamat tidak tersedia',
+      status: json['status'] ?? 'pending',
+      tanggalTugas: json['tanggal_tugas'] ?? '',
+      tanggalDibuatPenugasan:
+          DateTime.tryParse(json['tanggal_dibuat_penugasan'] ?? '') ??
+          DateTime.now(),
+      kategori: json['kategori'] ?? 'Pendaftaran',
+      pelanggan: KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>),
+      detailTugasLengkap: json['detail_tugas_lengkap'] as Map<String, dynamic>?,
+    );
+  }
+
+  @override
+  String get kategoriDisplay => jenisTugasInternal;
+
+  @override
+  KontakInfo? get infoKontakPelapor => pelanggan;
 }
 
 class PengaduanTugas extends Tugas {
@@ -204,50 +256,4 @@ class TemuanTugas extends Tugas {
   String get kategoriDisplay => 'Temuan Kebocoran';
   @override
   KontakInfo? get infoKontakPelapor => pelaporTemuan;
-}
-
-// PERBAIKAN: Menambahkan class baru untuk LaporanMandiriTugas
-class LaporanMandiriTugas extends Tugas {
-  LaporanMandiriTugas({
-    required super.idPenugasanInternal,
-    required super.idTugas,
-    required super.deskripsi,
-    required super.deskripsiLokasi,
-    required super.status,
-    required super.tanggalTugas,
-    super.fotoSebelumUrl,
-    super.fotoSesudahUrl,
-    required super.tanggalDibuatPenugasan,
-    super.detailTugasLengkap,
-  }) : super(
-         tipeTugas: 'laporan_mandiri',
-         isPetugasPelapor: true, // Laporan mandiri selalu oleh petugas ybs
-         lokasiMaps: '', // Tidak ada maps
-         fotoBuktiUrl: null, // Tidak ada foto bukti awal
-         fotoRumahUrl: null, // Tidak ada foto rumah
-       );
-
-  factory LaporanMandiriTugas.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic>? detailLengkap =
-        json['detail_tugas_lengkap'] as Map<String, dynamic>?;
-    return LaporanMandiriTugas(
-      idPenugasanInternal: json['id_penugasan_internal'] ?? '',
-      idTugas: json['id_tugas'] ?? 0,
-      deskripsi: json['deskripsi'] ?? '',
-      deskripsiLokasi: json['deskripsi_lokasi'] ?? 'Lokasi tidak tersedia',
-      status: json['status'] ?? 'selesai',
-      tanggalTugas: json['tanggal_tugas'] ?? '',
-      fotoSebelumUrl: detailLengkap?['foto_sebelum_url'] as String?,
-      fotoSesudahUrl: detailLengkap?['foto_sesudah_url'] as String?,
-      tanggalDibuatPenugasan:
-          DateTime.tryParse(json['tanggal_dibuat_penugasan'] ?? '') ??
-          DateTime.now(),
-      detailTugasLengkap: detailLengkap,
-    );
-  }
-
-  @override
-  String get kategoriDisplay => 'Laporan Mandiri';
-  @override
-  KontakInfo? get infoKontakPelapor => null; // Tidak ada kontak pelapor eksternal
 }

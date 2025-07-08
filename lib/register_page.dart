@@ -154,7 +154,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  // --- UI Helpers ---
   void _showSnackbar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +184,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // --- Build Methods ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -511,7 +509,6 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-// Tambahkan extension ini jika belum ada di tempat lain
 extension StringExtension on String {
   String capitalize() {
     return substring(0, 1).toUpperCase() + substring(1).toLowerCase();

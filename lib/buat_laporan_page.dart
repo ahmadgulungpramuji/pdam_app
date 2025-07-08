@@ -186,17 +186,22 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         if (placemarks.isNotEmpty && mounted) {
           Placemark place = placemarks[0];
           final addressParts = <String>[];
-          if (place.street != null && place.street!.isNotEmpty)
+          if (place.street != null && place.street!.isNotEmpty) {
             addressParts.add(place.street!);
-          if (place.subLocality != null && place.subLocality!.isNotEmpty)
+          }
+          if (place.subLocality != null && place.subLocality!.isNotEmpty) {
             addressParts.add(place.subLocality!);
-          if (place.locality != null && place.locality!.isNotEmpty)
+          }
+          if (place.locality != null && place.locality!.isNotEmpty) {
             addressParts.add(place.locality!);
+          }
           if (place.subAdministrativeArea != null &&
-              place.subAdministrativeArea!.isNotEmpty)
+              place.subAdministrativeArea!.isNotEmpty) {
             addressParts.add(place.subAdministrativeArea!);
-          if (place.postalCode != null && place.postalCode!.isNotEmpty)
+          }
+          if (place.postalCode != null && place.postalCode!.isNotEmpty) {
             addressParts.add(place.postalCode!);
+          }
 
           String address = addressParts.join(', ');
 
@@ -284,9 +289,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     );
     if (pickedFile != null) {
       setState(() {
-        if (type == 'bukti')
+        if (type == 'bukti') {
           _fotoBuktiFile = File(pickedFile.path);
-        else if (type == 'rumah')
+        } else if (type == 'rumah')
           _fotoRumahFile = File(pickedFile.path);
       });
     }

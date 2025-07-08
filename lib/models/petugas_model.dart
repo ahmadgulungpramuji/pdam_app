@@ -1,6 +1,5 @@
 // lib/models/petugas_model.dart
 class CabangInfo {
-  // Model sederhana untuk info cabang
   final int id;
   final String namaCabang;
 
@@ -42,7 +41,6 @@ class Petugas {
     );
   }
 
-  // Untuk membuat salinan dengan perubahan (berguna untuk update state)
   Petugas copyWith({String? nama, String? email, String? nomorHp}) {
     return Petugas(
       id: id,

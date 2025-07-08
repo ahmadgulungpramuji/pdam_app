@@ -293,8 +293,9 @@ class _CalonPelangganRegisterPageState
                         LengthLimitingTextInputFormatter(16),
                       ],
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'Nomor KTP wajib diisi';
+                        }
                         if (v.length != 16) return 'Nomor KTP harus 16 digit';
                         return null;
                       },
@@ -307,8 +308,9 @@ class _CalonPelangganRegisterPageState
                       keyboardType: TextInputType.phone,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'Nomor WA wajib diisi';
+                        }
                         if (v.length < 10) return 'Nomor WA minimal 10 digit';
                         return null;
                       },

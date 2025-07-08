@@ -11,9 +11,10 @@ import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/models/cabang_model.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pdam_app/models/paginated_response.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.0.108:8000/api';
+  final String baseUrl = 'http://192.168.0.133:8000/api';
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -130,35 +131,44 @@ class ApiService {
     }
   }
 
-  Future<List<Tugas>> getRiwayatPetugas(int idPetugas, int page) async {
-    // URL endpoint untuk riwayat dengan parameter halaman
+  Future<PaginatedTugasResponse> getRiwayatPetugas(
+    int idPetugas,
+    int page,
+  ) async {
     final url = Uri.parse('$baseUrl/petugas/history/$idPetugas?page=$page');
-
-    // Mengambil token dari SharedPreferences atau tempat Anda menyimpannya
     final token = await getToken();
 
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    // Pastikan Anda sudah mengimpor 'package:http/http.dart' as http;
+    final response = await http
+        .get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
-      // Response dari Laravel Paginator memiliki data di dalam key 'data'
+      // Pastikan Anda sudah mengimpor 'dart:convert';
       final responseBody = json.decode(response.body);
       final List<dynamic> riwayatJson = responseBody['data'];
 
-      // Jika 'data' kosong, berarti tidak ada lagi item
-      if (riwayatJson.isEmpty) {
-        return [];
-      }
+      // LOGIKA KUNCI: Cek apakah ada halaman berikutnya dari respons API
+      final bool hasMore = responseBody['next_page_url'] != null;
 
-      // Mapping JSON menjadi List<Tugas>
-      return riwayatJson.map((json) => Tugas.fromJson(json)).toList();
+      // Pastikan Anda sudah mengimpor model Tugas
+      final List<Tugas> tugasList =
+          riwayatJson
+              .map((json) => Tugas.fromJson(json as Map<String, dynamic>))
+              .toList();
+
+      // Kembalikan objek PaginatedTugasResponse yang baru
+      return PaginatedTugasResponse(
+        tugasList: tugasList,
+        hasMorePages: hasMore,
+      );
     } else {
-      // Jika gagal, lemparkan error
       throw Exception('Gagal memuat data riwayat dari API');
     }
   }
@@ -1280,6 +1290,45 @@ class ApiService {
         errorMessage += ' Respons server: ${response.body}';
       }
       throw Exception(errorMessage);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateStatusCalonPelanggan({
+    required int idCalon,
+    required String newStatus,
+    String? imagePath, // Path ke file foto, nullable
+  }) async {
+    final token = await getToken();
+    final url = Uri.parse(
+      '$baseUrl/petugas/calon-pelanggan/$idCalon/update-status',
+    );
+
+    var request = http.MultipartRequest('POST', url);
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.headers['Accept'] = 'application/json';
+
+    request.fields['status'] = newStatus;
+
+    // Tambahkan file foto jika ada path-nya
+    if (imagePath != null && imagePath.isNotEmpty) {
+      request.files.add(await http.MultipartFile.fromPath('foto', imagePath));
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      print(
+        'Error updateStatusCalonPelanggan (${response.statusCode}): ${response.body}',
+      );
+      final errorBody = jsonDecode(response.body);
+      throw Exception(
+        errorBody['message'] ?? 'Gagal update status tugas: ${response.body}',
+      );
     }
   }
 }

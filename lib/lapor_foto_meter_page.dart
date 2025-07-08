@@ -53,7 +53,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
             .getCabangList(), // Gunakan method yang sudah ada di ApiService Anda
       ]);
 
-      final pdamData = responses[0] as List<dynamic>;
+      final pdamData = responses[0];
       final cabangData = responses[1] as List<Cabang>;
 
       if (mounted) {
@@ -139,8 +139,9 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
         maxWidth: 1080,
         imageQuality: 85,
       );
-      if (pickedFile != null)
+      if (pickedFile != null) {
         setState(() => _imageFile = File(pickedFile.path));
+      }
     } catch (e) {
       _showSnackbar('Gagal mengambil gambar: $e', isError: true);
     }

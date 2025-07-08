@@ -1,5 +1,4 @@
 // lib/models/pengaduan_model.dart
-// KODE ANDA SUDAH BENAR, TIDAK PERLU DIUBAH
 import 'petugas_simple_model.dart';
 
 class Pengaduan {
@@ -84,10 +83,10 @@ class Pengaduan {
           json['petugas_ditugaskan'] != null &&
                   json['petugas_ditugaskan'] is List
               ? List<PetugasSimple>.from(
-                  (json['petugas_ditugaskan'] as List<dynamic>).map(
-                    (x) => PetugasSimple.fromJson(x),
-                  ),
-                )
+                (json['petugas_ditugaskan'] as List<dynamic>).map(
+                  (x) => PetugasSimple.fromJson(x),
+                ),
+              )
               : null,
     );
   }

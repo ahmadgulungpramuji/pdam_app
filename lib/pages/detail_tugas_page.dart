@@ -424,7 +424,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   Widget _buildKontakRow(KontakInfo kontak) {
     return _buildInfoRow(
       Ionicons.person_outline,
-      '${_tugasSaatIni is PengaduanTugas ? 'Pelanggan:' : 'Pelapor:'}',
+      _tugasSaatIni is PengaduanTugas ? 'Pelanggan:' : 'Pelapor:',
       '${kontak.nama} (${kontak.nomorHp})',
     );
   }
