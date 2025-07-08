@@ -57,8 +57,10 @@ class _ProfilPageState extends State<ProfilPage> {
           _nomorHpController.text = _userData?['nomor_hp'] ?? '';
         });
       } else {
-        _showSnackbar('Gagal memuat data profil. Silakan coba lagi.',
-            isError: true);
+        _showSnackbar(
+          'Gagal memuat data profil. Silakan coba lagi.',
+          isError: true,
+        );
       }
       setState(() => _isLoading = false);
     }
@@ -82,8 +84,9 @@ class _ProfilPageState extends State<ProfilPage> {
     }
     setState(() => _isSaving = true);
     final updatedData = {
-      'username': _nameController.text,
-      'nomor_hp': _nomorHpController.text,
+      'username': _nameController.text.trim(),
+      'nomor_hp': _nomorHpController.text.trim(),
+      'email': _emailController.text.trim(),
     };
     if (_passwordController.text.isNotEmpty) {
       updatedData['password'] = _passwordController.text;
@@ -99,13 +102,16 @@ class _ProfilPageState extends State<ProfilPage> {
         // Perbarui data di UI setelah berhasil disimpan
         setState(() {
           _userData?['nama'] = success['nama'];
+          _userData?['email'] = success['email']; // <-- TAMBAHKAN INI
           _userData?['nomor_hp'] = success['nomor_hp'];
         });
         // Tidak perlu pop, agar pengguna bisa lihat perubahannya
-        // Navigator.pop(context, true); 
+        // Navigator.pop(context, true);
       } else {
-        _showSnackbar('Gagal memperbarui profil. Silakan coba lagi.',
-            isError: true);
+        _showSnackbar(
+          'Gagal memperbarui profil. Silakan coba lagi.',
+          isError: true,
+        );
       }
       setState(() => _isSaving = false);
     }
@@ -130,101 +136,122 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _userData == null
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _userData == null
               ? _buildErrorState()
               : CustomScrollView(
-                  slivers: [
-                    _buildHeader(),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            _buildSectionCard(
-                              title: 'Data Pribadi',
-                              icon: FontAwesomeIcons.solidUser,
-                              delay: 200,
-                              child: Column(
-                                children: [
-                                  _buildTextField(
-                                    controller: _nameController,
-                                    label: 'Nama Lengkap / Username',
-                                    icon: FontAwesomeIcons.user,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _emailController,
-                                    label: 'Email',
-                                    icon: FontAwesomeIcons.envelope,
-                                    readOnly: true,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildTextField(
-                                    controller: _nomorHpController,
-                                    label: 'Nomor Telepon',
-                                    icon: FontAwesomeIcons.phone,
-                                    keyboardType: TextInputType.phone,
-                                  ),
-                                ],
-                              ),
+                slivers: [
+                  _buildHeader(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          _buildSectionCard(
+                            title: 'Data Pribadi',
+                            icon: FontAwesomeIcons.solidUser,
+                            delay: 200,
+                            child: Column(
+                              children: [
+                                _buildTextField(
+                                  controller: _nameController,
+                                  label: 'Nama Lengkap / Username',
+                                  icon: FontAwesomeIcons.user,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  icon: FontAwesomeIcons.envelope,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _nomorHpController,
+                                  label: 'Nomor Telepon',
+                                  icon: FontAwesomeIcons.phone,
+                                  keyboardType: TextInputType.phone,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 24),
-                            _buildSectionCard(
-                              title: 'Ubah Password',
-                              icon: FontAwesomeIcons.lock,
-                              delay: 300,
-                              child: Column(
-                                children: [
-                                  _buildPasswordTextField(
-                                    controller: _passwordController,
-                                    label: 'Password Baru (opsional)',
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _buildPasswordTextField(
-                                    controller: _passwordConfirmationController,
-                                    label: 'Konfirmasi Password Baru',
-                                  ),
-                                ],
-                              ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSectionCard(
+                            title: 'Ubah Password',
+                            icon: FontAwesomeIcons.lock,
+                            delay: 300,
+                            child: Column(
+                              children: [
+                                _buildPasswordTextField(
+                                  controller: _passwordController,
+                                  label: 'Password Baru (opsional)',
+                                ),
+                                const SizedBox(height: 16),
+                                _buildPasswordTextField(
+                                  controller: _passwordConfirmationController,
+                                  label: 'Konfirmasi Password Baru',
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 32),
-                            FadeInUp(
-                              from: 20,
-                              delay: const Duration(milliseconds: 400),
-                              child: ElevatedButton.icon(
-                                onPressed: _isSaving ? null : _saveChanges,
-                                icon: _isSaving
-                                    ? Container()
-                                    : const Icon(FontAwesomeIcons.solidFloppyDisk, size: 18),
-                                label: _isSaving
-                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                    : const Text('Simpan Perubahan'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2962FF),
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(double.infinity, 50),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 32),
+                          FadeInUp(
+                            from: 20,
+                            delay: const Duration(milliseconds: 400),
+                            child: ElevatedButton.icon(
+                              onPressed: _isSaving ? null : _saveChanges,
+                              icon:
+                                  _isSaving
+                                      ? Container()
+                                      : const Icon(
+                                        FontAwesomeIcons.solidFloppyDisk,
+                                        size: 18,
+                                      ),
+                              label:
+                                  _isSaving
+                                      ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : const Text('Simpan Perubahan'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2962FF),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                textStyle: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            )
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  ],
-                ),
+                    ),
+                  ),
+                ],
+              ),
     );
   }
-  
+
   Widget _buildErrorState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(FontAwesomeIcons.circleExclamation, color: Colors.red, size: 60),
+          const Icon(
+            FontAwesomeIcons.circleExclamation,
+            color: Colors.red,
+            size: 60,
+          ),
           const SizedBox(height: 12),
           Text('Tidak dapat memuat data profil.', style: GoogleFonts.poppins()),
           const SizedBox(height: 16),
@@ -266,8 +293,11 @@ class _ProfilPageState extends State<ProfilPage> {
               const CircleAvatar(
                 radius: 40,
                 backgroundColor: Colors.white,
-                child: Icon(FontAwesomeIcons.solidUserCircle,
-                    size: 75, color: Color(0xFF1E88E5)),
+                child: Icon(
+                  FontAwesomeIcons.solidUserCircle,
+                  size: 75,
+                  color: Color(0xFF1E88E5),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -299,9 +329,10 @@ class _ProfilPageState extends State<ProfilPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 5)),
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
           ],
         ),
         child: Column(
@@ -310,9 +341,10 @@ class _ProfilPageState extends State<ProfilPage> {
             Text(
               title,
               style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const Divider(height: 24, thickness: 0.5),
             child,
@@ -340,9 +372,18 @@ class _ProfilPageState extends State<ProfilPage> {
         prefixIcon: Icon(icon, color: Colors.blueAccent[400], size: 20),
         filled: true,
         fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blueAccent, width: 2)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+        ),
       ),
     );
   }
@@ -358,20 +399,36 @@ class _ProfilPageState extends State<ProfilPage> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.poppins(),
-        prefixIcon: Icon(FontAwesomeIcons.lock, color: Colors.blueAccent[400], size: 20),
+        prefixIcon: Icon(
+          FontAwesomeIcons.lock,
+          color: Colors.blueAccent[400],
+          size: 20,
+        ),
         suffixIcon: IconButton(
           icon: Icon(
-              _isPasswordVisible
-                  ? FontAwesomeIcons.eyeSlash
-                  : FontAwesomeIcons.eye,
-              color: Colors.grey, size: 20),
-          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+            _isPasswordVisible
+                ? FontAwesomeIcons.eyeSlash
+                : FontAwesomeIcons.eye,
+            color: Colors.grey,
+            size: 20,
+          ),
+          onPressed:
+              () => setState(() => _isPasswordVisible = !_isPasswordVisible),
         ),
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.blueAccent, width: 2)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+        ),
       ),
     );
   }

@@ -356,12 +356,15 @@ class _RegisterPageState extends State<RegisterPage> {
               prefixIcon: Icon(Ionicons.mail_outline),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Email wajib diisi';
-              if (!RegExp(
-                r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-              ).hasMatch(value)) {
+              // Hanya validasi format jika field TIDAK kosong.
+              if (value != null &&
+                  value.isNotEmpty &&
+                  !RegExp(
+                    r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
+                  ).hasMatch(value)) {
                 return 'Format email tidak valid';
               }
+              // Jika kosong atau formatnya valid, loloskan validasi (return null).
               return null;
             },
           ),
