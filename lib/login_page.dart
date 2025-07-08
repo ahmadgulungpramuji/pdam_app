@@ -4,7 +4,8 @@ import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-import 'package:url_launcher/url_launcher.dart'; // Import for launching URLs
+import 'package:url_launcher/url_launcher.dart';
+// import 'package:animate_do/animate_do.dart'; // Hapus atau komentari ini jika tidak digunakan sama sekali
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -30,7 +31,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _isTrackingReport = false;
   bool _passwordVisible = false;
 
-  // URL untuk cek tagihan
   final String _checkBillUrl =
       'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
 
@@ -67,88 +67,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showRegistrationChoice(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pilih Tipe Pendaftaran',
-                  style: GoogleFonts.lato(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text('Silakan pilih status Anda saat ini.'),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: const Icon(
-                    Ionicons.person_circle_outline,
-                    color: Colors.blue,
-                    size: 30,
-                  ),
-                  title: const Text('Sudah Punya ID Pelanggan'),
-                  subtitle: const Text(
-                    'Daftarkan akun untuk mengakses layanan pelanggan.',
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  tileColor: Colors.blue.withOpacity(0.05),
-                  onTap: () {
-                    Navigator.of(ctx).pop(); // Tutup bottom sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterPage(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(
-                    Ionicons.person_add_outline,
-                    color: Colors.green,
-                    size: 30,
-                  ),
-                  title: const Text('Belum Punya ID Pelanggan'),
-                  subtitle: const Text(
-                    'Ajukan pendaftaran untuk menjadi pelanggan baru.',
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  tileColor: Colors.green.withOpacity(0.05),
-                  onTap: () {
-                    Navigator.of(ctx).pop(); // Tutup bottom sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => const CalonPelangganRegisterPage(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _trackReportFromLogin() async {
     final code = _trackCodeController.text.trim();
     if (code.isEmpty) {
@@ -158,15 +76,13 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isTrackingReport = true);
     try {
       final TemuanKebocoran temuan = await _apiService.trackReport(code);
-      if (mounted) {
-        _trackCodeController.clear();
-        Navigator.pushNamed(context, '/detail_temuan_page', arguments: temuan);
-      }
+      if (!mounted) return;
+      _trackCodeController.clear();
+      Navigator.pushNamed(context, '/detail_temuan_page', arguments: temuan);
     } catch (e) {
-      if (mounted) {
-        String errorMessage = e.toString().replaceFirst("Exception: ", "");
-        _showSnackbar(errorMessage, isError: true);
-      }
+      if (!mounted) return;
+      String errorMessage = e.toString().replaceFirst("Exception: ", "");
+      _showSnackbar(errorMessage, isError: true);
     } finally {
       if (mounted) setState(() => _isTrackingReport = false);
     }
@@ -192,15 +108,18 @@ class _LoginPageState extends State<LoginPage> {
 
       await _apiService.saveToken(token);
 
+      if (!mounted) return;
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
 
       if (userType == 'pelanggan') {
+        if (!mounted) return;
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/home_pelanggan',
           (route) => false,
         );
       } else if (userType == 'petugas') {
+        if (!mounted) return;
         final int petugasId = userData['id'] as int;
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -209,28 +128,26 @@ class _LoginPageState extends State<LoginPage> {
           arguments: {'idPetugasLoggedIn': petugasId},
         );
       } else {
+        if (!mounted) return;
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }
     } catch (e) {
-      if (mounted) {
-        String errorMessage = e.toString().replaceFirst("Exception: ", "");
-        _showSnackbar(errorMessage, isError: true);
-      }
+      if (!mounted) return;
+      String errorMessage = e.toString().replaceFirst("Exception: ", "");
+      _showSnackbar(errorMessage, isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Fungsi untuk membuka URL
   Future<void> _launchBillUrl() async {
     final Uri url = Uri.parse(_checkBillUrl);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        _showSnackbar(
-          'Tidak dapat membuka tautan cek tagihan. Pastikan Anda memiliki aplikasi browser.',
-          isError: true,
-        );
-      }
+      if (!mounted) return;
+      _showSnackbar(
+        'Tidak dapat membuka tautan cek tagihan. Pastikan Anda memiliki aplikasi browser.',
+        isError: true,
+      );
     }
   }
 
@@ -248,7 +165,6 @@ class _LoginPageState extends State<LoginPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // Bagian header yang statis
               const SizedBox(height: 30),
               Icon(Ionicons.water, size: 60, color: Colors.blue.shade700),
               const SizedBox(height: 15),
@@ -261,23 +177,27 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                _currentPage == 0
-                    ? "Login untuk mengakses layanan PDAM"
-                    : "Lacak atau buat laporan kebocoran baru",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.lato(
-                  fontSize: 16,
-                  color: Colors.grey.shade700,
-                ),
+              Column(
+                children: [
+                  Text(
+                    _currentPage == 0
+                        ? "Login untuk mengakses layanan PDAM"
+                        : "Lacak atau buat laporan kebocoran baru",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.lato(
+                      fontSize: 16,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSwipeHint(), // Menggunakan widget _buildSwipeHint yang baru tanpa animasi
+                ],
               ),
               const SizedBox(height: 20),
 
-              // Bagian konten yang bisa di-swipe
               Expanded(
                 child: PageView(
                   controller: _pageController,
-
                   onPageChanged: (int page) {
                     setState(() {
                       _currentPage = page;
@@ -302,10 +222,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
 
-              // Bagian footer dengan indikator
               _buildPageIndicator(),
-              const SizedBox(height: 10),
-              _buildSwipeHint(),
               const SizedBox(height: 20),
             ],
           ),
@@ -406,7 +323,16 @@ class _LoginPageState extends State<LoginPage> {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onPressed:
-                    _isLoading ? null : () => _showRegistrationChoice(context),
+                    _isLoading
+                        ? null
+                        : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterPage(),
+                            ),
+                          );
+                        },
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(
@@ -419,6 +345,36 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed:
+                  _isLoading || _isTrackingReport
+                      ? null
+                      : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const CalonPelangganRegisterPage(),
+                          ),
+                        );
+                      },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.green.shade700,
+                side: BorderSide(color: Colors.green.shade700, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'DAFTAR PELANGGAN PDAM BARU',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),
@@ -490,7 +446,6 @@ class _LoginPageState extends State<LoginPage> {
                         builder: (context) => const TemuanKebocoranPage(),
                       ),
                     ),
-
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF005A9C),
               side: const BorderSide(color: Color(0xFF005A9C), width: 1.5),
@@ -501,22 +456,15 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-        const SizedBox(height: 16), // Added spacing for the new button
-        // =======================================================
-        // == PERUBAHAN BARU: Tombol Cek Tagihan                  ==
-        // =======================================================
+        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            icon: const Icon(
-              Ionicons.wallet_outline,
-              size: 20,
-            ), // Wallet icon for bill
+            icon: const Icon(Ionicons.wallet_outline, size: 20),
             label: const Text("CEK TAGIHAN"),
             onPressed: _isLoading || _isTrackingReport ? null : _launchBillUrl,
             style: OutlinedButton.styleFrom(
-              foregroundColor:
-                  Colors.green.shade700, // Green color for bill button
+              foregroundColor: Colors.green.shade700,
               side: BorderSide(color: Colors.green.shade700, width: 1.5),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -580,13 +528,29 @@ class _LoginPageState extends State<LoginPage> {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       opacity: _currentPage == 0 ? 1.0 : 0.0,
-      child: const Text(
-        'Geser ke kanan untuk melacak atau membuat laporan',
-        style: TextStyle(
-          color: Color(0xFF005A9C),
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
+      // Hapus FadeInUp jika tidak ingin ada animasi muncul
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Hapus SpinPerfect jika tidak ingin ada animasi putar
+          Icon(
+            // Menggunakan icon Ionicons.swap_horizontal
+            Ionicons.swap_horizontal,
+            size: 28, // Ukuran ikon yang pas
+            color: const Color(0xFF005A9C),
+          ),
+          const SizedBox(width: 8), // Jarak antara ikon dan teks
+          Text(
+            _currentPage == 0
+                ? 'Geser untuk opsi lainnya'
+                : 'Geser untuk melacak laporan',
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -69,7 +69,7 @@ class MyApp extends StatelessWidget {
       ),
       // Atur rute awal secara dinamis
       // Jika sudah pernah lihat welcome screen, langsung ke login. Jika belum, ke welcome screen.
-      initialRoute: '/welcome',
+      initialRoute: hasSeenWelcomeScreen ? '/login' : '/welcome',
       routes: {
         // Rute untuk halaman-halaman yang sudah ada
         '/': (context) => const LoginPage(), // Fallback ke login
