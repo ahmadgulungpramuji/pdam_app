@@ -1028,11 +1028,17 @@ class ApiService {
     required int idTugas,
     required String tipeTugas,
     required String newStatus,
-    String? keterangan,
+    String? keterangan, // <--- TAMBAHKAN PARAMETER INI
   }) async {
     final token = await getToken();
     final url = Uri.parse('$baseUrl/tugas/$tipeTugas/$idTugas/update-status');
     print('Calling updateStatusTugas: $url with status: $newStatus');
+
+    final Map<String, String> bodyData = {'status': newStatus};
+    if (keterangan != null && keterangan.isNotEmpty) {
+      // <--- KIRIM KETERANGAN JIKA ADA
+      bodyData['keterangan'] = keterangan;
+    }
 
     final response = await http.post(
       url,
@@ -1040,10 +1046,7 @@ class ApiService {
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       },
-      body: {
-        'status': newStatus,
-        if (keterangan != null) 'keterangan': keterangan,
-      },
+      body: bodyData, // <--- GUNAKAN bodyData
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1052,7 +1055,10 @@ class ApiService {
       print(
         'Error updateStatusTugas (${response.statusCode}): ${response.body}',
       );
-      throw Exception('Gagal update status tugas: ${response.body}');
+      final errorBody = jsonDecode(response.body); // Ambil body error
+      throw Exception(
+        errorBody['message'] ?? 'Gagal update status tugas: ${response.body}',
+      ); // Tampilkan pesan dari backend
     }
   }
 

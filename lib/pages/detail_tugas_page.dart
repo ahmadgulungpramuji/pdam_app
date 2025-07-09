@@ -8,7 +8,7 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/models/tugas_model.dart';
+import 'package:pdam_app/models/tugas_model.dart'; // Pastikan ini diimpor
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 
@@ -26,7 +26,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
-  final DateFormat _dateFormatter = DateFormat('EEEE, dd MMMM yyyy', 'id_ID');
+  final DateFormat _dateFormatter = DateFormat('EEEE, dd MMMM', 'id_ID');
   final DateFormat _timeFormatter = DateFormat('HH:mm', 'id_ID');
 
   @override
@@ -52,13 +52,18 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  Future<void> _updateStatus(String targetNewStatus) async {
+  // --- START MODIFIKASI: _updateStatus untuk menangani keterangan ---
+  Future<void> _updateStatus(
+    String targetNewStatus, {
+    String? keterangan,
+  }) async {
     _setLoading(true);
     try {
       final responseData = await _apiService.updateStatusTugas(
         idTugas: _tugasSaatIni.idTugas,
         tipeTugas: _tugasSaatIni.tipeTugas,
         newStatus: targetNewStatus,
+        keterangan: keterangan, // Teruskan keterangan di sini
       );
 
       final Map<String, dynamic>? tugasTerbaruJson =
@@ -83,6 +88,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       if (mounted) _setLoading(false);
     }
   }
+  // --- END MODIFIKASI: _updateStatus untuk menangani keterangan ---
 
   Future<void> _pickAndUploadImage(
     String jenisFotoUntukUpload,
@@ -225,11 +231,40 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               _buildKontakRow(_tugasSaatIni.infoKontakPelapor!),
             const SizedBox(height: 12),
             _buildStatusRow(),
+            // --- START MODIFIKASI: Tampilkan Alasan Pembatalan ---
+            if (_tugasSaatIni.status == 'dibatalkan' &&
+                (_tugasSaatIni.alasanPembatalan ?? '').isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Alasan Pembatalan:',
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _tugasSaatIni.alasanPembatalan!,
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // --- END MODIFIKASI: Tampilkan Alasan Pembatalan ---
             _buildPhotoViewer('Foto Bukti Awal:', _tugasSaatIni.fotoBuktiUrl),
             if (_tugasSaatIni is PengaduanTugas)
               _buildPhotoViewer(
                 'Foto Rumah Pelanggan:',
-                _tugasSaatIni.fotoRumahUrl,
+                (_tugasSaatIni as PengaduanTugas)
+                    .fotoRumahUrl, // Cast untuk akses fotoRumahUrl
               ),
           ],
         ),
@@ -237,6 +272,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
+  // --- START MODIFIKASI: _buildActionSection untuk tombol 'Batalkan Laporan' ---
   Widget _buildActionSection() {
     if (!_tugasSaatIni.isPetugasPelapor) return const SizedBox.shrink();
 
@@ -249,6 +285,17 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             icon: Ionicons.checkmark_circle_outline,
             onPressed: () => _updateStatus('diterima'),
             color: Colors.green[600],
+          ),
+        );
+        actionButtons.add(
+          const SizedBox(height: 8), // Spasi antar tombol
+        );
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Batalkan Laporan',
+            icon: Ionicons.close_circle_outline,
+            onPressed: _showCancelDialog, // Panggil dialog pembatalan
+            color: Colors.red[600],
           ),
         );
         break;
@@ -328,6 +375,67 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       ),
     );
   }
+
+  // --- Fungsi untuk menampilkan dialog pembatalan ---
+  void _showCancelDialog() {
+    final TextEditingController _reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(
+            'Batalkan Laporan',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: TextField(
+            controller: _reasonController,
+            decoration: InputDecoration(
+              hintText: 'Masukkan alasan pembatalan...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            maxLines: 3,
+            minLines: 1,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Tutup dialog
+              },
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(color: Colors.grey[700]),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final String reason = _reasonController.text.trim();
+                if (reason.isEmpty) {
+                  _showSnackbar(
+                    'Alasan pembatalan wajib diisi!',
+                    isError: true,
+                  );
+                } else {
+                  Navigator.pop(dialogContext); // Tutup dialog
+                  _updateStatus(
+                    'dibatalkan',
+                    keterangan: reason,
+                  ); // Panggil updateStatus dengan alasan
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Konfirmasi Batalkan', style: GoogleFonts.poppins()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  // --- END MODIFIKASI: _buildActionSection dan _showCancelDialog ---
 
   Widget _buildFotoProgresSection() {
     return Card(

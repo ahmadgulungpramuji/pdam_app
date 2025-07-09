@@ -29,6 +29,8 @@ abstract class Tugas {
   final String? fotoBuktiUrl;
   final String? fotoSebelumUrl;
   final String? fotoSesudahUrl;
+  final String?
+  alasanPembatalan; // <--- TETAPKAN DI SINI (untuk Pengaduan & Temuan)
 
   final DateTime tanggalDibuatPenugasan;
   final Map<String, dynamic>? detailTugasLengkap;
@@ -47,6 +49,7 @@ abstract class Tugas {
     this.fotoBuktiUrl,
     this.fotoSebelumUrl,
     this.fotoSesudahUrl,
+    this.alasanPembatalan, // <--- TETAPKAN DI KONSTRUKTOR INI
     required this.tanggalDibuatPenugasan,
     this.detailTugasLengkap,
   });
@@ -70,12 +73,13 @@ abstract class Tugas {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
+      case 'ditolak':
+        return 'Ditolak';
       default:
         return status.replaceAll('_', ' ').toUpperCase();
     }
   }
 
-  // PERBAIKAN: Menambahkan case untuk 'laporan_mandiri'
   factory Tugas.fromJson(Map<String, dynamic> json) {
     final String tipe = json['tipe_tugas'] as String;
     if (tipe == 'pengaduan') {
@@ -83,6 +87,7 @@ abstract class Tugas {
     } else if (tipe == 'temuan_kebocoran') {
       return TemuanTugas.fromJson(json);
     } else if (tipe == 'calon_pelanggan') {
+      // Perhatikan: CalonPelangganTugas tidak akan mem-parsing alasanPembatalan dari sini
       return CalonPelangganTugas.fromJson(json);
     } else {
       throw Exception('Tipe tugas tidak dikenal: $tipe');
@@ -106,18 +111,22 @@ class CalonPelangganTugas extends Tugas {
     required String kategori,
     required this.pelanggan,
     super.detailTugasLengkap,
+    // super.alasanPembatalan, // <--- HAPUS BARIS INI
   }) : jenisTugasInternal = kategori,
        super(
          tipeTugas: 'calon_pelanggan',
          lokasiMaps: '', // Tidak ada maps
-         // URL Foto bisa diambil dari detailTugasLengkap jika diperlukan
          fotoBuktiUrl: detailTugasLengkap?['foto_ktp_url'],
          fotoRumahUrl: detailTugasLengkap?['foto_rumah_url'],
          fotoSebelumUrl: detailTugasLengkap?['foto_survey_url'],
          fotoSesudahUrl: detailTugasLengkap?['foto_pemasangan_url'],
+         alasanPembatalan:
+             null, // <--- SET SECARA EKSPLISIT MENJADI NULL ATAU HAPUS JIKA TIDAK PERLU
        );
 
   factory CalonPelangganTugas.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? detailLengkap =
+        json['detail_tugas_lengkap'] as Map<String, dynamic>?;
     return CalonPelangganTugas(
       idPenugasanInternal: json['id_penugasan_internal'] ?? '',
       isPetugasPelapor: json['is_petugas_pelapor'] ?? false,
@@ -131,7 +140,8 @@ class CalonPelangganTugas extends Tugas {
           DateTime.now(),
       kategori: json['kategori'] ?? 'Pendaftaran',
       pelanggan: KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>),
-      detailTugasLengkap: json['detail_tugas_lengkap'] as Map<String, dynamic>?,
+      detailTugasLengkap: detailLengkap,
+      // alasanPembatalan: detailLengkap?['alasan_pembatalan'] as String?, // <--- HAPUS BARIS INI
     );
   }
 
@@ -160,6 +170,7 @@ class PengaduanTugas extends Tugas {
     super.fotoBuktiUrl,
     super.fotoSebelumUrl,
     super.fotoSesudahUrl,
+    super.alasanPembatalan, // <--- TETAPKAN DI SINI
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelanggan,
@@ -191,6 +202,9 @@ class PengaduanTugas extends Tugas {
           json['pelanggan'] != null
               ? KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>)
               : null,
+      alasanPembatalan:
+          detailLengkap?['alasan_pembatalan']
+              as String?, // <--- TETAPKAN DI SINI
     );
   }
 
@@ -219,6 +233,7 @@ class TemuanTugas extends Tugas {
     super.fotoBuktiUrl,
     super.fotoSebelumUrl,
     super.fotoSesudahUrl,
+    super.alasanPembatalan, // <--- TETAPKAN DI SINI
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelaporTemuan,
@@ -249,6 +264,9 @@ class TemuanTugas extends Tugas {
                 json['pelapor_temuan'] as Map<String, dynamic>,
               )
               : null,
+      alasanPembatalan:
+          detailLengkap?['alasan_pembatalan']
+              as String?, // <--- TETAPKAN DI SINI
     );
   }
 
