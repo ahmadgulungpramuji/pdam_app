@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pdam_app/api_service.dart';
@@ -17,13 +17,14 @@ class CalonPelangganRegisterPage extends StatefulWidget {
 }
 
 class _CalonPelangganRegisterPageState
-    extends State<CalonPelangganRegisterPage> {
+    extends State<CalonPelangganRegisterPage> with SingleTickerProviderStateMixin { // Tambahkan SingleTickerProviderStateMixin
   // --- Keys & Controllers ---
   final _formKey = GlobalKey<FormState>();
   final _apiService = ApiService();
   final _namaController = TextEditingController();
   final _noKtpController = TextEditingController();
-  final _alamatController = TextEditingController();
+  final _alamatController = TextEditingController(); // Alamat pemasangan (GPS)
+  final _alamatKtpController = TextEditingController();
   final _deskripsiAlamatController = TextEditingController();
   final _noWaController = TextEditingController();
 
@@ -42,10 +43,25 @@ class _CalonPelangganRegisterPageState
   File? _imageFileRumah;
   final _picker = ImagePicker();
 
+  // Animasi untuk tombol 'Dapatkan Lokasi'
+  late AnimationController _locationButtonAnimationController;
+  late Animation<double> _scaleAnimationLocation;
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+
+    _locationButtonAnimationController = AnimationController( // Inisialisasi controller animasi
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimationLocation = Tween<double>(begin: 1.0, end: 1.02).animate( // Animasi skala kecil
+      CurvedAnimation(
+        parent: _locationButtonAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
   }
 
   @override
@@ -53,8 +69,10 @@ class _CalonPelangganRegisterPageState
     _namaController.dispose();
     _noKtpController.dispose();
     _alamatController.dispose();
+    _alamatKtpController.dispose();
     _deskripsiAlamatController.dispose();
     _noWaController.dispose();
+    _locationButtonAnimationController.dispose(); // Dispose controller animasi
     super.dispose();
   }
 
@@ -235,6 +253,7 @@ class _CalonPelangganRegisterPageState
         'nama_lengkap': _namaController.text,
         'no_ktp': _noKtpController.text,
         'alamat': _alamatController.text, // Mengirim Lat,Lng dari controller
+        'alamat_ktp': _alamatKtpController.text,
         'deskripsi_alamat': _deskripsiAlamatController.text,
         'no_wa': _noWaController.text,
       };
@@ -264,100 +283,104 @@ class _CalonPelangganRegisterPageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daftar Pelanggan Baru'),
-        backgroundColor: Colors.white,
-        elevation: 1,
+        title: Text(
+          'Daftar Pelanggan Baru',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white), // Font Poppins
+        ),
+        backgroundColor: Theme.of(context).colorScheme.primary, // Gunakan warna tema
+        iconTheme: const IconThemeData(color: Colors.white), // Warna ikon kembali
+        elevation: 0, // Tanpa shadow
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    _buildSectionTitle('Informasi Pribadi'),
-                    _buildTextFormField(
-                      controller: _namaController,
-                      label: 'Nama Lengkap (sesuai KTP)',
-                      icon: Ionicons.person_outline,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _noKtpController,
-                      label: 'Nomor KTP (16 digit)',
-                      icon: Ionicons.card_outline,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(16),
-                      ],
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Nomor KTP wajib diisi';
-                        }
-                        if (v.length != 16) return 'Nomor KTP harus 16 digit';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _noWaController,
-                      label: 'Nomor WhatsApp Aktif',
-                      icon: Ionicons.logo_whatsapp,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Nomor WA wajib diisi';
-                        }
-                        if (v.length < 10) return 'Nomor WA minimal 10 digit';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Foto KTP (Wajib)'),
-                    _buildImagePicker(isKtp: true),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Foto Tampak Depan Rumah (Wajib)'),
-                    _buildImagePicker(isKtp: false),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Informasi Alamat Pemasangan'),
-                    _buildCabangDropdown(),
-                    const SizedBox(height: 16),
-                    _buildLocationField(),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _deskripsiAlamatController,
-                      label: 'Deskripsi Tambahan Alamat',
-                      icon: Ionicons.map_outline,
-                      hint: 'Contoh: Rumah cat biru, dekat masjid',
-                      isRequired: false, // Deskripsi alamat tidak wajib
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitRegistration,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        textStyle: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      child:
-                          _isSubmitting
-                              ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                ),
-                              )
-                              : const Text('DAFTAR SEKARANG'),
-                    ),
-                  ],
-                ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20.0), // Padding lebih besar
+                children: [
+                  _buildSectionTitle('Informasi Pribadi'),
+                  _buildTextFormField(
+                    controller: _namaController,
+                    label: 'Nama Lengkap (sesuai KTP)',
+                    icon: Ionicons.person_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _noKtpController,
+                    label: 'Nomor KTP (16 digit)',
+                    icon: Ionicons.card_outline,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(16),
+                    ],
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Nomor KTP wajib diisi';
+                      }
+                      if (v.length != 16) return 'Nomor KTP harus 16 digit';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _noWaController,
+                    label: 'Nomor WhatsApp Aktif',
+                    icon: Ionicons.logo_whatsapp,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Nomor WA wajib diisi';
+                      }
+                      if (v.length < 10) return 'Nomor WA minimal 10 digit';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _alamatKtpController,
+                    label: 'Alamat Lengkap Sesuai KTP',
+                    icon: Ionicons.home_outline,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 24),
+
+                  _buildSectionTitle('Dokumen (Wajib)'),
+                  _buildImageUploadCard(
+                    title: 'Foto KTP',
+                    imageFile: _imageFileKtp,
+                    onTap: () => _showImageSourceActionSheet(context, isKtp: true),
+                    placeholder: 'Ketuk untuk unggah foto KTP',
+                  ),
+                  const SizedBox(height: 24),
+                  _buildImageUploadCard(
+                    title: 'Foto Tampak Depan Rumah',
+                    imageFile: _imageFileRumah,
+                    onTap: () => _showImageSourceActionSheet(context, isKtp: false),
+                    placeholder: 'Ketuk untuk unggah foto Rumah',
+                  ),
+                  const SizedBox(height: 24),
+
+                  _buildSectionTitle('Informasi Alamat Pemasangan'),
+                  _buildCabangDropdown(),
+                  const SizedBox(height: 16),
+                  _buildLocationField(),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _deskripsiAlamatController,
+                    label: 'Deskripsi Tambahan Alamat',
+                    icon: Ionicons.map_outline,
+                    hint: 'Contoh: Rumah cat biru, dekat masjid',
+                    isRequired: false,
+                    maxLines: 3, // Tambahkan maxLines untuk deskripsi
+                  ),
+                  const SizedBox(height: 32),
+
+                  _buildSubmitButton(), // Pisahkan tombol submit ke widget terpisah
+                ],
               ),
+            ),
     );
   }
 
@@ -366,10 +389,10 @@ class _CalonPelangganRegisterPageState
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title,
-        style: GoogleFonts.lato(
-          fontSize: 18,
+        style: GoogleFonts.poppins( // Gunakan Poppins
+          fontSize: 20, // Lebih besar
           fontWeight: FontWeight.bold,
-          color: Colors.blue.shade800,
+          color: Theme.of(context).colorScheme.primary, // Warna tema
         ),
       ),
     );
@@ -384,25 +407,29 @@ class _CalonPelangganRegisterPageState
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     bool isRequired = true,
+    int? maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary), // Warna ikon
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), // Sudut membulat
+        filled: true,
+        fillColor: Colors.grey.shade50, // Latar belakang abu-abu muda
       ),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      validator:
-          validator ??
+      validator: validator ??
           (v) {
             if (isRequired && (v == null || v.isEmpty)) {
               return '$label wajib diisi';
             }
             return null;
           },
+      maxLines: maxLines,
+      style: GoogleFonts.poppins(), // Font Poppins untuk input
     );
   }
 
@@ -411,24 +438,26 @@ class _CalonPelangganRegisterPageState
       value: _selectedCabangId,
       hint: Text(_isCabangLoading ? 'Memuat cabang...' : 'Pilih Cabang'),
       decoration: InputDecoration(
-        labelText:
-            _detectedCabangName != null
-                ? "Cabang Terdeteksi"
-                : 'Cabang Pemasangan',
-        prefixIcon: const Icon(Ionicons.business_outline),
+        labelText: _detectedCabangName != null
+            ? "Cabang Terdeteksi"
+            : 'Cabang Pemasangan',
+        prefixIcon: Icon(Ionicons.business_outline, color: Theme.of(context).colorScheme.primary),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
       ),
-      items:
-          _cabangOptions
-              .map(
-                (c) => DropdownMenuItem(value: c.id, child: Text(c.namaCabang)),
-              )
-              .toList(),
-      onChanged:
-          (value) => setState(() {
-            _selectedCabangId = value;
-            _detectedCabangName = null;
-          }),
+      items: _cabangOptions
+          .map(
+            (c) => DropdownMenuItem(
+              value: c.id,
+              child: Text(c.namaCabang, style: GoogleFonts.poppins()), // Font Poppins
+            ),
+          )
+          .toList(),
+      onChanged: (value) => setState(() {
+        _selectedCabangId = value;
+        _detectedCabangName = null;
+      }),
       validator: (v) => v == null ? 'Pilih cabang pemasangan' : null,
     );
   }
@@ -442,12 +471,12 @@ class _CalonPelangganRegisterPageState
           readOnly: true,
           decoration: InputDecoration(
             labelText: 'Lokasi GPS Pemasangan',
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
             hintText: 'Latitude, Longitude akan muncul di sini',
-            prefixIcon: const Icon(Ionicons.navigate_circle_outline),
+            prefixIcon: Icon(Ionicons.navigate_circle_outline, color: Theme.of(context).colorScheme.primary),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
-            fillColor: Colors.grey.shade100,
+            fillColor: Colors.blue.shade50, // Warna latar belakang berbeda
           ),
           validator: (value) {
             if (value == null || value.isEmpty || _currentPosition == null) {
@@ -455,28 +484,42 @@ class _CalonPelangganRegisterPageState
             }
             return null;
           },
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade900), // Font Poppins
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: TextButton.icon(
-            onPressed: _isLocationLoading ? null : _getCurrentLocation,
-            icon:
-                _isLocationLoading
-                    ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+        const SizedBox(height: 10), // Spasi lebih besar
+        ScaleTransition( // Animasi skala pada tombol
+          scale: _scaleAnimationLocation,
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon( // Ganti TextButton dengan ElevatedButton
+              onPressed: _isLocationLoading ? null : () {
+                _locationButtonAnimationController.forward().then((_) {
+                  _locationButtonAnimationController.reverse();
+                });
+                _getCurrentLocation();
+              },
+              icon: _isLocationLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
                     )
-                    : const Icon(Ionicons.locate_outline),
-            label: Text(
-              _isLocationLoading ? 'MENCARI...' : 'DAPATKAN LOKASI SAAT INI',
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.blue.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                  : const Icon(Ionicons.locate_outline),
+              label: Text(
+                _isLocationLoading ? 'MENCARI LOKASI...' : 'DAPATKAN LOKASI SAAT INI',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold), // Font Poppins
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700, // Warna tombol
+                foregroundColor: Colors.white, // Warna teks
+                padding: const EdgeInsets.symmetric(vertical: 14), // Padding lebih
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12), // Sudut membulat
+                ),
+                elevation: 4, // Efek shadow
               ),
             ),
           ),
@@ -485,48 +528,101 @@ class _CalonPelangganRegisterPageState
     );
   }
 
-  Widget _buildImagePicker({required bool isKtp}) {
-    final File? imageFile = isKtp ? _imageFileKtp : _imageFileRumah;
-    final String placeholderText =
-        isKtp ? 'Ketuk untuk unggah foto KTP' : 'Ketuk untuk unggah foto Rumah';
-
-    return GestureDetector(
-      onTap: () => _showImageSourceActionSheet(context, isKtp: isKtp),
-      child: Container(
-        width: double.infinity,
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade400,
-            width: 1.5,
-            style: BorderStyle.solid,
+  Widget _buildImageUploadCard({
+    required String title,
+    required File? imageFile,
+    required VoidCallback onTap,
+    required String placeholder,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
-        child:
-            imageFile == null
-                ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Ionicons.camera_outline,
-                        size: 50,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        placeholderText,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
-                : ClipRRect(
-                  borderRadius: BorderRadius.circular(10.5),
-                  child: Image.file(imageFile, fit: BoxFit.cover),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: imageFile == null ? Colors.red.shade300 : Colors.green.shade400,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
+              ],
+            ),
+            child: imageFile == null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Ionicons.camera_outline,
+                          size: 60,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          placeholder,
+                          style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: Image.file(imageFile, fit: BoxFit.cover),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return ElevatedButton.icon(
+      onPressed: _isSubmitting ? null : _submitRegistration,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.secondary, // Warna tombol submit
+        foregroundColor: Theme.of(context).colorScheme.onSecondary,
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        elevation: 8,
+      ),
+      icon: _isSubmitting
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            )
+          : const Icon(Ionicons.send_outline), // Icon kirim
+      label: Text(
+        _isSubmitting ? 'Mendaftar...' : 'DAFTAR SEKARANG',
+        style: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -539,30 +635,29 @@ class _CalonPelangganRegisterPageState
   }) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Ionicons.image_outline),
-                  title: const Text('Galeri'),
-                  onTap: () {
-                    _pickImage(ImageSource.gallery, isKtp: isKtp);
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Ionicons.camera_outline),
-                  title: const Text('Kamera'),
-                  onTap: () {
-                    _pickImage(ImageSource.camera, isKtp: isKtp);
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-              ],
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Ionicons.image_outline),
+              title: const Text('Galeri'),
+              onTap: () {
+                _pickImage(ImageSource.gallery, isKtp: isKtp);
+                Navigator.of(ctx).pop();
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Ionicons.camera_outline),
+              title: const Text('Kamera'),
+              onTap: () {
+                _pickImage(ImageSource.camera, isKtp: isKtp);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -574,7 +669,7 @@ class _CalonPelangganRegisterPageState
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: GoogleFonts.poppins()), // Font Poppins
         backgroundColor:
             backgroundColor ??
             (isError ? Colors.red.shade700 : Colors.green.shade700),
@@ -587,22 +682,22 @@ class _CalonPelangganRegisterPageState
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Pendaftaran Berhasil'),
-            content: const Text(
-              'Terima kasih! Data Anda telah kami terima dan akan segera diproses. Informasi selanjutnya mengenai status pendaftaran akan diberitahukan melalui nomor WhatsApp yang Anda daftarkan.',
-            ),
-            actions: [
-              TextButton(
-                child: const Text('OK'),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Pendaftaran Berhasil', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        content: Text(
+          'Terima kasih! Data Anda telah kami terima dan akan segera diproses. Informasi selanjutnya mengenai status pendaftaran akan diberitahukan melalui nomor WhatsApp yang Anda daftarkan.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            child: Text('OK', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(context).pop();
+            },
           ),
+        ],
+      ),
     );
   }
 }

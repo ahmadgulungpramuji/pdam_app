@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart'; // Sesuaikan path
 import 'package:pdam_app/models/cabang_model.dart'; // Pastikan Anda punya model ini
+import 'package:google_fonts/google_fonts.dart'; // Tambahkan ini untuk font yang lebih modern
 
 class LaporFotoMeterPage extends StatefulWidget {
   const LaporFotoMeterPage({super.key});
@@ -12,45 +13,57 @@ class LaporFotoMeterPage extends StatefulWidget {
   State<LaporFotoMeterPage> createState() => _LaporFotoMeterPageState();
 }
 
-class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
+class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
   final _komentarController = TextEditingController();
   final _cabangController = TextEditingController();
 
-  // State untuk data
   List<String> _pdamIds = [];
-  List<Cabang> _daftarCabang = []; // Untuk menyimpan daftar semua cabang
+  List<Cabang> _daftarCabang = [];
   String? _selectedPdamId;
-  int? _selectedCabangId; // ID cabang yang dipilih otomatis
+  int? _selectedCabangId;
   File? _imageFile;
 
-  // State untuk UI
   bool _isLoading = false;
   bool _isFetchingInitialData = true;
   String? _fetchError;
+
+  // Animasi untuk tombol 'Ambil Foto'
+  late AnimationController _cameraButtonAnimationController;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _fetchInitialData();
+
+    _cameraButtonAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _cameraButtonAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
   }
 
   @override
   void dispose() {
     _komentarController.dispose();
     _cabangController.dispose();
+    _cameraButtonAnimationController.dispose(); // Dispose controller animasi
     super.dispose();
   }
 
   Future<void> _fetchInitialData() async {
     setState(() => _isFetchingInitialData = true);
     try {
-      // Ambil daftar ID PDAM dan daftar Cabang secara bersamaan
       final responses = await Future.wait([
         _apiService.getAllUserPdamIds(),
-        _apiService
-            .getCabangList(), // Gunakan method yang sudah ada di ApiService Anda
+        _apiService.getCabangList(),
       ]);
 
       final pdamData = responses[0];
@@ -119,7 +132,6 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
       _selectedPdamId = nomorPdam;
       _selectedCabangId = idCabang;
       if (idCabang != null) {
-        // Cari nama cabang dari daftar yang sudah di-fetch
         final cabangTerpilih = _daftarCabang.firstWhere(
           (c) => c.id == idCabang,
           orElse: () => Cabang(id: 0, namaCabang: 'Cabang Tidak Dikenali'),
@@ -132,7 +144,6 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    // ... (fungsi ini tidak berubah dari kode sebelumnya)
     try {
       final pickedFile = await ImagePicker().pickImage(
         source: source,
@@ -164,7 +175,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     try {
       final response = await _apiService.submitLaporanFotoWaterMeter(
         idPdam: _selectedPdamId!,
-        idCabang: _selectedCabangId!, // Kirim ID Cabang yang terpilih otomatis
+        idCabang: _selectedCabangId!,
         imagePath: _imageFile!.path,
         komentar: _komentarController.text,
       );
@@ -200,14 +211,20 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lapor Foto Water Meter'),
+        title: Text(
+          'Lapor Foto Water Meter',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
         backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
+        elevation: 0,
       ),
-      body:
-          _isFetchingInitialData
-              ? const Center(child: CircularProgressIndicator())
-              : _fetchError != null
+      body: _isFetchingInitialData
+          ? const Center(child: CircularProgressIndicator())
+          : _fetchError != null
               ? Center(child: Text(_fetchError!))
               : _buildForm(),
     );
@@ -217,138 +234,217 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0), // Padding lebih besar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Dropdown untuk memilih ID PDAM
-            DropdownButtonFormField<String>(
-              value: _selectedPdamId,
-              hint: const Text('Pilih nomor ID PDAM'),
-              items:
-                  _pdamIds
-                      .map((id) => DropdownMenuItem(value: id, child: Text(id)))
-                      .toList(),
-              onChanged:
-                  _updateCabangOtomatis, // Panggil method otomatisasi di sini
-              validator:
-                  (value) => value == null ? 'Mohon pilih ID PDAM' : null,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.confirmation_number_outlined),
+            Text(
+              'Detail Pelaporan',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              isExpanded: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Dropdown untuk memilih ID PDAM
+            _buildDropdownPdamId(),
+            const SizedBox(height: 20),
 
             // Text field untuk menampilkan Cabang yang terpilih (read-only)
-            TextFormField(
-              controller: _cabangController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Cabang Terpilih (Otomatis)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.business_outlined),
+            _buildCabangDisplayField(),
+            const SizedBox(height: 30),
+
+            // Section: Upload Foto Meteran
+            Text(
+              'Foto Water Meter',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 15),
+            _buildImageUploadSection(), // Bagian ini yang kita fokuskan
+            const SizedBox(height: 30),
 
-            // Image Picker
+            // Section: Catatan
             Text(
-              'Upload Foto Meteran',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _buildImagePicker(),
-            const SizedBox(height: 24),
-
-            // Text field untuk komentar
-            Text(
-              'Catatan (Opsional)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _komentarController,
-              decoration: const InputDecoration(
-                hintText: 'Contoh: Posisi meteran di belakang rumah...',
-                border: OutlineInputBorder(),
+              'Catatan Tambahan',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              maxLines: 3,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 15),
+            _buildKomentarField(),
+            const SizedBox(height: 40),
 
             // Tombol Submit
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ElevatedButton.icon(
-                  onPressed: _submitLaporan,
-                  icon: const Icon(Icons.send),
-                  label: const Text('Kirim Laporan'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+            _buildSubmitButton(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildImagePicker() {
-    // ... (Widget ini tidak berubah dari kode sebelumnya)
+  // --- Widget Builders untuk Form yang Lebih Bersih ---
+
+  Widget _buildDropdownPdamId() {
+    return DropdownButtonFormField<String>(
+      value: _selectedPdamId,
+      hint: const Text('Pilih Nomor ID Pelanggan PDAM'),
+      items: _pdamIds
+          .map((id) => DropdownMenuItem(value: id, child: Text(id)))
+          .toList(),
+      onChanged: _updateCabangOtomatis,
+      validator: (value) => value == null ? 'Mohon pilih ID PDAM' : null,
+      decoration: InputDecoration(
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: const Icon(Icons.confirmation_number_outlined),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        labelText: 'Nomor ID Pelanggan PDAM',
+      ),
+      isExpanded: true,
+    );
+  }
+
+  Widget _buildCabangDisplayField() {
+    return TextFormField(
+      controller: _cabangController,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: 'Cabang Terdeteksi',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: const Icon(Icons.business_outlined),
+        filled: true,
+        fillColor: Colors.blue.shade50, // Warna latar belakang yang berbeda
+        labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+      ),
+      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+    );
+  }
+
+  Widget _buildImageUploadSection() {
     return Column(
       children: [
         Container(
-          height: 200,
+          height: 250, // Lebih tinggi
           width: double.infinity,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade400),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.grey.shade100,
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: _imageFile == null ? Colors.red.shade300 : Colors.green.shade400,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-          child:
-              _imageFile != null
-                  ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(_imageFile!, fit: BoxFit.cover),
-                  )
-                  : const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.photo_camera_back_outlined,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 8),
-                        Text('Pratinjau gambar akan muncul di sini'),
-                      ],
-                    ),
+          child: _imageFile != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                )
+              : Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_outlined, // Icon lebih spesifik
+                        size: 70, // Lebih besar
+                        color: Colors.grey.shade500,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Ketuk tombol di bawah untuk mengambil foto meteran',
+                        style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
+                ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            TextButton.icon(
-              onPressed: () => _pickImage(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('Dari Galeri'),
+        const SizedBox(height: 20),
+        ScaleTransition(
+          scale: _scaleAnimation,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              _cameraButtonAnimationController.forward().then((_) {
+                _cameraButtonAnimationController.reverse();
+              });
+              _pickImage(ImageSource.camera); // Hanya dari kamera
+            },
+            icon: const Icon(Icons.camera_alt_rounded),
+            label: Text(
+              _imageFile == null ? 'Ambil Foto Meteran' : 'Ganti Foto Meteran',
+              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            TextButton.icon(
-              onPressed: () => _pickImage(ImageSource.camera),
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Dari Kamera'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
+              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 5,
             ),
-          ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildKomentarField() {
+    return TextFormField(
+      controller: _komentarController,
+      decoration: InputDecoration(
+        hintText: 'Misalnya: Meteran di samping pintu belakang, terhalang tanaman.',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: const Icon(Icons.notes),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        alignLabelWithHint: true,
+      ),
+      maxLines: 4, // Lebih banyak baris
+      keyboardType: TextInputType.multiline,
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return ElevatedButton.icon(
+      onPressed: _isLoading ? null : _submitLaporan,
+      icon: _isLoading
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            )
+          : const Icon(Icons.cloud_upload_outlined), // Icon yang lebih modern
+      label: Text(
+        _isLoading ? 'Mengirim Laporan...' : 'Kirim Laporan',
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        padding: const EdgeInsets.symmetric(vertical: 18), // Padding lebih besar
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15), // Sudut lebih membulat
+        ),
+        elevation: 8, // Shadow lebih dalam
+      ),
     );
   }
 }
