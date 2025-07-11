@@ -1,9 +1,12 @@
 // lib/pages/edit_profile_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/petugas_model.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EditProfilePage extends StatefulWidget {
   final Petugas currentPetugas;
@@ -24,18 +27,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
       TextEditingController();
 
   final ApiService _apiService = ApiService();
+  final ImagePicker _picker = ImagePicker();
+  
   bool _isLoading = false;
   bool _passwordVisible = false;
   bool _passwordConfirmationVisible = false;
+  
+  File? _selectedImage;
+  String? _currentImageUrl;
 
   @override
   void initState() {
     super.initState();
     _namaController = TextEditingController(text: widget.currentPetugas.nama);
     _emailController = TextEditingController(text: widget.currentPetugas.email);
-    _nomorHpController = TextEditingController(
-      text: widget.currentPetugas.nomorHp,
-    );
+    _nomorHpController = TextEditingController(text: widget.currentPetugas.nomorHp);
+    
+    if (widget.currentPetugas.fotoProfil != null && widget.currentPetugas.fotoProfil!.isNotEmpty) {
+      _currentImageUrl = '${_apiService.rootBaseUrl}/storage/${widget.currentPetugas.fotoProfil}';
+    }
   }
 
   @override
@@ -48,57 +58,88 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
-  void _showSnackbar(
-    String message, {
-    bool isError = true,
-    BuildContext? scaffoldContext,
-  }) {
-    final currentContext = scaffoldContext ?? context;
-    if (!mounted && scaffoldContext == null) return;
-
-    ScaffoldMessenger.of(currentContext).showSnackBar(
-      SnackBar(
-        content: Text(message, style: GoogleFonts.poppins()),
-        backgroundColor: isError ? Colors.red[700] : Colors.green[700],
-        behavior: SnackBarBehavior.floating,
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 70,
+      maxWidth: 800,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+  
+  void _showImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Ionicons.camera_outline),
+              title: const Text('Ambil Foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Ionicons.image_outline),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _submitUpdate() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
+      final Map<String, String> data = {
+        'nama': _namaController.text,
+        'email': _emailController.text,
+        'nomor_hp': _nomorHpController.text,
+      };
+
+      if (_passwordController.text.isNotEmpty) {
+        data['password'] = _passwordController.text;
+        data['password_confirmation'] = _passwordConfirmationController.text;
+      }
+
       Petugas updatedPetugas = await _apiService.updatePetugasProfile(
-        nama: _namaController.text,
-        email: _emailController.text,
-        nomorHp: _nomorHpController.text,
-        password:
-            _passwordController.text.isNotEmpty
-                ? _passwordController.text
-                : null,
-        passwordConfirmation:
-            _passwordConfirmationController.text.isNotEmpty
-                ? _passwordConfirmationController.text
-                : null,
+        data: data,
+        profileImage: _selectedImage,
       );
+      
       if (mounted) {
-        _showSnackbar(
-          'Profil berhasil diperbarui!',
-          isError: false,
-          scaffoldContext: context,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profil berhasil diperbarui!', style: GoogleFonts.poppins()),
+            backgroundColor: Colors.green[700],
+            behavior: SnackBarBehavior.floating,
+          ),
         );
-        Navigator.pop(
-          context,
-          updatedPetugas,
-        ); // Kirim data terbaru kembali ke ProfilePage
+        Navigator.pop(context, updatedPetugas); 
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Gagal memperbarui profil: $e', scaffoldContext: context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal: ${e.toString().replaceFirst("Exception: ", "")}', style: GoogleFonts.poppins()),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -107,6 +148,46 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  Widget _buildProfileImagePicker() {
+    ImageProvider? backgroundImage;
+    if (_selectedImage != null) {
+      backgroundImage = FileImage(_selectedImage!);
+    } else if (_currentImageUrl != null) {
+      backgroundImage = CachedNetworkImageProvider(_currentImageUrl!);
+    }
+    
+    return Center(
+      child: GestureDetector(
+        onTap: _showImageSourceActionSheet,
+        child: Stack(
+          children: [
+            CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey[200],
+              backgroundImage: backgroundImage,
+              child: backgroundImage == null 
+                  ? Icon(Ionicons.person, size: 60, color: Colors.grey[400]) 
+                  : null,
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[800],
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Ionicons.camera, color: Colors.white, size: 20),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
   InputDecoration _inputDecoration(
     String label,
     IconData icon, {
@@ -145,15 +226,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Ubah Informasi Profil Anda',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.blue[800],
-                ),
-                textAlign: TextAlign.center,
-              ),
+              _buildProfileImagePicker(),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _namaController,
@@ -229,11 +302,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   if (value != null && value.isNotEmpty && value.length < 6) {
                     return 'Password minimal 6 karakter';
                   }
-                  if (value != null &&
-                      value.isNotEmpty &&
-                      _passwordConfirmationController.text != value) {
-                    return 'Konfirmasi password tidak cocok';
-                  }
                   return null;
                 },
               ),
@@ -263,7 +331,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 validator: (value) {
                   if (_passwordController.text.isNotEmpty &&
                       (value == null || value.isEmpty)) {
-                    return 'Konfirmasi password tidak boleh kosong jika password baru diisi';
+                    return 'Konfirmasi password tidak boleh kosong';
                   }
                   if (_passwordController.text.isNotEmpty &&
                       value != _passwordController.text) {

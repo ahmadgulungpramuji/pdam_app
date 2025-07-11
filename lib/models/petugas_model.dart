@@ -18,6 +18,7 @@ class Petugas {
   final String nama;
   final String email;
   final String nomorHp;
+   final String? fotoProfil; // <-- TAMBAHKAN BARIS INI
   final CabangInfo? cabang; // Menggunakan CabangInfo
 
   Petugas({
@@ -25,6 +26,7 @@ class Petugas {
     required this.nama,
     required this.email,
     required this.nomorHp,
+      this.fotoProfil, // <-- TAMBAHKAN BARIS INI
     this.cabang,
   });
 
@@ -34,8 +36,8 @@ class Petugas {
       nama: json['nama'] as String? ?? 'N/A',
       email: json['email'] as String? ?? 'N/A',
       nomorHp: json['nomor_hp'] as String? ?? 'N/A',
-      cabang:
-          json['cabang'] != null
+      fotoProfil: json['foto_profil'], // <-- TAMBAHKAN BARIS INI
+      cabang: json['cabang'] != null
               ? CabangInfo.fromJson(json['cabang'] as Map<String, dynamic>)
               : null, // Asumsi API mengirim objek 'cabang'
     );

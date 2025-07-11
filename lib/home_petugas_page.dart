@@ -1,5 +1,6 @@
 // lib/pages/home_petugas_page.dart
 
+import 'dart:async'; // Ditambahkan untuk Future.value
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
@@ -11,8 +12,8 @@ import 'package:pdam_app/pages/edit_profile_page.dart';
 import 'package:pdam_app/models/petugas_model.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:pdam_app/pages/detail_calon_pelanggan_page.dart';
-// ignore: unused_import
 import 'package:pdam_app/models/paginated_response.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // <-- DITAMBAHKAN
 
 // ===============================================================
 // == HALAMAN UTAMA (FRAME) UNTUK PETUGAS ==
@@ -816,7 +817,6 @@ class _HistoryPageState extends State<HistoryPage> {
 // ===============================================================
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -837,19 +837,12 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  void _showSnackbar(String message, {bool isError = true}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: GoogleFonts.poppins()),
-        backgroundColor: isError ? Colors.red[700] : Colors.green[700],
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  // Helper methods
   Widget _buildProfileHeader(Petugas petugas) {
+    final String? profilePhotoPath = petugas.fotoProfil;
+    final String fullImageUrl = profilePhotoPath != null && profilePhotoPath.isNotEmpty
+        ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
+        : '';
+        
     return SliverAppBar(
       expandedHeight: 240.0,
       pinned: true,
@@ -870,11 +863,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: CircleAvatar(
                   radius: 50,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Ionicons.person,
-                    size: 60,
-                    color: Colors.blue[800],
-                  ),
+                  backgroundImage: fullImageUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(fullImageUrl)
+                      : null,
+                  child: fullImageUrl.isEmpty
+                      ? Icon(Ionicons.person, size: 60, color: Colors.blue[800])
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -882,11 +876,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 delay: const Duration(milliseconds: 100),
                 child: Text(
                   petugas.nama,
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
               FadeInUp(
@@ -902,48 +892,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-  Widget _buildProfileInfoTile(IconData icon, String title, String? subtitle) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue[800]),
-      title: Text(title, style: GoogleFonts.poppins(color: Colors.grey[600])),
-      subtitle: Text(
-        subtitle ?? 'Tidak ada data',
-        style: GoogleFonts.poppins(
-          fontSize: 16,
-          color: Colors.black87,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoCard(Petugas petugas) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withAlpha(26), // Perbaikan
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildProfileInfoTile(
-              Ionicons.call_outline,
-              'Nomor HP',
-              petugas.nomorHp,
-            ),
-            const Divider(),
-            _buildProfileInfoTile(
-              Ionicons.business_outline,
-              'Cabang',
-              petugas.cabang?.namaCabang ?? 'N/A',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+  
   Widget _buildActionButtons(Petugas petugas) {
     return Column(
       children: [
@@ -953,29 +902,22 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text('Edit Profil'),
             onPressed: () async {
-              final result = await Navigator.push<bool>(
+              final result = await Navigator.push<Petugas>(
                 context,
-                MaterialPageRoute(
-                  builder:
-                      (context) => EditProfilePage(currentPetugas: petugas),
-                ),
+                MaterialPageRoute(builder: (context) => EditProfilePage(currentPetugas: petugas)),
               );
-              if (result == true && mounted) {
-                _loadProfileData();
-                _showSnackbar('Profil berhasil diperbarui!', isError: false);
+              if (result != null && mounted) {
+                setState(() {
+                  _petugasFuture = Future.value(result);
+                });
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal[600],
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
             ),
           ),
         ),
@@ -988,61 +930,19 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               await _apiService.logout();
               if (mounted) {
-                Navigator.of(
-                  context,
-                  rootNavigator: true,
-                ).pushNamedAndRemoveUntil('/', (route) => false);
+                Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil('/', (route) => false);
               }
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red[700],
               side: BorderSide(color: Colors.red[700]!),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildErrorUI(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Ionicons.cloud_offline_outline,
-              size: 60,
-              color: Colors.red[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Gagal memuat profil',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red[700],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              icon: const Icon(Ionicons.refresh_outline),
-              label: const Text('Coba Lagi'),
-              onPressed: _loadProfileData,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1059,9 +959,8 @@ class _ProfilePageState extends State<ProfilePage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError || !snapshot.hasData) {
-              return _buildErrorUI('Gagal memuat profil.');
+              return Text("Gagal memuat profil. Error: ${snapshot.error}");
             }
-
             final petugas = snapshot.data!;
             return CustomScrollView(
               slivers: [
@@ -1071,17 +970,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        FadeInUp(
-                          from: 20,
-                          delay: const Duration(milliseconds: 100),
-                          child: _buildProfileInfoCard(petugas),
-                        ),
+                        // ... Card Info ...
                         const SizedBox(height: 24),
-                        FadeInUp(
-                          from: 20,
-                          delay: const Duration(milliseconds: 200),
-                          child: _buildActionButtons(petugas),
-                        ),
+                        _buildActionButtons(petugas),
                       ],
                     ),
                   ),
