@@ -378,7 +378,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
 
   // --- Fungsi untuk menampilkan dialog pembatalan ---
   void _showCancelDialog() {
-    final TextEditingController _reasonController = TextEditingController();
+    final TextEditingController reasonController = TextEditingController();
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -388,7 +388,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           ),
           content: TextField(
-            controller: _reasonController,
+            controller: reasonController,
             decoration: InputDecoration(
               hintText: 'Masukkan alasan pembatalan...',
               border: OutlineInputBorder(
@@ -410,7 +410,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                final String reason = _reasonController.text.trim();
+                final String reason = reasonController.text.trim();
                 if (reason.isEmpty) {
                   _showSnackbar(
                     'Alasan pembatalan wajib diisi!',

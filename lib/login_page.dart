@@ -247,8 +247,9 @@ class _LoginPageState extends State<LoginPage> {
             ),
             keyboardType: TextInputType.text,
             validator: (val) {
-              if (val == null || val.isEmpty)
+              if (val == null || val.isEmpty) {
                 return 'Kolom ini tidak boleh kosong';
+              }
               return null;
             },
           ),
