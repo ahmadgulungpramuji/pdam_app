@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/profil_page.dart'; // Untuk navigasi ke halaman edit
+import 'package:pdam_app/profil_page.dart';
+import 'package:animate_do/animate_do.dart'; // **IMPORT UNTUK ANIMASI**
+import 'package:cached_network_image/cached_network_image.dart'; // Import untuk gambar
 
 class ViewProfilPage extends StatefulWidget {
   const ViewProfilPage({super.key});
@@ -59,25 +61,18 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
     }
   }
 
-  // Helper untuk mendapatkan URL gambar lengkap
-  String _getFullImageUrl() {
-    final String? profilePhotoPath = _userData?['foto_profil'];
-    return (profilePhotoPath != null && profilePhotoPath.isNotEmpty)
-        ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
-        : '';
-  }
-
-  // Fungsi untuk navigasi ke halaman edit dan menunggu hasilnya
   void _navigateToEdit() async {
-    // Navigasi ke ProfilPage dan tunggu hasilnya
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ProfilPage()),
     );
     
-    // Jika halaman edit mengembalikan 'true', muat ulang data di halaman ini
     if (result == true && mounted) {
-      // Mengirimkan 'true' kembali ke halaman home agar header juga di-refresh
+      // Panggil _fetchUserData lagi untuk refresh halaman ini
+      _fetchUserData();
+      
+      // Kirim sinyal 'true' juga ke halaman home
+      // agar header di sana ikut refresh saat halaman ini ditutup.
       Navigator.of(context).pop(true);
     }
   }
@@ -85,163 +80,211 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil Saya'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        // **PERUBAHAN 1: Tombol edit di sini dihapus**
-        // actions: [ ... ],
-      ),
+      backgroundColor: Colors.grey[100],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? _buildErrorView()
-              : RefreshIndicator(
-                  onRefresh: _fetchUserData,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: 24), // beri padding bawah
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 20),
-                      _buildInfoCard(),
-                    ],
-                  ),
+              : CustomScrollView( // Menggunakan CustomScrollView untuk efek Sliver
+                  slivers: [
+                    _buildSliverAppBar(),
+                    SliverToBoxAdapter(child: const SizedBox(height: 16)),
+                    _buildAnimatedInfoList(),
+                  ],
                 ),
-      // **PERUBAHAN 2: Tombol ditambahkan di bawah sini**
-      bottomNavigationBar: _userData != null && _errorMessage == null 
-        ? _buildEditButton() 
-        : null,
     );
   }
 
-  Widget _buildHeader() {
-    final fullImageUrl = _getFullImageUrl();
+  SliverAppBar _buildSliverAppBar() {
+    final String? profilePhotoPath = _userData?['foto_profil'];
+    final fullImageUrl = (profilePhotoPath != null && profilePhotoPath.isNotEmpty)
+        ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
+        : '';
+    final userName = _userData?['nama']?.toString() ?? 'Nama Pengguna';
 
-    return Container(
-      color: Theme.of(context).colorScheme.primary,
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: 20, bottom: 30),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.white,
-            backgroundImage: fullImageUrl.isNotEmpty
-                ? NetworkImage(fullImageUrl)
-                : null,
-            child: fullImageUrl.isEmpty
-                ? Icon(Ionicons.person, size: 50, color: Colors.grey.shade400)
-                : null,
+    return SliverAppBar(
+      expandedHeight: 250.0,
+      floating: false,
+      pinned: true,
+      stretch: true,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      foregroundColor: Colors.white,
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true,
+        titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        title: Text(
+          userName,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.white,
           ),
-          const SizedBox(height: 12),
-          Text(
-            _userData?['nama']?.toString() ?? 'Nama Pengguna',
-            style: GoogleFonts.lato(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+        ),
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Gradient Background
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                    Theme.of(context).colorScheme.primary,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+            // Foto Profil dengan Animasi
+            Center(
+              child: FadeInDown(
+                delay: const Duration(milliseconds: 200),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.white24,
+                      child: CircleAvatar(
+                        radius: 46,
+                        backgroundColor: Colors.white,
+                        backgroundImage: fullImageUrl.isNotEmpty 
+                          ? CachedNetworkImageProvider(fullImageUrl) 
+                          : null,
+                        child: fullImageUrl.isEmpty
+                            ? Icon(Ionicons.person, size: 50, color: Colors.grey.shade400)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _userData?['email'] ?? 'email@example.com',
+                      style: GoogleFonts.poppins(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 40), // Spacer untuk title
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedInfoList() {
+    return SliverList(
+      delegate: SliverChildListDelegate(
+        [
+          // Setiap item dibungkus dengan widget animasi
+          FadeInUp(
+            from: 20,
+            delay: const Duration(milliseconds: 300),
+            child: _buildInfoTile(
+              icon: Ionicons.call_outline,
+              title: 'Nomor HP',
+              subtitle: _userData?['nomor_hp'] ?? 'Belum diatur',
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _userData?['email'] ?? 'email@example.com',
-            style: GoogleFonts.lato(
-              fontSize: 16,
-              color: Colors.white.withOpacity(0.8),
+          FadeInUp(
+            from: 20,
+            delay: const Duration(milliseconds: 400),
+            child: _buildInfoTile(
+              icon: Ionicons.mail_outline,
+              title: 'Email',
+              subtitle: _userData?['email'] ?? 'Belum diatur',
+            ),
+          ),
+          FadeInUp(
+            from: 20,
+            delay: const Duration(milliseconds: 500),
+            child: _buildInfoTile(
+              icon: Ionicons.location_outline,
+              title: 'Cabang Terdaftar',
+              subtitle: _userData?['cabang']?['nama_cabang'] ?? 'Tidak diketahui',
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Tombol Edit dengan Animasi
+          FadeInUp(
+            from: 20,
+            delay: const Duration(milliseconds: 600),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                icon: const Icon(Ionicons.create_outline, size: 18),
+                label: const Text('Edit Profil'),
+                onPressed: _navigateToEdit,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildInfoCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Informasi Kontak',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const Divider(height: 24),
-              _buildInfoTile(
-                icon: Ionicons.call_outline,
-                title: 'Nomor HP',
-                subtitle: _userData?['nomor_hp'] ?? 'Belum diatur',
-              ),
-              const SizedBox(height: 16),
-              _buildInfoTile(
-                icon: Ionicons.mail_outline,
-                title: 'Email',
-                subtitle: _userData?['email'] ?? 'Belum diatur',
-              ),
-              const SizedBox(height: 16),
-               _buildInfoTile(
-                icon: Ionicons.location_outline,
-                title: 'Cabang Terdaftar',
-                subtitle: _userData?['cabang']?['nama_cabang'] ?? 'Tidak diketahui',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
   
-  // **PERUBAHAN 3: Widget baru untuk membuat tombol di bawah**
-  Widget _buildEditButton() {
+  // Desain baru untuk setiap item info
+  Widget _buildInfoTile({required IconData icon, required String title, required String subtitle}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      // Memberi warna latar agar konsisten jika ada tema gelap/terang
-      color: Theme.of(context).scaffoldBackgroundColor, 
-      child: ElevatedButton.icon(
-        icon: const Icon(Ionicons.create_outline, size: 18),
-        label: const Text('Edit Profil'),
-        onPressed: _navigateToEdit,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
           ),
-        ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black87),
+                ),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
 
-  Widget _buildInfoTile({required IconData icon, required String title, required String subtitle}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        )
-      ],
-    );
-  }
-
-   Widget _buildErrorView() {
+  Widget _buildErrorView() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
