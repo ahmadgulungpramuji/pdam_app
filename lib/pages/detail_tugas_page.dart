@@ -53,6 +53,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   // --- START MODIFIKASI: _updateStatus untuk menangani keterangan ---
+  // Ganti fungsi _updateStatus Anda dengan yang ini
   Future<void> _updateStatus(
     String targetNewStatus, {
     String? keterangan,
@@ -63,27 +64,37 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         idTugas: _tugasSaatIni.idTugas,
         tipeTugas: _tugasSaatIni.tipeTugas,
         newStatus: targetNewStatus,
-        keterangan: keterangan, // Teruskan keterangan di sini
+        keterangan: keterangan,
       );
 
       final Map<String, dynamic>? tugasTerbaruJson =
           responseData['tugas_terbaru'] as Map<String, dynamic>?;
 
-      if (mounted && tugasTerbaruJson != null) {
-        setState(() {
-          _tugasSaatIni = Tugas.fromJson(tugasTerbaruJson);
-        });
-        _showSnackbar(
-          'Status berhasil diubah ke: ${_tugasSaatIni.friendlyStatus}',
-          isError: false,
-        );
-      } else {
-        _showSnackbar(
-          'Gagal memperbarui UI: Respons tidak lengkap dari server.',
-        );
+      if (mounted) {
+        // --- PERUBAHAN UTAMA ADA DI SINI ---
+        if (targetNewStatus == 'dibatalkan') {
+          // Jika pembatalan berhasil, panggil dialog sukses dan navigasi
+          await _showSuccessAndNavigateHome();
+        } else if (tugasTerbaruJson != null) {
+          // Untuk status lain, cukup perbarui UI dan tampilkan snackbar
+          setState(() {
+            _tugasSaatIni = Tugas.fromJson(tugasTerbaruJson);
+          });
+          _showSnackbar(
+            'Status berhasil diubah ke: ${_tugasSaatIni.friendlyStatus}',
+            isError: false,
+          );
+        } else {
+          _showSnackbar(
+            'Gagal memperbarui UI: Respons tidak lengkap dari server.',
+          );
+        }
+        // --- AKHIR PERUBAHAN ---
       }
     } catch (e) {
-      _showSnackbar('Gagal mengubah status: $e');
+      if (mounted) {
+        _showSnackbar('Gagal mengubah status: $e');
+      }
     } finally {
       if (mounted) _setLoading(false);
     }
@@ -269,6 +280,51 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showSuccessAndNavigateHome() async {
+    // Pastikan widget masih ada di tree sebelum menampilkan dialog
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false, // Pengguna harus menekan tombol OK
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Ionicons.checkmark_circle, color: Colors.green[600]),
+              const SizedBox(width: 10),
+              Text(
+                'Berhasil',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Text(
+            'Tugas telah berhasil dibatalkan.',
+            style: GoogleFonts.lato(),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                // 1. Tutup dialog ini
+                Navigator.of(dialogContext).pop();
+                // 2. Kembali ke halaman paling awal (Homepage)
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
