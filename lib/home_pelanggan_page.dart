@@ -1,11 +1,12 @@
 // lib/home_pelanggan_page.dart
-// ignore_for_file: unused_element // Untuk _showSnackbar jika tidak ada error handling lain
+// ignore_for_file: unused_element
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/login_page.dart'; // Untuk navigasi saat logout
+import 'package:pdam_app/login_page.dart'; 
+import 'package:pdam_app/view_profil_page.dart'; // **IMPORT HALAMAN BARU**
 
 class HomePelangganPage extends StatefulWidget {
   const HomePelangganPage({super.key});
@@ -39,14 +40,12 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       'subtitle': 'Cek tunggakan & ID',
       'route': '/cek_tunggakan',
     },
-    // --- ITEM MENU BARU ---
     {
-      'icon': Ionicons.camera_outline, // <-- IKON BARU
-      'title': 'Lapor Foto Meter', // <-- JUDUL BARU
-      'subtitle': 'Kirim foto meteran Anda', // <-- SUBTITLE BARU
-      'route': '/lapor_foto_meter', // <-- ROUTE BARU
+      'icon': Ionicons.camera_outline,
+      'title': 'Lapor Foto Meter',
+      'subtitle': 'Kirim foto meteran Anda',
+      'route': '/lapor_foto_meter',
     },
-    // ----------------------
     {
       'icon': Ionicons.chatbubbles_outline,
       'title': 'Hubungi Kami',
@@ -120,7 +119,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  // Helper function to darken a Color
   Color _darkenColor(Color color, [double amount = .15]) {
     assert(amount >= 0 && amount <= 1);
     final hsl = HSLColor.fromColor(color);
@@ -128,7 +126,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     return hslDark.toColor();
   }
 
-  // Helper function to lighten a Color
   Color _lightenColor(Color color, [double amount = .15]) {
     assert(amount >= 0 && amount <= 1);
     final hsl = HSLColor.fromColor(color);
@@ -143,30 +140,28 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    required Color color, // Color now comes from parent build method
+    required Color color,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Make icon and font sizes responsive
         double iconSize = constraints.maxWidth * 0.22;
         double titleFontSize = constraints.maxWidth * 0.1;
         double subtitleFontSize = constraints.maxWidth * 0.08;
 
-        // Clamp values to ensure they don't get too small or too large
-        iconSize = iconSize.clamp(32.0, 40.0); // Slightly larger icons
+        iconSize = iconSize.clamp(32.0, 40.0);
         titleFontSize = titleFontSize.clamp(
           15.0,
           18.0,
-        ); // Slightly larger title
+        );
         subtitleFontSize = subtitleFontSize.clamp(
           12.0,
           14.0,
-        ); // Slightly larger subtitle
+        );
 
         return Card(
-          elevation: 4.0, // Increased elevation for more depth
+          elevation: 4.0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16), // More rounded corners
+            borderRadius: BorderRadius.circular(16),
           ),
           clipBehavior: Clip.antiAlias,
           color: Colors.white,
@@ -177,7 +172,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               padding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 16,
-              ), // Adjusted padding
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -185,28 +180,28 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   Container(
                     padding: EdgeInsets.all(
                       iconSize * 0.3,
-                    ), // Adjusted padding relative to icon size
+                    ),
                     decoration: BoxDecoration(
                       color: color.withOpacity(
                         0.18,
-                      ), // Increased opacity for background color
+                      ),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, size: iconSize, color: color),
                   ),
-                  const SizedBox(height: 12), // Increased spacing
+                  const SizedBox(height: 12),
                   Text(
                     title,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.lato(
                       fontSize: titleFontSize,
-                      fontWeight: FontWeight.w800, // Bolder title font
+                      fontWeight: FontWeight.w800,
                       color: color,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6), // Increased spacing
+                  const SizedBox(height: 6),
                   Expanded(
                     child: Text(
                       subtitle,
@@ -214,10 +209,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       style: GoogleFonts.lato(
                         fontSize: subtitleFontSize,
                         color:
-                            Colors
-                                .grey
-                                .shade700, // Darker grey for better readability
-                        height: 1.3, // Slightly increased line height
+                            Colors.grey.shade700,
+                        height: 1.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -233,38 +226,35 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   }
 
   Widget _buildWelcomeHeader(ColorScheme colorScheme) {
-    // This widget is now placed inside FlexibleSpaceBar, its styles adapt to that context.
     return FadeInAnimation(
-      delay: 0.1, // Animasi muncul setelah 0.1 detik
+      delay: 0.1,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           16.0,
           50.0,
           16.0,
           16.0,
-        ), // Padding to keep content from edge and below app bar title
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment:
-              MainAxisAlignment
-                  .end, // Align content to the bottom of the flexible space
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Text(
               'Halo,',
               style: GoogleFonts.lato(
-                fontSize: 24, // Larger font for "Halo,"
+                fontSize: 24,
                 fontWeight: FontWeight.w500,
                 color: Colors.white.withOpacity(
                   0.9,
-                ), // White with slight transparency for header text
+                ),
               ),
             ),
             Text(
               _userData?['nama']?.toString().capitalize() ?? 'Pelanggan',
               style: GoogleFonts.lato(
-                fontSize: 32, // More prominent name
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Colors.white, // Pure white for the name
+                color: Colors.white,
                 height: 1.2,
               ),
             ),
@@ -293,9 +283,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Widget _buildLaporTemuanButton(ColorScheme colorScheme) {
     return Center(
       child: FadeInAnimation(
-        delay:
-            0.5 +
-            (_menuItems.length * 0.08), // Animasi muncul setelah semua kartu
+        delay: 0.5 + (_menuItems.length * 0.08),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -304,21 +292,20 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 color: colorScheme.tertiary.withOpacity(0.3),
                 spreadRadius: 2,
                 blurRadius: 8,
-                offset: const Offset(0, 4), // Shadow for depth
+                offset: const Offset(0, 4),
               ),
             ],
             gradient: LinearGradient(
-              // Subtle gradient for a modern look
               colors: [
                 colorScheme.tertiary,
                 _darkenColor(colorScheme.tertiary, 0.15),
-              ], // Use the helper to darken
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
           child: Material(
-            color: Colors.transparent, // Important for InkWell ripple effect
+            color: Colors.transparent,
             child: InkWell(
               onTap: () {
                 Navigator.pushNamed(context, '/temuan_kebocoran');
@@ -328,22 +315,22 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 padding: const EdgeInsets.symmetric(
                   horizontal: 30,
                   vertical: 16,
-                ), // More generous padding
+                ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min, // Make row wrap its content
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Ionicons.warning_outline,
                       color: Colors.white,
-                      size: 24, // Larger icon
+                      size: 24,
                     ),
-                    const SizedBox(width: 12), // Spacing between icon and text
+                    const SizedBox(width: 12),
                     Text(
                       "Lapor Temuan Kebocoran",
                       style: GoogleFonts.lato(
                         color: Colors.white,
-                        fontWeight: FontWeight.w700, // Bolder text
-                        fontSize: 16, // Larger text
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
                       ),
                     ),
                   ],
@@ -365,26 +352,22 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           children: [
             Icon(
               Ionicons.cloud_offline_outline,
-              size: 80, // Larger icon for emphasis
+              size: 80,
               color: Colors.grey.shade400,
             ),
             const SizedBox(height: 20),
             Text(
               "Oops!",
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
               _errorMessage ??
-                  "Terjadi kesalahan tidak diketahui. Silakan coba lagi.", // More descriptive message
+                  "Terjadi kesalahan tidak diketahui. Silakan coba lagi.",
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
             ),
-            const SizedBox(height: 28), // Increased spacing
+            const SizedBox(height: 28),
             ElevatedButton.icon(
               icon: const Icon(Ionicons.refresh_outline, size: 20),
               label: Text(
@@ -417,11 +400,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     final colorScheme = theme.colorScheme;
 
     final List<Color> menuColors = [
-      colorScheme.tertiary, // Buat Laporan
-      colorScheme.secondary, // Lacak Laporan
-      colorScheme.primary, // Info Tagihan
-      Colors.orange.shade700, // Lapor Foto Meter (Warna Baru)
-      colorScheme.error, // Hubungi Kami (atau warna lain yang sesuai)
+      colorScheme.tertiary,
+      colorScheme.secondary,
+      colorScheme.primary,
+      Colors.orange.shade700,
+      colorScheme.error,
     ];
 
     return Scaffold(
@@ -435,35 +418,33 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 onRefresh: _loadUserData,
                 color: colorScheme.primary,
                 child: CustomScrollView(
-                  // Use CustomScrollView for flexible app bar and slivers
                   slivers: [
                     SliverAppBar(
-                      expandedHeight:
-                          220.0, // Increased expanded height for more space
+                      expandedHeight: 220.0,
                       floating: true,
-                      pinned:
-                          true, // App bar will pin at the top when scrolled up
+                      pinned: true,
                       snap: false,
-                      elevation: 4.0, // Add a subtle shadow
-                      backgroundColor:
-                          colorScheme
-                              .primary, // Default background color when collapsed
-                      foregroundColor: colorScheme.onPrimary, // Icon/text color
+                      elevation: 4.0,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       actions: [
+                        // **INI PERUBAHAN UTAMANYA**
                         IconButton(
                           icon: Icon(
                             Ionicons.person_circle_outline,
-                            color:
-                                colorScheme
-                                    .onPrimary, // White icon when expanded, adapts on collapse
+                            color: colorScheme.onPrimary,
                             size: 26,
                           ),
                           tooltip: 'Profil Saya',
                           onPressed: () async {
-                            final result = await Navigator.pushNamed(
+                            // Navigasi ke halaman ViewProfilPage dan tunggu hasilnya
+                            final result = await Navigator.push(
                               context,
-                              '/profil_page',
+                              MaterialPageRoute(builder: (context) => const ViewProfilPage()),
                             );
+
+                            // Jika ViewProfilPage atau ProfilPage mengembalikan true,
+                            // itu artinya ada update, maka refresh data di sini
                             if (result == true && mounted) {
                               _loadUserData();
                             }
@@ -472,9 +453,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                         IconButton(
                           icon: Icon(
                             Ionicons.log_out_outline,
-                            color:
-                                colorScheme
-                                    .onErrorContainer, // A more distinct error color for logout
+                            color: colorScheme.onErrorContainer,
                             size: 26,
                           ),
                           tooltip: 'Logout',
@@ -525,15 +504,13 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                         ),
                         title: LayoutBuilder(
                           builder: (context, constraints) {
-                            // Dynamically change title visibility or style based on collapse
-                            // This will make 'Beranda' appear/disappear smoothly
                             return AnimatedOpacity(
                               duration: const Duration(milliseconds: 200),
                               opacity:
                                   constraints.biggest.height <
                                           kToolbarHeight + 40
                                       ? 1.0
-                                      : 0.0, // Show 'Beranda' when collapsed
+                                      : 0.0,
                               child: Text(
                                 'Beranda',
                                 style: GoogleFonts.lato(
@@ -548,36 +525,28 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                         background: Stack(
                           fit: StackFit.expand,
                           children: [
-                            // Background image or gradient for the header area
                             Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  // Menggunakan fungsi _darkenColor dan _lightenColor
                                   colors: [
                                     _darkenColor(
                                       colorScheme.primary,
                                       0.2,
-                                    ), // Lebih gelap dari primary
+                                    ),
                                     colorScheme.primary,
                                     _lightenColor(
                                       colorScheme.primary,
                                       0.1,
-                                    ), // Sedikit lebih terang dari primary
+                                    ),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                               ),
                             ),
-                            // You can add an image here for more branding
-                            // Image.asset(
-                            //   'assets/images/water_patterns.png', // Replace with a water-related illustration
-                            //   fit: BoxFit.cover,
-                            //   opacity: const AlwaysStoppedAnimation(0.2), // Subtle overlay
-                            // ),
                             _buildWelcomeHeader(
                               colorScheme,
-                            ), // Your welcome header
+                            ),
                           ],
                         ),
                       ),
@@ -591,16 +560,15 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          // Animasi untuk judul "Menu Layanan Utama"
                           FadeInAnimation(
-                            delay: 0.2, // Muncul setelah header
-                            slideDistance: 0.05, // Sedikit geser ke atas
+                            delay: 0.2,
+                            slideDistance: 0.05,
                             child: Text(
                               "Menu Layanan Utama",
                               style: GoogleFonts.lato(
-                                fontSize: 20, // Slightly larger heading
-                                fontWeight: FontWeight.w700, // Bolder
-                                color: colorScheme.onSurface, // Main text color
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                           ),
@@ -615,28 +583,21 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                           crossAxisCount:
                               MediaQuery.of(context).size.width > 600
                                   ? 3
-                                  : 2, // Responsive grid: 3 columns on wider screens, 2 on smaller
-                          crossAxisSpacing: 16.0, // Increased spacing
-                          mainAxisSpacing: 16.0, // Increased spacing
-                          childAspectRatio:
-                              0.95, // Slightly adjusted for better card height
+                                  : 2,
+                          crossAxisSpacing: 16.0,
+                          mainAxisSpacing: 16.0,
+                          childAspectRatio: 0.95,
                         ),
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final item = _menuItems[index];
                           return FadeInAnimation(
-                            delay:
-                                0.25 +
-                                (index *
-                                    0.08), // Animasi tertunda untuk setiap kartu
-                            slideDistance: 0.05, // Setiap kartu geser sedikit
+                            delay: 0.25 + (index * 0.08),
+                            slideDistance: 0.05,
                             child: _buildFeatureCard(
                               icon: item['icon'] as IconData,
                               title: item['title'] as String,
                               subtitle: item['subtitle'] as String,
-                              color:
-                                  menuColors[index %
-                                      menuColors
-                                          .length], // Assign color from our list
+                              color: menuColors[index % menuColors.length],
                               onTap: () {
                                 if (item['route'] != null) {
                                   Navigator.pushNamed(
@@ -670,17 +631,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   }
 }
 
-// Widget Animasi Sederhana (bisa diletakkan di file terpisah jika sering dipakai)
 class FadeInAnimation extends StatefulWidget {
   final Widget child;
   final double delay;
-  final double slideDistance; // Menambahkan parameter slideDistance
+  final double slideDistance;
 
   const FadeInAnimation({
     super.key,
     required this.child,
     this.delay = 0.0,
-    this.slideDistance = 0.1, // Default slide distance
+    this.slideDistance = 0.1,
   });
 
   @override
@@ -697,19 +657,16 @@ class _FadeInAnimationState extends State<FadeInAnimation>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 400), // Durasi animasi lebih cepat
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
 
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutSine),
-    ); // Kurva animasi lebih smooth
+    );
 
     _slideAnimation = Tween<Offset>(
-      begin: Offset(
-        0,
-        widget.slideDistance,
-      ), // Menggunakan slideDistance dari widget
+      begin: Offset(0, widget.slideDistance),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine));
 
@@ -735,7 +692,6 @@ class _FadeInAnimationState extends State<FadeInAnimation>
   }
 }
 
-// Extension untuk capitalize (jika belum ada global)
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return "";
