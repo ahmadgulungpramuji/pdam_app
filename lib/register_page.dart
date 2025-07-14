@@ -107,6 +107,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     setState(() => _isLoading = true);
     try {
+      // Panggil API
       final response = await _apiService.registerPelanggan(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
@@ -115,18 +116,21 @@ class _RegisterPageState extends State<RegisterPage> {
         idCabang: _selectedCabangId!,
       );
 
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
+      // Langkah 1: Cek status kode TERLEBIH DAHULU
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Jika sukses, BARU decode JSON
+        final responseData = jsonDecode(response.body);
         final idPelangganBaru = responseData['id'] as int?;
+
         if (idPelangganBaru == null) {
           _showSnackbar(
-            'Registrasi gagal: ID pelanggan tidak diterima.',
+            'Registrasi gagal: ID pelanggan tidak diterima dari server.',
             isError: true,
           );
-          return;
+          return; // Hentikan proses jika ID tidak ada
         }
 
+        // Lanjutkan proses membuat ID PDAM
         final pdamRes = await _apiService.createIdPdam(
           nomor: _idPelangganController.text.trim(),
           idPelanggan: idPelangganBaru,
@@ -136,18 +140,22 @@ class _RegisterPageState extends State<RegisterPage> {
           _showSnackbar('Registrasi berhasil!', isError: false);
           Navigator.of(context).pop();
         } else {
+          // Gagal saat membuat ID PDAM
           final pdamErrorData = jsonDecode(pdamRes.body);
           _showSnackbar(
-            'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamErrorData['message'] ?? 'Error'}',
+            'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamErrorData['message'] ?? 'Error tidak diketahui'}',
             isError: true,
           );
         }
       } else {
+        // Jika status kode BUKAN 200/201, tangani sebagai error
+        final responseData = jsonDecode(response.body);
         final errMsg =
             responseData['message'] ?? 'Terjadi kesalahan pada server.';
         _showSnackbar('Registrasi gagal: $errMsg', isError: true);
       }
     } catch (e) {
+      // Tangani error jaringan atau error saat parsing JSON
       _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
