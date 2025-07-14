@@ -19,7 +19,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _trackCodeController = TextEditingController();
-  // DIUBAH: Menggunakan controller generik untuk identifier
   final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
@@ -46,7 +45,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    // DIUBAH: Dispose controller yang benar
     _identifierController.dispose();
     _passwordController.dispose();
     _trackCodeController.dispose();
@@ -94,7 +92,6 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() => _isLoading = true);
     try {
-      // DIUBAH: Mengirim identifier ke service
       final Map<String, dynamic> responseData = await _apiService.unifiedLogin(
         identifier: _identifierController.text.trim(),
         password: _passwordController.text,
@@ -191,11 +188,11 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // WIDGET YANG DIUBAH ADA DI SINI
                   _buildSwipeHint(),
                 ],
               ),
               const SizedBox(height: 20),
-
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -222,7 +219,6 @@ class _LoginPageState extends State<LoginPage> {
                   ],
                 ),
               ),
-
               _buildPageIndicator(),
               const SizedBox(height: 20),
             ],
@@ -239,7 +235,6 @@ class _LoginPageState extends State<LoginPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TextFormField(
-            // DIUBAH: Menggunakan controller & dekorasi baru
             controller: _identifierController,
             decoration: _inputDecoration(
               "ID PDAM / No. HP / Email",
@@ -272,11 +267,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             obscureText: !_passwordVisible,
-            validator:
-                (val) =>
-                    val == null || val.isEmpty
-                        ? 'Password tidak boleh kosong'
-                        : null,
+            validator: (val) =>
+                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
           ),
           const SizedBox(height: 28),
           SizedBox(
@@ -292,23 +284,22 @@ class _LoginPageState extends State<LoginPage> {
                 elevation: 2,
               ),
               onPressed: _isLoading || _isTrackingReport ? null : _login,
-              child:
-                  _isLoading
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                      : const Text(
-                        'LOGIN',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
                       ),
+                    )
+                  : const Text(
+                      'LOGIN',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -324,17 +315,16 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed:
-                    _isLoading
-                        ? null
-                        : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterPage(),
-                            ),
-                          );
-                        },
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterPage(),
+                          ),
+                        );
+                      },
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(
@@ -352,18 +342,16 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed:
-                  _isLoading || _isTrackingReport
-                      ? null
-                      : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const CalonPelangganRegisterPage(),
-                          ),
-                        );
-                      },
+              onPressed: _isLoading || _isTrackingReport
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CalonPelangganRegisterPage(),
+                        ),
+                      );
+                    },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.green.shade700,
                 side: BorderSide(color: Colors.green.shade700, width: 1.5),
@@ -408,29 +396,27 @@ class _LoginPageState extends State<LoginPage> {
               ),
               elevation: 2,
             ),
-            onPressed:
-                (_trackCodeController.text.trim().isEmpty ||
-                        _isTrackingReport ||
-                        _isLoading)
-                    ? null
-                    : _trackReportFromLogin,
-            child:
-                _isTrackingReport
-                    ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                    : const Text(
-                      "LACAK LAPORAN",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+            onPressed: (_trackCodeController.text.trim().isEmpty ||
+                    _isTrackingReport ||
+                    _isLoading)
+                ? null
+                : _trackReportFromLogin,
+            child: _isTrackingReport
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
                     ),
+                  )
+                : const Text(
+                    "LACAK LAPORAN",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -439,10 +425,9 @@ class _LoginPageState extends State<LoginPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text("BUAT LAPORAN BARU"),
-            onPressed:
-                _isLoading || _isTrackingReport
-                    ? null
-                    : () => Navigator.push(
+            onPressed: _isLoading || _isTrackingReport
+                ? null
+                : () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TemuanKebocoranPage(),
@@ -515,10 +500,9 @@ class _LoginPageState extends State<LoginPage> {
           height: 10.0,
           width: _currentPage == index ? 25.0 : 10.0,
           decoration: BoxDecoration(
-            color:
-                _currentPage == index
-                    ? const Color(0xFF005A9C)
-                    : Colors.grey.shade400,
+            color: _currentPage == index
+                ? const Color(0xFF005A9C)
+                : Colors.grey.shade400,
             borderRadius: BorderRadius.circular(12),
           ),
         );
@@ -526,29 +510,44 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  // == START PERUBAHAN ==
   Widget _buildSwipeHint() {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 400),
-      opacity: 1.0,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Ionicons.swap_horizontal,
-            size: 28,
-            color: const Color(0xFF005A9C),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Geser untuk opsi lainnya',
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+    return InkWell(
+      // onTap sekarang menangani logika perpindahan halaman.
+      onTap: () {
+        // Menganimasikan transisi ke halaman berikutnya berdasarkan halaman saat ini.
+        _pageController.animateToPage(
+          _currentPage == 0 ? 1 : 0,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      },
+      borderRadius: BorderRadius.circular(30.0), // Memberi efek ripple yang membulat.
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0), // Padding untuk area klik yang lebih besar.
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min, // Memastikan Row tidak melebar sia-sia.
+          children: [
+            Icon(
+              Ionicons.swap_horizontal,
+              size: 32, // Ukuran ikon diperbesar.
+              color: const Color(0xFF005A9C),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              // Teks diperbarui untuk mencerminkan fungsionalitas klik.
+              'Klik atau Geser untuk Opsi Lain',
+              style: TextStyle(
+                color: Colors.grey.shade800,
+                fontSize: 16, // Ukuran font diperbesar.
+                fontWeight: FontWeight.w600, // Font dibuat lebih tebal.
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+  // == AKHIR PERUBAHAN ==
 }
