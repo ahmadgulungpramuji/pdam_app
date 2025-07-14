@@ -590,7 +590,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: () => _showImageSourceActionSheet(context),
+          // --- PERUBAHAN 1: Langsung memanggil kamera ---
+          onTap: () => _pickImage(ImageSource.camera),
           child: Container(
             width: double.infinity,
             height: 180,
@@ -611,7 +612,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                             color: Colors.grey,
                           ),
                           SizedBox(height: 8),
-                          Text('Ketuk untuk pilih foto'),
+                          // --- PERUBAHAN 2: Mengubah teks untuk lebih jelas ---
+                          Text('Ketuk untuk ambil foto'),
                         ],
                       ),
                     )
@@ -667,7 +669,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   }
 
   // --- Dialogs & Sheets ---
-  void _showImageSourceActionSheet(BuildContext context) {
+  // --- PERUBAHAN 3: Menghapus fungsi untuk menampilkan pilihan galeri/kamera ---
+  /* void _showImageSourceActionSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       builder:
@@ -696,6 +699,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           ),
     );
   }
+  */
 
   void _showSuccessDialog(String trackingCode) {
     showDialog(
@@ -711,6 +715,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                 const Text('Terima kasih! Mohon simpan kode pelacakan ini:'),
                 const SizedBox(height: 15),
                 Container(
+
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,

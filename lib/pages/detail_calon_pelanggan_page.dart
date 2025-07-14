@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/tugas_model.dart';
+// PERUBAHAN 1: Menambahkan import untuk url_launcher
+import 'package:url_launcher/url_launcher.dart';
 
 class DetailCalonPelangganPage extends StatefulWidget {
   final CalonPelangganTugas tugas;
@@ -126,6 +128,40 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     }
   }
 
+  // PERUBAHAN 2: Menambahkan fungsi untuk membuka WhatsApp dan Google Maps
+  Future<void> _launchWhatsApp(String phoneNumber) async {
+    // Format nomor HP (hapus karakter selain angka, asumsikan +62)
+    String formattedPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '62${formattedPhone.substring(1)}';
+    }
+    final Uri whatsappUrl = Uri.parse('https://wa.me/$formattedPhone');
+    try {
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $whatsappUrl';
+      }
+    } catch (e) {
+      _showSnackbar('Tidak dapat membuka WhatsApp.', isError: true);
+    }
+  }
+
+  Future<void> _launchMaps(String address) async {
+    final Uri mapsUrl = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');
+    try {
+      if (await canLaunchUrl(mapsUrl)) {
+        await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $mapsUrl';
+      }
+    } catch (e) {
+      _showSnackbar('Tidak dapat membuka Google Maps.', isError: true);
+    }
+  }
+  // --- Akhir Perubahan 2 ---
+
   void _showSnackbar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -160,15 +196,19 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                     'Nama',
                     _currentTugas.pelanggan.nama,
                   ),
+                  // PERUBAHAN 4: Menambahkan parameter onTap untuk membuka WhatsApp
                   _buildInfoRow(
                     Ionicons.call_outline,
                     'Nomor WA',
                     _currentTugas.pelanggan.nomorHp,
+                    onTap: () => _launchWhatsApp(_currentTugas.pelanggan.nomorHp),
                   ),
+                  // PERUBAHAN 5: Menambahkan parameter onTap untuk membuka Google Maps
                   _buildInfoRow(
                     Ionicons.location_outline,
                     'Alamat',
                     _currentTugas.deskripsiLokasi,
+                    onTap: () => _launchMaps(_currentTugas.deskripsiLokasi),
                   ),
                 ]),
                 const SizedBox(height: 20),
@@ -204,7 +244,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               ? FloatingActionButton.extended(
                 onPressed: _showUpdateStatusDialog,
                 icon: const Icon(Ionicons.sync_outline),
-                label: Text('Ubah Status'),
+                label: const Text('Ubah Status'),
                 backgroundColor: Theme.of(context).primaryColor,
               )
               : null,
@@ -221,7 +261,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     return activeStatus.contains(_currentTugas.status);
   }
 
-  // Widget helpers (taruh di dalam _DetailCalonPelangganPageState)
+  // Widget helpers
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -243,31 +283,54 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).primaryColor, size: 20),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: GoogleFonts.lato(color: Colors.grey[600])),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+  // PERUBAHAN 3: Memodifikasi _buildInfoRow untuk menerima onTap dan mengubah style
+  Widget _buildInfoRow(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    final bool isClickable = onTap != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: GoogleFonts.lato(color: Colors.grey[600])),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        // Beri warna berbeda jika bisa diklik
+                        color: isClickable ? Colors.blue.shade800 : null,
+                        decoration: isClickable ? TextDecoration.underline : null,
+                        decorationColor: isClickable ? Colors.blue.shade800 : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isClickable)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Icon(
+                    Ionicons.open_outline,
+                    size: 18,
+                    color: Colors.blue.shade800,
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
