@@ -5,8 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/profil_page.dart';
-import 'package:animate_do/animate_do.dart'; // **IMPORT UNTUK ANIMASI**
-import 'package:cached_network_image/cached_network_image.dart'; // Import untuk gambar
+import 'package:animate_do/animate_do.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+// ==========================================================
+// == 1. PASTIKAN ANDA MENGIMPOR HALAMAN LOGIN ANDA DI SINI ==
+// ==========================================================
+import 'package:pdam_app/login_page.dart'; // Ganti jika nama file Anda berbeda
+
 
 class ViewProfilPage extends StatefulWidget {
   const ViewProfilPage({super.key});
@@ -53,7 +58,7 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
         });
       }
     } finally {
-      if(mounted){
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -68,30 +73,88 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
     );
     
     if (result == true && mounted) {
-      // Panggil _fetchUserData lagi untuk refresh halaman ini
       _fetchUserData();
-      
-      // Kirim sinyal 'true' juga ke halaman home
-      // agar header di sana ikut refresh saat halaman ini ditutup.
-      Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<void> _logout() async {
+    final bool? shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Logout'),
+          content: const Text('Apakah Anda yakin ingin keluar dari akun Anda?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Tidak'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Ya, Keluar'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        await _apiService.logout();
+        
+        // ==================================================================
+        // == 2. UBAH BAGIAN INI UNTUK MENGARAH KE HALAMAN LOGIN ANDA ==
+        // ==================================================================
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()), // Diubah dari Placeholder
+          (Route<dynamic> route) => false,
+        );
+
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menghubungi server, token lokal dihapus. Error: ${e.toString()}')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: _isLoading ? null : AppBar(
+        leading: BackButton(
+          onPressed: () {
+            Navigator.of(context).pop(true);
+          },
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Theme.of(context).colorScheme.primary,
+      ),
       backgroundColor: Colors.grey[100],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? _buildErrorView()
-              : CustomScrollView( // Menggunakan CustomScrollView untuk efek Sliver
-                  slivers: [
-                    _buildSliverAppBar(),
-                    SliverToBoxAdapter(child: const SizedBox(height: 16)),
-                    _buildAnimatedInfoList(),
-                  ],
-                ),
+      body: WillPopScope(
+        onWillPop: () async {
+          Navigator.of(context).pop(true);
+          return true;
+        },
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? _buildErrorView()
+                : CustomScrollView(
+                    slivers: [
+                      _buildSliverAppBar(),
+                      SliverToBoxAdapter(child: const SizedBox(height: 16)),
+                      _buildAnimatedInfoList(),
+                    ],
+                  ),
+      ),
     );
   }
 
@@ -103,6 +166,7 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
     final userName = _userData?['nama']?.toString() ?? 'Nama Pengguna';
 
     return SliverAppBar(
+      automaticallyImplyLeading: false,
       expandedHeight: 250.0,
       floating: false,
       pinned: true,
@@ -123,7 +187,6 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Gradient Background
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -136,7 +199,6 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
                 ),
               ),
             ),
-            // Foto Profil dengan Animasi
             Center(
               child: FadeInDown(
                 delay: const Duration(milliseconds: 200),
@@ -149,9 +211,9 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
                       child: CircleAvatar(
                         radius: 46,
                         backgroundColor: Colors.white,
-                        backgroundImage: fullImageUrl.isNotEmpty 
-                          ? CachedNetworkImageProvider(fullImageUrl) 
-                          : null,
+                        backgroundImage: fullImageUrl.isNotEmpty
+                            ? CachedNetworkImageProvider(fullImageUrl)
+                            : null,
                         child: fullImageUrl.isEmpty
                             ? Icon(Ionicons.person, size: 50, color: Colors.grey.shade400)
                             : null,
@@ -162,7 +224,7 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
                       _userData?['email'] ?? 'email@example.com',
                       style: GoogleFonts.poppins(color: Colors.white70),
                     ),
-                    const SizedBox(height: 40), // Spacer untuk title
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -177,7 +239,6 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
     return SliverList(
       delegate: SliverChildListDelegate(
         [
-          // Setiap item dibungkus dengan widget animasi
           FadeInUp(
             from: 20,
             delay: const Duration(milliseconds: 300),
@@ -206,7 +267,6 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // Tombol Edit dengan Animasi
           FadeInUp(
             from: 20,
             delay: const Duration(milliseconds: 600),
@@ -231,12 +291,37 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          FadeInUp(
+            from: 20,
+            delay: const Duration(milliseconds: 700),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                icon: const Icon(Ionicons.log_out_outline, size: 18),
+                label: const Text('Logout'),
+                onPressed: _logout,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
   
-  // Desain baru untuk setiap item info
   Widget _buildInfoTile({required IconData icon, required String title, required String subtitle}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

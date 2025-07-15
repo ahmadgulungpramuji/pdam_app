@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.163.196:8000/api'; //
+  final String baseUrl = 'http://10.136.211.196:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -229,6 +229,45 @@ class ApiService {
       rethrow; //
     }
   }
+    Future<bool> checkNomorHpExists(String nomorHp) async {
+  // PENTING: Sesuaikan endpoint '/cek-nomor-hp' dengan endpoint di API Anda.
+  final url = Uri.parse('$baseUrl/cek-nomor-hp/$nomorHp');
+  print('ApiService DEBUG: Checking if phone number exists at $url');
+
+  try {
+    final response = await http.get(
+      url,
+      headers: {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 15));
+
+    // Jika server merespons 200 OK, artinya nomor HP ditemukan (sudah terdaftar).
+    if (response.statusCode == 200) {
+      print('ApiService DEBUG: Phone number $nomorHp exists.');
+      return true;
+    }
+    // Jika server merespons 404 Not Found, artinya nomor HP tidak ditemukan (tersedia).
+    else if (response.statusCode == 404) {
+      print('ApiService DEBUG: Phone number $nomorHp is available.');
+      return false;
+    }
+    // Untuk status code lainnya, kita anggap sebagai error.
+    else {
+      print(
+        'ApiService DEBUG: Failed to check phone number. Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      // Melempar error agar bisa ditangkap di UI
+      throw Exception('Gagal memverifikasi nomor HP ke server.');
+    }
+  } on TimeoutException {
+    print('ApiService DEBUG: Timeout while checking phone number.');
+    throw Exception('Server tidak merespons. Periksa koneksi internet Anda.');
+  } catch (e) {
+    // Melempar ulang error yang sudah ada atau yang baru.
+    print('ApiService DEBUG: Error checking phone number: $e');
+    rethrow;
+  }
+}
+
 
   Future<http.Response> submitLaporanFotoWaterMeter({ //
     required String idPdam, //

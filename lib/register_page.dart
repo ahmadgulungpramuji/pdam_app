@@ -150,9 +150,24 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         // Jika status kode BUKAN 200/201, tangani sebagai error
         final responseData = jsonDecode(response.body);
-        final errMsg =
-            responseData['message'] ?? 'Terjadi kesalahan pada server.';
-        _showSnackbar('Registrasi gagal: $errMsg', isError: true);
+        String errorMessage = responseData['message'] ?? 'Terjadi kesalahan pada server.';
+
+        // Cek jika ada pesan validasi spesifik dari Laravel
+        if (responseData.containsKey('errors')) {
+          final errors = responseData['errors'] as Map<String, dynamic>;
+          if (errors.containsKey('nomor_hp')) {
+            // Ubah pesan dari server menjadi lebih ramah
+            errorMessage = 'Nomor HP ini sudah terdaftar. Silakan gunakan nomor yang lain.';
+          } else if (errors.containsKey('email')) {
+            errorMessage = 'Email ini sudah terdaftar. Silakan gunakan email yang lain.';
+          } else if (errors.containsKey('username')) {
+            errorMessage = 'Username ini sudah digunakan. Silakan pilih username lain.';
+          } else {
+            // Ambil pesan error pertama jika bukan soal nomor HP
+            errorMessage = errors.values.first[0];
+          }
+        }
+        _showSnackbar('Registrasi gagal: $errorMessage', isError: true);
       }
     } catch (e) {
       // Tangani error jaringan atau error saat parsing JSON
@@ -176,19 +191,18 @@ class _RegisterPageState extends State<RegisterPage> {
   void _showInvalidIdDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Nomor Tidak Valid'),
-            content: const Text(
-              'Nomor pelanggan yang Anda masukkan tidak dikenali atau tidak valid. Harap periksa kembali.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Nomor Tidak Valid'),
+        content: const Text(
+          'Nomor pelanggan yang Anda masukkan tidak dikenali atau tidak valid. Harap periksa kembali.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
+        ],
+      ),
     );
   }
 
@@ -207,22 +221,35 @@ class _RegisterPageState extends State<RegisterPage> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _buildProgressBar(),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (page) => setState(() => _currentPage = page),
-              children: [
-                _buildStep1(),
-                _buildStep2(),
-                _buildStep3(),
-                _buildStep4Confirmation(),
-              ],
-            ),
+          Column(
+            children: [
+              _buildProgressBar(),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (page) => setState(() => _currentPage = page),
+                  children: [
+                    _buildStep1(),
+                    _buildStep2(),
+                    _buildStep3(),
+                    _buildStep4Confirmation(),
+                  ],
+                ),
+              ),
+            ],
           ),
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -281,7 +308,7 @@ class _RegisterPageState extends State<RegisterPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: onContinue,
+              onPressed: _isLoading ? null : onContinue, // Disable button while loading
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
@@ -310,9 +337,8 @@ class _RegisterPageState extends State<RegisterPage> {
           labelText: 'Nomor Pelanggan (NSL)',
           prefixIcon: Icon(Ionicons.barcode_outline),
         ),
-        validator:
-            (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
-        onChanged: (_) => setState(() {}), // To rebuild and check button state
+        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+        onChanged: (_) => setState(() {}),
       ),
       onContinue: () {
         if (_step1FormKey.currentState!.validate()) {
@@ -337,9 +363,7 @@ class _RegisterPageState extends State<RegisterPage> {
           labelText: 'Username',
           prefixIcon: Icon(Ionicons.person_outline),
         ),
-        validator:
-            (value) =>
-                value == null || value.isEmpty ? 'Username wajib diisi' : null,
+        validator: (value) => value == null || value.isEmpty ? 'Username wajib diisi' : null,
       ),
       onContinue: () {
         if (_step2FormKey.currentState!.validate()) {
@@ -360,11 +384,10 @@ class _RegisterPageState extends State<RegisterPage> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              labelText: 'Email',
+              labelText: 'Email (Opsional)',
               prefixIcon: Icon(Ionicons.mail_outline),
             ),
             validator: (value) {
-              // Hanya validasi format jika field TIDAK kosong.
               if (value != null &&
                   value.isNotEmpty &&
                   !RegExp(
@@ -372,7 +395,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ).hasMatch(value)) {
                 return 'Format email tidak valid';
               }
-              // Jika kosong atau formatnya valid, loloskan validasi (return null).
               return null;
             },
           ),
@@ -382,12 +404,12 @@ class _RegisterPageState extends State<RegisterPage> {
             keyboardType: TextInputType.phone,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: const InputDecoration(
-              labelText: 'Nomor HP',
-              prefixIcon: Icon(Ionicons.call_outline),
+              labelText: 'Nomor WA', // Label diperbarui
+              prefixIcon: Icon(Ionicons.logo_whatsapp), // Icon diperbarui
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Nomor HP wajib diisi';
-              if (value.length < 10) return 'Nomor HP minimal 10 digit';
+              if (value == null || value.isEmpty) return 'Nomor WA wajib diisi';
+              if (value.length < 10) return 'Nomor WA minimal 10 digit';
               return null;
             },
           ),
@@ -404,21 +426,48 @@ class _RegisterPageState extends State<RegisterPage> {
                       ? Ionicons.eye_outline
                       : Ionicons.eye_off_outline,
                 ),
-                onPressed:
-                    () => setState(() => _passwordVisible = !_passwordVisible),
+                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
-            validator:
-                (value) =>
-                    value != null && value.length < 6
-                        ? 'Password minimal 6 karakter'
-                        : null,
+            validator: (value) => value != null && value.length < 6 ? 'Password minimal 6 karakter' : null,
           ),
         ],
       ),
-      onContinue: () {
-        if (_step3FormKey.currentState!.validate()) {
-          _nextPage();
+      onContinue: () async {
+        // 1. Validasi form seperti biasa
+        if (!_step3FormKey.currentState!.validate()) {
+          return;
+        }
+
+        // 2. Tampilkan loading dan mulai pengecekan
+        setState(() => _isLoading = true);
+        try {
+          // Panggil API untuk cek nomor HP
+          final nomorSudahAda = await _apiService.checkNomorHpExists(
+            _nomorHpController.text.trim(),
+          );
+
+          // 3. Logika berdasarkan hasil pengecekan
+          if (nomorSudahAda) {
+            _showSnackbar(
+              'Nomor WA ini sudah terdaftar. Silakan gunakan nomor lain.',
+              isError: true,
+            );
+          } else {
+            // Jika nomor tersedia, baru lanjut ke halaman berikutnya
+            _nextPage();
+          }
+        } catch (e) {
+          // Tangani jika terjadi error saat memanggil API
+          _showSnackbar(
+            'Gagal memverifikasi nomor: ${e.toString()}',
+            isError: true,
+          );
+        } finally {
+          // 4. Selalu sembunyikan loading setelah selesai
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
         }
       },
     );
@@ -460,14 +509,18 @@ class _RegisterPageState extends State<RegisterPage> {
                     'Username',
                     _usernameController.text,
                   ),
+
+                  // Tampilkan Email hanya jika diisi
+                  if (_emailController.text.isNotEmpty)
+                    _buildConfirmationTile(
+                      Ionicons.mail_outline,
+                      'Email',
+                      _emailController.text,
+                    ),
+
                   _buildConfirmationTile(
-                    Ionicons.mail_outline,
-                    'Email',
-                    _emailController.text,
-                  ),
-                  _buildConfirmationTile(
-                    Ionicons.call_outline,
-                    'Nomor HP',
+                    Ionicons.logo_whatsapp, // Icon diperbarui
+                    'Nomor WA', // Label diperbarui
                     _nomorHpController.text,
                   ),
                   _buildConfirmationTile(
@@ -492,17 +545,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              child:
-                  _isLoading
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                      : const Text('DAFTAR SEKARANG'),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : const Text('DAFTAR SEKARANG'),
             ),
           ),
         ],
@@ -514,14 +566,11 @@ class _RegisterPageState extends State<RegisterPage> {
     return ListTile(
       leading: Icon(icon, color: Colors.blue.shade700),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(subtitle, style: GoogleFonts.lato(fontSize: 15)),
+      subtitle: Text(
+        subtitle.isEmpty ? '-' : subtitle, // Tampilkan strip jika kosong
+        style: GoogleFonts.lato(fontSize: 15),
+      ),
       dense: true,
     );
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    return substring(0, 1).toUpperCase() + substring(1).toLowerCase();
   }
 }
