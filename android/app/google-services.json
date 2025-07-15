@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "710358199568",
+    "project_id": "pdamappchat",
+    "storage_bucket": "pdamappchat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:710358199568:android:15fe51e9958d922308c995",
+        "android_client_info": {
+          "package_name": "com.example.pdam_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUnBISbubnsEfGiWbqCA1Kksunxs6RIAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

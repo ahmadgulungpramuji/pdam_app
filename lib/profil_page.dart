@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';

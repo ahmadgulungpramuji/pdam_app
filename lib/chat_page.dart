@@ -1,289 +1,268 @@
 // lib/chat_page.dart
+// ignore_for_file: use_build_context_synchronously
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'api_service.dart'; // Pastikan path ini benar
+import 'package:pdam_app/api_service.dart';
+import 'package:pdam_app/services/chat_service.dart'; // <-- Gunakan service baru kita
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  // Menerima data pengguna dari halaman sebelumnya
+  final Map<String, dynamic> userData;
+
+  const ChatPage({super.key, required this.userData});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final List<Map<String, dynamic>> _messages = [
+  // --- Services & Controllers ---
+  final TextEditingController _chatController = TextEditingController();
+  final ApiService _apiService = ApiService(); // Untuk Wit.ai & token
+  final ChatService _chatService = ChatService(); // Untuk Live Chat Firestore
+
+  // --- State Management ---
+  final List<Map<String, dynamic>> _botMessages = [
     {
       "sender": "bot",
       "text":
-          "ketik hubungi admin untuk berinteraksi dengan admin cabang terdekat.",
-    },
-    {
-      "sender": "bot",
-      "text":
-          "Anda bisa bertanya seputar tagihan, laporan, atau layanan lainnya.",
-    },
-    {
-      "sender": "bot",
-      "text": "Selamat datang di layanan chat PDAM! Ada yang bisa saya bantu?",
+          "Selamat datang! Ketik pertanyaan Anda atau tekan tombol 'Bicara dengan Admin' untuk bantuan langsung.",
     },
   ];
-  final TextEditingController _chatController = TextEditingController();
-  final ApiService _witService = ApiService(); // Inisialisasi WitService
-  bool _isLoading = false; // Untuk indikator loading
+  String? _liveChatThreadId; // Untuk menyimpan ID thread live chat
+  bool _isLiveChatActive = false;
+  bool _isLoading = false;
 
-  void _sendMessage(String text) async {
-    // Jadikan async
-    if (text.trim().isEmpty) return;
-    String messageText = text.trim();
+  // --- Logic ---
+  void _sendMessage() {
+    final text = _chatController.text.trim();
+    if (text.isEmpty) return;
     _chatController.clear();
 
-    setState(() {
-      _messages.insert(0, {
-        "sender": "user",
-        "text": messageText,
-      }); // Tampilkan pesan user di awal list
-      _isLoading = true; // Mulai loading
-    });
-
-    // Kirim pesan ke Wit.ai
-    final witResponse = await _witService.sendMessage(messageText);
-
-    setState(() {
-      _isLoading = false; // Selesai loading
-    });
-
-    _handleWitAiResponse(
-      witResponse,
-      messageText,
-    ); // Teruskan original messageText untuk fallback jika diperlukan
-  }
-
-  void _handleWitAiResponse(
-    Map<String, dynamic>? response,
-    String originalUserMessage,
-  ) {
-    String botReply;
-
-    if (response == null) {
-      botReply = "Maaf, terjadi kesalahan saat menghubungi layanan AI.";
-    } else if (response.containsKey("error")) {
-      botReply =
-          response["message"] ?? "Terjadi kesalahan yang tidak diketahui.";
+    if (_isLiveChatActive) {
+      // Jika mode live chat aktif, kirim pesan ke Firestore
+      _chatService.sendMessage(
+        _liveChatThreadId!,
+        widget.userData['firebase_uid'],
+        widget.userData['nama'],
+        text,
+      );
     } else {
-      final List<dynamic>? intents = response['intents'] as List<dynamic>?;
-
-      if (intents != null && intents.isNotEmpty) {
-        final String intentName =
-            intents[0]['name'] as String? ?? "unknown_intent";
-        final double confidence =
-            (intents[0]['confidence'] as num?)?.toDouble() ?? 0.0;
-
-        print('Wit.ai - Intent: $intentName, Confidence: $confidence');
-
-        // Anda bisa set batas confidence, misalnya 0.7
-        if (confidence > 0.6) {
-          // Sesuaikan threshold ini
-          // --- Logika berdasarkan Intent dari Wit.ai ---
-          // Pastikan nama intent ini SAMA PERSIS dengan yang Anda buat di Wit.ai
-          if (intentName == 'tanya_tagihan' ||
-              originalUserMessage.toLowerCase().contains("tagihan")) {
-            // Fallback ke keyword jika intent belum spesifik
-            botReply =
-                "Untuk informasi tagihan, silakan cek menu 'Info Tagihan' atau sebutkan ID Pelanggan Anda.";
-          } else if (intentName == 'buat_laporan' ||
-              originalUserMessage.toLowerCase().contains("laporan") ||
-              originalUserMessage.toLowerCase().contains("kebocoran")) {
-            botReply =
-                "Anda dapat membuat laporan melalui menu 'Buat Laporan' atau 'Lapor Temuan Kebocoran'. Jika sudah, Anda bisa melacaknya di 'Lacak Laporan'.";
-          } else if (intentName == 'sapaan' ||
-              originalUserMessage.toLowerCase().contains("halo") ||
-              originalUserMessage.toLowerCase().contains("selamat pagi")) {
-            botReply = "Halo! Ada yang bisa saya bantu hari ini?";
-          } else if (intentName == 'minta_admin' ||
-              originalUserMessage.toLowerCase().contains("admin")) {
-            botReply =
-                "Baik, saya akan mencoba menghubungkan Anda dengan admin. Mohon tunggu sebentar...";
-            // Di sini bisa ditambahkan logika untuk notifikasi ke admin atau integrasi live chat
-            Future.delayed(const Duration(seconds: 3), () {
-              if (mounted) {
-                // Pastikan widget masih ada di tree
-                setState(() {
-                  _messages.insert(0, {
-                    // Tampilkan pesan bot di awal list
-                    "sender": "bot",
-                    "text":
-                        "Saat ini semua admin sedang sibuk. Silakan tinggalkan pesan Anda, atau coba beberapa saat lagi.",
-                  });
-                });
-              }
-            });
-            // Jangan langsung tambahkan pesan "admin sibuk" di sini agar pesan pertama muncul dulu
-            // Pesan kedua akan ditambahkan oleh Future.delayed di atas
-            setState(() {
-              _messages.insert(0, {"sender": "bot", "text": botReply});
-            });
-            return; // Keluar dari fungsi karena ada penanganan khusus
-          }
-          // Tambahkan intent lain yang sudah Anda latih di Wit.ai
-          // else if (intentName == 'tanya_layanan') {
-          //   botReply = "Kami menyediakan layanan A, B, dan C.";
-          // }
-          else {
-            botReply =
-                "Saya mengerti maksud Anda sebagai '$intentName', tapi saya belum dilatih untuk merespons ini secara spesifik. Bisa coba pertanyaan lain?";
-          }
-        } else {
-          botReply =
-              "Maaf, saya kurang yakin dengan maksud Anda. Bisa coba ulangi dengan kalimat yang lebih jelas?";
-        }
-      } else {
-        botReply =
-            "Maaf, saya belum bisa memahami pertanyaan Anda. Bisa coba pertanyaan lain?";
-      }
-    }
-
-    if (mounted) {
-      // Pastikan widget masih ada di tree
-      setState(() {
-        _messages.insert(0, {
-          "sender": "bot",
-          "text": botReply,
-        }); // Tampilkan pesan bot di awal list
-      });
+      // Jika masih mode bot, kirim ke Wit.ai
+      _sendMessageToBot(text);
     }
   }
 
+  void _sendMessageToBot(String text) {
+    setState(() {
+      _botMessages.insert(0, {"sender": "user", "text": text});
+      _isLoading = true;
+    });
+
+    _apiService
+        .sendMessage(text)
+        .then((witResponse) {
+          _handleWitAiResponse(witResponse);
+        })
+        .whenComplete(() => setState(() => _isLoading = false));
+  }
+
+  void _handleWitAiResponse(Map<String, dynamic>? response) {
+    String botReply =
+        "Maaf, saya tidak mengerti. Coba tanyakan hal lain atau hubungi admin.";
+    // (Anda bisa masukkan kembali logika Wit.ai Anda yang lama di sini jika perlu)
+    // Untuk sekarang, kita buat simpel.
+    if (response != null && !response.containsKey("error")) {
+      // Logika sederhana berdasarkan response
+      botReply =
+          "Ini adalah respons dari Bot. Jika butuh bantuan lebih lanjut, silakan hubungi admin.";
+    }
+    setState(() {
+      _botMessages.insert(0, {"sender": "bot", "text": botReply});
+    });
+  }
+
+  Future<void> _switchToLiveChat() async {
+    setState(() => _isLoading = true);
+    try {
+      print('Memulai Live Chat dengan userData: ${widget.userData}');
+
+      final token = await _apiService.getToken();
+      if (token == null) {
+        throw Exception("Sesi berakhir. Silakan login kembali.");
+      }
+
+      final threadId = await _chatService.getOrCreateAdminChatThread(
+        userData: widget.userData,
+        apiToken: token,
+      );
+
+      setState(() {
+        _isLiveChatActive = true;
+        _liveChatThreadId = threadId;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal terhubung ke live chat: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- UI Widgets ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat dengan PDAM'), // Ganti judul jika perlu
+        title: Text(
+          _isLiveChatActive ? 'Live Chat dengan Admin' : 'Chat dengan PDAM Bot',
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.support_agent_outlined),
-            tooltip: "Hubungi Live Agent",
-            onPressed:
-                _isLoading
-                    ? null
-                    : () {
-                      // Nonaktifkan tombol jika sedang loading
-                      _sendMessage("Hubungkan ke admin");
-                    },
-          ),
+          if (!_isLiveChatActive)
+            TextButton.icon(
+              icon: const Icon(Icons.support_agent, color: Colors.white),
+              label: const Text(
+                'Bicara dengan Admin',
+                style: TextStyle(color: Colors.white),
+              ),
+              onPressed: _isLoading ? null : _switchToLiveChat,
+            ),
         ],
       ),
       body: Column(
-        children: <Widget>[
+        children: [
+          if (_isLiveChatActive && _liveChatThreadId != null)
+            _buildLiveChatView()
+          else
+            _buildBotChatView(),
+
+          if (_isLoading) const LinearProgressIndicator(),
+          _buildMessageInput(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveChatView() {
+    return Expanded(
+      child: StreamBuilder<QuerySnapshot>(
+        stream: _chatService.getMessages(_liveChatThreadId!),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error memuat pesan.'));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final messages = snapshot.data!.docs;
+          if (messages.isEmpty) {
+            return const Center(
+              child: Text('Kirim pesan pertama Anda ke admin!'),
+            );
+          }
+
+          return ListView.builder(
+            reverse: true,
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final msg = messages[index].data() as Map<String, dynamic>;
+              final isMe = msg['senderId'] == widget.userData['firebase_uid'];
+              return _buildMessageBubble(
+                text: msg['text'],
+                sender: msg['senderName'],
+                isMe: isMe,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBotChatView() {
+    return Expanded(
+      child: ListView.builder(
+        reverse: true,
+        itemCount: _botMessages.length,
+        itemBuilder: (context, index) {
+          final msg = _botMessages[index];
+          final isMe = msg['sender'] == 'user';
+          return _buildMessageBubble(
+            text: msg['text'],
+            sender: isMe ? "Anda" : "PDAM Bot",
+            isMe: isMe,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble({
+    required String text,
+    required String sender,
+    required bool isMe,
+  }) {
+    // UI untuk satu bubble chat, bisa digunakan oleh bot dan live chat
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
+        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
+        decoration: BoxDecoration(
+          color: isMe ? Theme.of(context).primaryColorLight : Colors.grey[200],
+          borderRadius: BorderRadius.circular(15.0).copyWith(
+            bottomLeft: isMe ? const Radius.circular(15.0) : Radius.zero,
+            bottomRight: !isMe ? const Radius.circular(15.0) : Radius.zero,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(
+              sender,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(text, style: const TextStyle(color: Colors.black87)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        children: [
           Expanded(
-            child: ListView.builder(
-              reverse: true, // Agar chat dimulai dari bawah dan scroll ke atas
-              padding: const EdgeInsets.all(10.0),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                final bool isUserMessage = message['sender'] == 'user';
-                return Align(
-                  alignment:
-                      isUserMessage
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 5.0,
-                      horizontal: 8.0,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10.0,
-                      horizontal: 14.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isUserMessage
-                              ? Theme.of(context).primaryColorLight
-                              : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(15.0).copyWith(
-                        bottomLeft:
-                            isUserMessage
-                                ? const Radius.circular(15.0)
-                                : Radius.zero,
-                        bottomRight:
-                            !isUserMessage
-                                ? const Radius.circular(15.0)
-                                : Radius.zero,
-                        topLeft: const Radius.circular(15.0),
-                        topRight: const Radius.circular(15.0),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment:
-                          isUserMessage
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          message['text'],
-                          style: const TextStyle(color: Colors.black87),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isUserMessage ? "Anda" : "PDAM Bot",
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+            child: TextField(
+              controller: _chatController,
+              enabled: !_isLoading,
+              decoration: InputDecoration(
+                hintText: 'Ketik pesan...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+              ),
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
-          if (_isLoading) // Tampilkan indikator loading
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: LinearProgressIndicator(),
-            ),
-          const Divider(height: 1.0),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-            color: Theme.of(context).cardColor,
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: TextField(
-                    controller: _chatController,
-                    enabled:
-                        !_isLoading, // Nonaktifkan input jika sedang loading
-                    decoration: InputDecoration(
-                      hintText: 'Ketik pesan Anda...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 10.0,
-                      ),
-                    ),
-                    onSubmitted:
-                        _isLoading ? null : _sendMessage, // Kirim saat enter
-                  ),
-                ),
-                const SizedBox(width: 8.0),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  color: Theme.of(context).primaryColor,
-                  onPressed:
-                      _isLoading
-                          ? null
-                          : () => _sendMessage(
-                            _chatController.text,
-                          ), // Nonaktifkan tombol jika sedang loading
-                ),
-              ],
-            ),
+          IconButton(
+            icon: const Icon(Icons.send),
+            color: Theme.of(context).primaryColor,
+            onPressed: _isLoading ? null : _sendMessage,
           ),
         ],
       ),

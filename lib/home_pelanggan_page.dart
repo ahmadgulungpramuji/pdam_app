@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/login_page.dart'; 
+import 'package:pdam_app/chat_page.dart';
+import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/view_profil_page.dart'; // **IMPORT HALAMAN BARU**
 
 class HomePelangganPage extends StatefulWidget {
@@ -149,14 +150,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         double subtitleFontSize = constraints.maxWidth * 0.08;
 
         iconSize = iconSize.clamp(32.0, 40.0);
-        titleFontSize = titleFontSize.clamp(
-          15.0,
-          18.0,
-        );
-        subtitleFontSize = subtitleFontSize.clamp(
-          12.0,
-          14.0,
-        );
+        titleFontSize = titleFontSize.clamp(15.0, 18.0);
+        subtitleFontSize = subtitleFontSize.clamp(12.0, 14.0);
 
         return Card(
           elevation: 4.0,
@@ -169,22 +164,15 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(
-                      iconSize * 0.3,
-                    ),
+                    padding: EdgeInsets.all(iconSize * 0.3),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(
-                        0.18,
-                      ),
+                      color: color.withOpacity(0.18),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, size: iconSize, color: color),
@@ -208,8 +196,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lato(
                         fontSize: subtitleFontSize,
-                        color:
-                            Colors.grey.shade700,
+                        color: Colors.grey.shade700,
                         height: 1.3,
                       ),
                       maxLines: 2,
@@ -229,12 +216,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     return FadeInAnimation(
       delay: 0.1,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          16.0,
-          50.0,
-          16.0,
-          16.0,
-        ),
+        padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -244,9 +226,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               style: GoogleFonts.lato(
                 fontSize: 24,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(
-                  0.9,
-                ),
+                color: Colors.white.withOpacity(0.9),
               ),
             ),
             Text(
@@ -358,14 +338,18 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             const SizedBox(height: 20),
             Text(
               "Oops!",
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
               _errorMessage ??
                   "Terjadi kesalahan tidak diketahui. Silakan coba lagi.",
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
             ),
             const SizedBox(height: 28),
             ElevatedButton.icon(
@@ -440,7 +424,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                             // Navigasi ke halaman ViewProfilPage dan tunggu hasilnya
                             final result = await Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const ViewProfilPage()),
+                              MaterialPageRoute(
+                                builder: (context) => const ViewProfilPage(),
+                              ),
                             );
 
                             // Jika ViewProfilPage atau ProfilPage mengembalikan true,
@@ -529,24 +515,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    _darkenColor(
-                                      colorScheme.primary,
-                                      0.2,
-                                    ),
+                                    _darkenColor(colorScheme.primary, 0.2),
                                     colorScheme.primary,
-                                    _lightenColor(
-                                      colorScheme.primary,
-                                      0.1,
-                                    ),
+                                    _lightenColor(colorScheme.primary, 0.1),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                               ),
                             ),
-                            _buildWelcomeHeader(
-                              colorScheme,
-                            ),
+                            _buildWelcomeHeader(colorScheme),
                           ],
                         ),
                       ),
@@ -581,9 +559,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount:
-                              MediaQuery.of(context).size.width > 600
-                                  ? 3
-                                  : 2,
+                              MediaQuery.of(context).size.width > 600 ? 3 : 2,
                           crossAxisSpacing: 16.0,
                           mainAxisSpacing: 16.0,
                           childAspectRatio: 0.95,
@@ -599,7 +575,29 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                               subtitle: item['subtitle'] as String,
                               color: menuColors[index % menuColors.length],
                               onTap: () {
-                                if (item['route'] != null) {
+                                if (item['title'] == 'Hubungi Kami') {
+                                  // --- INI PERUBAHANNYA ---
+                                  if (_userData != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) =>
+                                                ChatPage(userData: _userData!),
+                                      ),
+                                    );
+                                  } else {
+                                    // Handle jika data user belum termuat
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Data pengguna belum siap, coba lagi.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // --- AKHIR PERUBAHAN ---
+                                } else if (item['route'] != null) {
                                   Navigator.pushNamed(
                                     context,
                                     item['route'] as String,
@@ -661,9 +659,10 @@ class _FadeInAnimationState extends State<FadeInAnimation>
       vsync: this,
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutSine),
-    );
+    _opacityAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine));
 
     _slideAnimation = Tween<Offset>(
       begin: Offset(0, widget.slideDistance),

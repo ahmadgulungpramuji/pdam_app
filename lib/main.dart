@@ -8,7 +8,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdam_app/buat_laporan_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
-import 'package:pdam_app/chat_page.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+// <-- 1. IMPORT INI
+// <-- 2. IMPORT INI (hasil dari FlutterFire CLI)
 import 'package:pdam_app/home_petugas_page.dart';
 import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/profil_page.dart';
@@ -18,17 +22,25 @@ import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/pages/welcome_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// lib/main.dart
+
 void main() async {
-  // Logic untuk menentukan rute awal
+  // Baris ini wajib ada untuk memastikan semua binding siap
   WidgetsFlutterBinding.ensureInitialized();
+
+  // !! BAGIAN PENTING YANG HILANG !!
+  // Tambahkan blok ini untuk menginisialisasi Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // !! AKHIR DARI BAGIAN PENTING !!
+
+  // Kode Anda yang sudah ada bisa tetap di sini
   await initializeDateFormatting('id_ID', null);
 
   final prefs = await SharedPreferences.getInstance();
-  // Cek jika key 'hasSeenWelcomeScreen' ada dan bernilai true. Defaultnya false.
   final bool hasSeenWelcomeScreen =
       prefs.getBool('hasSeenWelcomeScreen') ?? false;
 
-  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen));
+  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen)); //
 }
 
 class MyApp extends StatelessWidget {
@@ -99,7 +111,6 @@ class MyApp extends StatelessWidget {
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
-        '/chat_page': (context) => const ChatPage(),
         '/profil_page': (context) => const ProfilPage(),
         '/register_calon_pelanggan':
             (context) => const CalonPelangganRegisterPage(),
