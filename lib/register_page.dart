@@ -200,6 +200,9 @@ class _RegisterPageState extends State<RegisterPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),
+
+
+
           ),
         ],
       ),
@@ -339,6 +342,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
         onChanged: (_) => setState(() {}),
+
       ),
       onContinue: () {
         if (_step1FormKey.currentState!.validate()) {
@@ -364,6 +368,8 @@ class _RegisterPageState extends State<RegisterPage> {
           prefixIcon: Icon(Ionicons.person_outline),
         ),
         validator: (value) => value == null || value.isEmpty ? 'Username wajib diisi' : null,
+
+
       ),
       onContinue: () {
         if (_step2FormKey.currentState!.validate()) {
@@ -388,6 +394,7 @@ class _RegisterPageState extends State<RegisterPage> {
               prefixIcon: Icon(Ionicons.mail_outline),
             ),
             validator: (value) {
+
               if (value != null &&
                   value.isNotEmpty &&
                   !RegExp(
@@ -395,6 +402,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ).hasMatch(value)) {
                 return 'Format email tidak valid';
               }
+
               return null;
             },
           ),
@@ -427,9 +435,14 @@ class _RegisterPageState extends State<RegisterPage> {
                       : Ionicons.eye_off_outline,
                 ),
                 onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+
               ),
             ),
             validator: (value) => value != null && value.length < 6 ? 'Password minimal 6 karakter' : null,
+
+
+
+
           ),
         ],
       ),
@@ -521,6 +534,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildConfirmationTile(
                     Ionicons.logo_whatsapp, // Icon diperbarui
                     'Nomor WA', // Label diperbarui
+
+
+
+
+
                     _nomorHpController.text,
                   ),
                   _buildConfirmationTile(
@@ -555,6 +573,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     )
                   : const Text('DAFTAR SEKARANG'),
+
             ),
           ),
         ],
