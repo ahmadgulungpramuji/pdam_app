@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
 
 class ApiService {
-  final String baseUrl = 'http://10.136.211.196:8000/api'; //
+  final String baseUrl = 'http://192.168.169.196:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -1633,6 +1633,35 @@ class ApiService {
     }
   }
 
+Future<Map<String, dynamic>> respondToComplaint(int laporanId, String choice) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Autentikasi diperlukan.');
+
+    final url = Uri.parse('$baseUrl/pengaduan/$laporanId/respon-pelanggan');
+    
+    try {
+        final response = await http.post(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'choice': choice}),
+        ).timeout(const Duration(seconds: 30));
+
+        final responseData = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+            return responseData;
+        } else {
+            throw Exception(responseData['message'] ?? 'Gagal mengirim respon.');
+        }
+    } on TimeoutException {
+        throw Exception('Server tidak merespons. Periksa koneksi Anda.');
+    } catch (e) {
+        throw Exception('Terjadi kesalahan: ${e.toString()}');
+    }
+  }
   // === PERUBAHAN FUNGSI updatePetugasProfile ===
   Future<Petugas> updatePetugasProfile({
     required Map<String, String> data, // Menggunakan Map untuk fleksibilitas

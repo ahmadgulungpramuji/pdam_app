@@ -224,6 +224,99 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                             _buildDetailRowSheet('Tanggal Lapor', DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt)),
                             _buildDetailRowSheet('Deskripsi', laporan.deskripsi, isMultiline: true),
                             
+                            // Blok baru untuk status 'menunggu_pelanggan'
+                            if (laporan.status.toLowerCase() == 'menunggu_pelanggan') ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tindak Lanjut Laporan',
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Anda diminta untuk datang ke kantor cabang PDAM untuk diskusi lebih lanjut mengenai laporan tagihan membengkak. Mohon berikan konfirmasi Anda di bawah ini.',
+                                      style: TextStyle(fontSize: 14, height: 1.5),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    if (_isDialogRatingLoading)
+                                      const Center(child: CircularProgressIndicator())
+                                    else ...[
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                          onPressed: () async {
+                                            updateSheetLoadingState(true);
+                                            try {
+                                              await _apiService.respondToComplaint(laporan.id, 'bersedia');
+                                              if(mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konfirmasi berhasil dikirim.'), backgroundColor: Colors.green));
+                                                Navigator.of(context).pop();
+                                              }
+                                              _fetchLaporan(showLoadingIndicator: false);
+                                            } catch (e) {
+                                              if(mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                              }
+                                            } finally {
+                                              if(mounted) {
+                                                updateSheetLoadingState(false);
+                                              }
+                                            }
+                                          },
+                                          child: const Text('Ya, Saya Bersedia Datang'),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            side: BorderSide(color: Colors.orange.shade700),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                          onPressed: () async {
+                                            updateSheetLoadingState(true);
+                                            try {
+                                              await _apiService.respondToComplaint(laporan.id, 'permohonan_cek_kebocoran');
+                                              if(mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permohonan cek kebocoran berhasil diajukan.'), backgroundColor: Colors.green));
+                                                Navigator.of(context).pop();
+                                              }
+                                              _fetchLaporan(showLoadingIndicator: false);
+                                            } catch (e) {
+                                              if(mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                              }
+                                            } finally {
+                                              if(mounted) {
+                                                updateSheetLoadingState(false);
+                                              }
+                                            }
+                                          },
+                                          child: Text('Saya Ingin Ajukan Cek Kebocoran Persil', style: TextStyle(color: Colors.orange.shade800)),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+
                             // Menggunakan fotoSesudah dari model Anda
                             if (laporan.status.toLowerCase() == 'selesai' &&
                                 laporan.fotoSesudah != null &&
@@ -436,21 +529,29 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
+  // Method _getStatusMeta diperbarui
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
         return (color: Colors.blue.shade700, icon: Icons.pending_actions_rounded);
+      case 'menunggu_pelanggan':
+        return (color: Colors.purple.shade700, icon: Icons.person_search_rounded);
       case 'diproses':
+      case 'diterima':
+      case 'menunggu_konfirmasi':
+      case 'dalam_perjalanan':
         return (color: Colors.orange.shade700, icon: Icons.sync_rounded);
       case 'selesai':
         return (color: Colors.green.shade700, icon: Icons.check_circle_rounded);
       case 'dibatalkan':
+      case 'ditolak':
         return (color: Colors.red.shade700, icon: Icons.cancel_rounded);
       default:
         return (color: Colors.grey.shade600, icon: Icons.help_outline_rounded);
     }
   }
 
+  // Method _buildStatusBadge diperbarui
   Widget _buildStatusBadge(String status) {
     final meta = _getStatusMeta(status);
     return Container(
@@ -465,7 +566,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           Icon(meta.icon, color: meta.color, size: 16),
           const SizedBox(width: 6),
           Text(
-            status.toUpperCase(),
+            status.replaceAll('_', ' ').toUpperCase(), // Mengganti '_' dengan spasi
             style: TextStyle(color: meta.color, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ],
