@@ -120,7 +120,7 @@ class _RegisterPageState extends State<RegisterPage> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Jika sukses, BARU decode JSON
         final responseData = jsonDecode(response.body);
-        final idPelangganBaru = responseData['id'] as int?;
+        final idPelangganBaru = responseData['user']?['id'] as int?;
 
         if (idPelangganBaru == null) {
           _showSnackbar(
@@ -150,18 +150,22 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         // Jika status kode BUKAN 200/201, tangani sebagai error
         final responseData = jsonDecode(response.body);
-        String errorMessage = responseData['message'] ?? 'Terjadi kesalahan pada server.';
+        String errorMessage =
+            responseData['message'] ?? 'Terjadi kesalahan pada server.';
 
         // Cek jika ada pesan validasi spesifik dari Laravel
         if (responseData.containsKey('errors')) {
           final errors = responseData['errors'] as Map<String, dynamic>;
           if (errors.containsKey('nomor_hp')) {
             // Ubah pesan dari server menjadi lebih ramah
-            errorMessage = 'Nomor HP ini sudah terdaftar. Silakan gunakan nomor yang lain.';
+            errorMessage =
+                'Nomor HP ini sudah terdaftar. Silakan gunakan nomor yang lain.';
           } else if (errors.containsKey('email')) {
-            errorMessage = 'Email ini sudah terdaftar. Silakan gunakan email yang lain.';
+            errorMessage =
+                'Email ini sudah terdaftar. Silakan gunakan email yang lain.';
           } else if (errors.containsKey('username')) {
-            errorMessage = 'Username ini sudah digunakan. Silakan pilih username lain.';
+            errorMessage =
+                'Username ini sudah digunakan. Silakan pilih username lain.';
           } else {
             // Ambil pesan error pertama jika bukan soal nomor HP
             errorMessage = errors.values.first[0];
@@ -191,21 +195,19 @@ class _RegisterPageState extends State<RegisterPage> {
   void _showInvalidIdDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nomor Tidak Valid'),
-        content: const Text(
-          'Nomor pelanggan yang Anda masukkan tidak dikenali atau tidak valid. Harap periksa kembali.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-
-
-
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Nomor Tidak Valid'),
+            content: const Text(
+              'Nomor pelanggan yang Anda masukkan tidak dikenali atau tidak valid. Harap periksa kembali.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -248,9 +250,7 @@ class _RegisterPageState extends State<RegisterPage> {
             Container(
               color: Colors.black.withOpacity(0.5),
               child: const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                ),
+                child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
         ],
@@ -311,7 +311,10 @@ class _RegisterPageState extends State<RegisterPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isLoading ? null : onContinue, // Disable button while loading
+              onPressed:
+                  _isLoading
+                      ? null
+                      : onContinue, // Disable button while loading
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
@@ -340,9 +343,9 @@ class _RegisterPageState extends State<RegisterPage> {
           labelText: 'Nomor Pelanggan (NSL)',
           prefixIcon: Icon(Ionicons.barcode_outline),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+        validator:
+            (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
         onChanged: (_) => setState(() {}),
-
       ),
       onContinue: () {
         if (_step1FormKey.currentState!.validate()) {
@@ -367,9 +370,9 @@ class _RegisterPageState extends State<RegisterPage> {
           labelText: 'Username',
           prefixIcon: Icon(Ionicons.person_outline),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Username wajib diisi' : null,
-
-
+        validator:
+            (value) =>
+                value == null || value.isEmpty ? 'Username wajib diisi' : null,
       ),
       onContinue: () {
         if (_step2FormKey.currentState!.validate()) {
@@ -394,7 +397,6 @@ class _RegisterPageState extends State<RegisterPage> {
               prefixIcon: Icon(Ionicons.mail_outline),
             ),
             validator: (value) {
-
               if (value != null &&
                   value.isNotEmpty &&
                   !RegExp(
@@ -434,15 +436,15 @@ class _RegisterPageState extends State<RegisterPage> {
                       ? Ionicons.eye_outline
                       : Ionicons.eye_off_outline,
                 ),
-                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-
+                onPressed:
+                    () => setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
-            validator: (value) => value != null && value.length < 6 ? 'Password minimal 6 karakter' : null,
-
-
-
-
+            validator:
+                (value) =>
+                    value != null && value.length < 6
+                        ? 'Password minimal 6 karakter'
+                        : null,
           ),
         ],
       ),
@@ -535,10 +537,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     Ionicons.logo_whatsapp, // Icon diperbarui
                     'Nomor WA', // Label diperbarui
 
-
-
-
-
                     _nomorHpController.text,
                   ),
                   _buildConfirmationTile(
@@ -563,17 +561,17 @@ class _RegisterPageState extends State<RegisterPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                  : const Text('DAFTAR SEKARANG'),
-
+              child:
+                  _isLoading
+                      ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                      : const Text('DAFTAR SEKARANG'),
             ),
           ),
         ],
