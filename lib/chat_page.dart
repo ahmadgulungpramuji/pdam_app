@@ -1,6 +1,7 @@
 // lib/chat_page.dart
 // ignore_for_file: use_build_context_synchronously
 
+// ignore: unused_import
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pdam_app/api_service.dart';
@@ -145,19 +146,26 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  // Di dalam file chat_page.dart
+
   Widget _buildLiveChatView() {
     return Expanded(
-      child: StreamBuilder<QuerySnapshot>(
+      // 1. Ubah tipe data StreamBuilder
+      child: StreamBuilder<List<Message>>(
+        // <-- DARI QuerySnapshot MENJADI List<Message>
+        // 2. Gunakan method getMessages yang sudah diperbarui
         stream: _chatService.getMessages(_liveChatThreadId!),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Error memuat pesan.'));
           }
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting ||
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final messages = snapshot.data!.docs;
+          // 3. 'snapshot.data' sekarang adalah List<Message>, bukan QuerySnapshot
+          final messages = snapshot.data ?? []; // <-- JAUH LEBIH SEDERHANA
           if (messages.isEmpty) {
             return const Center(
               child: Text('Kirim pesan pertama Anda ke admin!'),
@@ -168,11 +176,13 @@ class _ChatPageState extends State<ChatPage> {
             reverse: true,
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              final msg = messages[index].data() as Map<String, dynamic>;
-              final isMe = msg['senderId'] == widget.userData['firebase_uid'];
+              // 4. 'msg' sekarang adalah objek Message yang type-safe
+              final msg = messages[index]; // <-- OBJEK MESSAGE
+              final isMe = msg.senderId == widget.userData['firebase_uid'];
               return _buildMessageBubble(
-                text: msg['text'],
-                sender: msg['senderName'],
+                // 5. Akses properti secara langsung dan aman
+                text: msg.text,
+                sender: msg.senderName, // <-- LEBIH BERSIH
                 isMe: isMe,
               );
             },
