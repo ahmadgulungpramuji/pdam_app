@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
 
 class ApiService {
-  final String baseUrl = 'http://10.136.211.196:8000/api'; //
+  final String baseUrl = 'http://192.168.169.196:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -1869,6 +1869,34 @@ class ApiService {
       );
     }
   }
+          Future<Tugas> getTugasById({
+    required String tipeTugas,
+    required int idTugas,
+  }) async {
+    final token = await getToken();
+    // Endpoint ini perlu Anda buat di backend (Laravel)
+    // Contoh: Route::get('/tugas/{tipe_tugas}/{id_tugas}', [PetugasPengaduanController::class, 'show']);
+    final url = Uri.parse('$baseUrl/tugas/$tipeTugas/$idTugas');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final responseBody = jsonDecode(response.body);
+      // Asumsi backend mengembalikan data tugas di dalam key 'data'
+      return Tugas.fromJson(responseBody['data']);
+    } else {
+      final errorBody = jsonDecode(response.body);
+      throw Exception(errorBody['message'] ?? 'Gagal mengambil detail tugas.');
+    }
+  }
+
+
 }
 
 // Di dalam class ApiService

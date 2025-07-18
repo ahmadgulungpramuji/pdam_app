@@ -150,36 +150,42 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FadeInDown(child: _buildInfoSection()),
-                const SizedBox(height: 20),
-                FadeInUp(
-                  delay: const Duration(milliseconds: 100),
-                  child: _buildActionSection(),
-                ),
-                const SizedBox(height: 20),
-                FadeInUp(
-                  delay: const Duration(milliseconds: 200),
-                  child: _buildFotoProgresSection(),
-                ),
-              ],
-            ),
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+       body: Stack(
+    children: [
+      RefreshIndicator(
+        onRefresh: _reloadData, // Panggil fungsi yang kita buat tadi
+        color: Colors.white,
+        backgroundColor: Colors.blue[700],
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // Pastikan bisa di-scroll walaupun konten pendek
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FadeInDown(child: _buildInfoSection()),
+              const SizedBox(height: 20),
+              FadeInUp(
+                delay: const Duration(milliseconds: 100),
+                child: _buildActionSection(),
               ),
-            ),
-        ],
+              const SizedBox(height: 20),
+              FadeInUp(
+                delay: const Duration(milliseconds: 200),
+                child: _buildFotoProgresSection(),
+              ),
+            ],
+          ),
+        ),
       ),
+      if (_isLoading)
+        Container(
+          color: Colors.black.withOpacity(0.5),
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        ),
+    ],
+  ),
     );
   }
 
@@ -840,4 +846,31 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       _showSnackbar('Error membuka peta: $e');
     }
   }
+          Future<void> _reloadData() async {
+    // Tampilkan indikator loading kecil jika diperlukan, atau biarkan RefreshIndicator yang menanganinya
+    // _setLoading(true); 
+    try {
+      // Panggil API untuk mengambil satu tugas berdasarkan ID-nya
+      // ASUMSI: Anda perlu menambahkan method getTugasById di ApiService
+      final Tugas tugasTerbaru = await _apiService.getTugasById(
+        tipeTugas: _tugasSaatIni.tipeTugas,
+        idTugas: _tugasSaatIni.idTugas,
+      );
+
+      // Perbarui state dengan data yang baru
+      if (mounted) {
+        setState(() {
+          _tugasSaatIni = tugasTerbaru;
+        });
+        _showSnackbar('Data berhasil diperbarui.', isError: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackbar('Gagal memuat data terbaru: $e');
+      }
+    } finally {
+      // _setLoading(false);
+    }
+  }
+
 }
