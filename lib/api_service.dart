@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.0.119:8000/api'; //
+  final String baseUrl = 'http://10.136.211.196:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -224,6 +224,33 @@ class ApiService {
       throw Exception('Gagal memuat data riwayat dari API'); //
     }
   }
+      ///riwayat yg baru di tambahkan
+  
+Future<void> batalkanPenugasanMandiri({
+    required int idTugas,
+    required String tipeTugas,
+    required String alasan,
+}) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/tugas/$tipeTugas/$idTugas/batalkan-mandiri');
+
+    final response = await http.post(
+        url,
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'alasan_pembatalan': alasan}),
+    );
+
+    if (response.statusCode != 200) {
+        final errorBody = jsonDecode(response.body);
+        throw Exception(errorBody['message'] ?? 'Gagal membatalkan penugasan.');
+    }
+}
+
+
 
   Future<Map<String, dynamic>> registerCalonPelanggan({
     //
@@ -1796,33 +1823,4 @@ class ApiService {
   }
 }
 
-// PdamIdManager tidak diubah karena tidak terkait langsung dengan error saat ini
-class PdamIdManager {
-  //
-  static const String _pdamIdsKey = 'pdam_ids'; //
-
-  static Future<List<String>> getPdamIds() async {
-    //
-    final prefs = await SharedPreferences.getInstance(); //
-    return prefs.getStringList(_pdamIdsKey) ?? []; //
-  }
-
-  static Future<void> addPdamId(String pdamId) async {
-    //
-    final prefs = await SharedPreferences.getInstance(); //
-    List<String> ids = await getPdamIds(); //
-    if (!ids.contains(pdamId) && ids.length < 5) {
-      //
-      ids.add(pdamId); //
-      await prefs.setStringList(_pdamIdsKey, ids); //
-    }
-  }
-
-  static Future<void> removePdamId(String pdamId) async {
-    //
-    final prefs = await SharedPreferences.getInstance(); //
-    List<String> ids = await getPdamIds(); //
-    ids.remove(pdamId); //
-    await prefs.setStringList(_pdamIdsKey, ids); //
-  }
-}
+  // Di dalam class ApiService
