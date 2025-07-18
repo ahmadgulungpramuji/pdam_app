@@ -317,6 +317,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                               ),
                             ],
 
+                            // Blok foto sesudah pengerjaan dihapus sesuai permintaan
+                            /*
                             // Menggunakan fotoSesudah dari model Anda
                             if (laporan.status.toLowerCase() == 'selesai' &&
                                 laporan.fotoSesudah != null &&
@@ -324,6 +326,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                               const SizedBox(height: 16),
                               _buildFotoHasil(laporan.fotoSesudah!),
                             ],
+                            */
 
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32, thickness: 1),

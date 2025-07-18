@@ -52,8 +52,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // --- START MODIFIKASI: _updateStatus untuk menangani keterangan ---
-  // Ganti fungsi _updateStatus Anda dengan yang ini
   Future<void> _updateStatus(
     String targetNewStatus, {
     String? keterangan,
@@ -71,12 +69,9 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           responseData['tugas_terbaru'] as Map<String, dynamic>?;
 
       if (mounted) {
-        // --- PERUBAHAN UTAMA ADA DI SINI ---
         if (targetNewStatus == 'dibatalkan') {
-          // Jika pembatalan berhasil, panggil dialog sukses dan navigasi
           await _showSuccessAndNavigateHome();
         } else if (tugasTerbaruJson != null) {
-          // Untuk status lain, cukup perbarui UI dan tampilkan snackbar
           setState(() {
             _tugasSaatIni = Tugas.fromJson(tugasTerbaruJson);
           });
@@ -89,7 +84,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             'Gagal memperbarui UI: Respons tidak lengkap dari server.',
           );
         }
-        // --- AKHIR PERUBAHAN ---
       }
     } catch (e) {
       if (mounted) {
@@ -99,7 +93,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       if (mounted) _setLoading(false);
     }
   }
-  // --- END MODIFIKASI: _updateStatus untuk menangani keterangan ---
 
   Future<void> _pickAndUploadImage(
     String jenisFotoUntukUpload,
@@ -166,11 +159,10 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               children: [
                 FadeInDown(child: _buildInfoSection()),
                 const SizedBox(height: 20),
-                if (_tugasSaatIni.isPetugasPelapor)
-                  FadeInUp(
-                    delay: const Duration(milliseconds: 100),
-                    child: _buildActionSection(),
-                  ),
+                FadeInUp(
+                  delay: const Duration(milliseconds: 100),
+                  child: _buildActionSection(),
+                ),
                 const SizedBox(height: 20),
                 FadeInUp(
                   delay: const Duration(milliseconds: 200),
@@ -242,7 +234,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               _buildKontakRow(_tugasSaatIni.infoKontakPelapor!),
             const SizedBox(height: 12),
             _buildStatusRow(),
-            // --- START MODIFIKASI: Tampilkan Alasan Pembatalan ---
             if (_tugasSaatIni.status == 'dibatalkan' &&
                 (_tugasSaatIni.alasanPembatalan ?? '').isNotEmpty)
               Padding(
@@ -269,7 +260,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   ],
                 ),
               ),
-            // --- END MODIFIKASI: Tampilkan Alasan Pembatalan ---
             _buildPhotoViewer('Foto Bukti Awal:', _tugasSaatIni.fotoBuktiUrl),
             if (_tugasSaatIni is PengaduanTugas)
               _buildPhotoViewer(
@@ -284,12 +274,11 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   Future<void> _showSuccessAndNavigateHome() async {
-    // Pastikan widget masih ada di tree sebelum menampilkan dialog
     if (!mounted) return;
 
     await showDialog(
       context: context,
-      barrierDismissible: false, // Pengguna harus menekan tombol OK
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -316,9 +305,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
               ),
               onPressed: () {
-                // 1. Tutup dialog ini
                 Navigator.of(dialogContext).pop();
-                // 2. Kembali ke halaman paling awal (Homepage)
                 Navigator.of(context).popUntil((route) => route.isFirst);
               },
             ),
@@ -328,84 +315,102 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // --- START MODIFIKASI: _buildActionSection untuk tombol 'Batalkan Laporan' ---
   Widget _buildActionSection() {
-    if (!_tugasSaatIni.isPetugasPelapor) return const SizedBox.shrink();
+    bool canCancel = !['selesai', 'ditolak', 'dibatalkan'].contains(_tugasSaatIni.status);
 
     List<Widget> actionButtons = [];
-    switch (_tugasSaatIni.status) {
-      case 'menunggu_konfirmasi':
-        actionButtons.add(
-          _buildActionButton(
-            label: 'Terima Laporan',
-            icon: Ionicons.checkmark_circle_outline,
-            onPressed: () => _updateStatus('diterima'),
-            color: Colors.green[600],
-          ),
-        );
-        actionButtons.add(
-          const SizedBox(height: 8), // Spasi antar tombol
-        );
-        actionButtons.add(
-          _buildActionButton(
-            label: 'Batalkan Laporan',
-            icon: Ionicons.close_circle_outline,
-            onPressed: _showCancelDialog, // Panggil dialog pembatalan
-            color: Colors.red[600],
-          ),
-        );
-        break;
-      case 'diterima':
-        actionButtons.add(
-          _buildActionButton(
-            label: 'Mulai Perjalanan',
-            icon: Ionicons.paper_plane_outline,
-            onPressed: () => _updateStatus('dalam_perjalanan'),
-            color: Colors.blue[600],
-          ),
-        );
-        break;
-      case 'dalam_perjalanan':
-        actionButtons.add(
-          _buildActionButton(
-            label: 'Ambil Foto Sebelum & Proses',
-            icon: Ionicons.camera_outline,
-            onPressed: () => _pickAndUploadImage('foto_sebelum', 'diproses'),
-            color: Colors.orange[700],
-          ),
-        );
-        break;
-      case 'diproses':
-        actionButtons.add(
-          _buildActionButton(
-            label: 'Ambil Foto Sesudah & Selesaikan',
-            icon: Ionicons.cloud_upload_outline,
-            onPressed: () => _pickAndUploadImage('foto_sesudah', 'selesai'),
-            color: Colors.teal[600],
-          ),
-        );
-        break;
-      case 'selesai':
-        actionButtons.add(
-          _buildStatusDisplay(
-            'Pekerjaan Telah Selesai',
-            Ionicons.checkmark_done_circle,
-            Colors.teal[600]!,
-          ),
-        );
-        break;
-      case 'dibatalkan':
-        actionButtons.add(
-          _buildStatusDisplay(
-            'Tugas Dibatalkan',
-            Ionicons.close_circle,
-            Colors.red[700]!,
-          ),
-        );
-        break;
+    if (_tugasSaatIni.isPetugasPelapor) {
+      switch (_tugasSaatIni.status) {
+        case 'menunggu_konfirmasi':
+          actionButtons.add(
+            _buildActionButton(
+              label: 'Terima Laporan',
+              icon: Ionicons.checkmark_circle_outline,
+              onPressed: () => _updateStatus('diterima'),
+              color: Colors.green[600],
+            ),
+          );
+          break;
+        case 'diterima':
+          actionButtons.add(
+            _buildActionButton(
+              label: 'Mulai Perjalanan',
+              icon: Ionicons.paper_plane_outline,
+              onPressed: () => _updateStatus('dalam_perjalanan'),
+              color: Colors.blue[600],
+            ),
+          );
+          break;
+        case 'dalam_perjalanan':
+          actionButtons.add(
+            _buildActionButton(
+              label: 'Ambil Foto Sebelum & Proses',
+              icon: Ionicons.camera_outline,
+              onPressed: () => _pickAndUploadImage('foto_sebelum', 'diproses'),
+              color: Colors.orange[700],
+            ),
+          );
+          break;
+        case 'diproses':
+          actionButtons.add(
+            _buildActionButton(
+              label: 'Ambil Foto Sesudah & Selesaikan',
+              icon: Ionicons.cloud_upload_outline,
+              onPressed: () => _pickAndUploadImage('foto_sesudah', 'selesai'),
+              color: Colors.teal[600],
+            ),
+          );
+          break;
+      }
     }
 
-    if (actionButtons.isEmpty) return const SizedBox.shrink();
+    if (canCancel) {
+      if (actionButtons.isNotEmpty) {
+        actionButtons.add(const SizedBox(height: 8));
+      }
+      actionButtons.add(
+        _buildActionButton(
+          label: 'Batalkan Penugasan Saya',
+          icon: Ionicons.close_circle_outline,
+          onPressed: _showSelfCancelDialog,
+          color: Colors.red[600],
+        ),
+      );
+    }
+
+    if (actionButtons.isEmpty) {
+      if (['selesai', 'dibatalkan'].contains(_tugasSaatIni.status)) {
+         return Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Aksi Petugas',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[700],
+                  ),
+                ),
+                const Divider(height: 24),
+                _buildStatusDisplay(
+                  _tugasSaatIni.status == 'selesai' ? 'Pekerjaan Telah Selesai' : 'Tugas Dibatalkan',
+                  _tugasSaatIni.status == 'selesai' ? Ionicons.checkmark_done_circle : Ionicons.close_circle,
+                  _tugasSaatIni.status == 'selesai' ? Colors.teal[600]! : Colors.red[700]!,
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
 
     return Card(
       elevation: 2,
@@ -432,66 +437,87 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // --- Fungsi untuk menampilkan dialog pembatalan ---
-  void _showCancelDialog() {
-    final TextEditingController reasonController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(
-            'Batalkan Laporan',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-          ),
-          content: TextField(
-            controller: reasonController,
-            decoration: InputDecoration(
-              hintText: 'Masukkan alasan pembatalan...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+ void _showSelfCancelDialog() {
+  final TextEditingController reasonController = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        title: Text(
+          'Batalkan Penugasan Saya',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: reasonController,
+          decoration: InputDecoration(
+            hintText: 'Masukkan alasan pembatalan...',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-            maxLines: 3,
-            minLines: 1,
           ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Tutup', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final String reason = reasonController.text.trim();
+              if (reason.isEmpty) {
+                // Cukup tutup dialog dan tampilkan snackbar, jangan panggil _showSnackbar dari dalam dialog
+                Navigator.pop(dialogContext);
+                _showSnackbar('Alasan pembatalan wajib diisi!');
+              } else {
+                Navigator.pop(dialogContext);
+                _executeSelfCancel(reason); // PANGGIL FUNGSI BARU INI
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red[600]),
+            child: Text('Konfirmasi Batal', style: GoogleFonts.poppins()),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+    Future<void> _executeSelfCancel(String alasan) async {
+  _setLoading(true);
+  try {
+    await _apiService.batalkanPenugasanMandiri(
+      idTugas: _tugasSaatIni.idTugas,
+      tipeTugas: _tugasSaatIni.tipeTugas,
+      alasan: alasan,
+    );
+
+    if (mounted) {
+      // Tampilkan dialog sukses dan kembali ke halaman utama
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Berhasil'),
+          content: const Text('Penugasan Anda telah dibatalkan. Anda akan dikembalikan ke halaman utama.'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext); // Tutup dialog
+                Navigator.of(ctx).pop();
+                Navigator.of(context).popUntil((route) => route.isFirst);
               },
-              child: Text(
-                'Batal',
-                style: GoogleFonts.poppins(color: Colors.grey[700]),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final String reason = reasonController.text.trim();
-                if (reason.isEmpty) {
-                  _showSnackbar(
-                    'Alasan pembatalan wajib diisi!',
-                    isError: true,
-                  );
-                } else {
-                  Navigator.pop(dialogContext); // Tutup dialog
-                  _updateStatus(
-                    'dibatalkan',
-                    keterangan: reason,
-                  ); // Panggil updateStatus dengan alasan
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[600],
-                foregroundColor: Colors.white,
-              ),
-              child: Text('Konfirmasi Batalkan', style: GoogleFonts.poppins()),
-            ),
+              child: const Text('OK'),
+            )
           ],
-        );
-      },
-    );
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) _showSnackbar('Gagal membatalkan penugasan: $e');
+  } finally {
+    if (mounted) _setLoading(false);
   }
-  // --- END MODIFIKASI: _buildActionSection dan _showCancelDialog ---
+}
 
   Widget _buildFotoProgresSection() {
     return Card(
@@ -533,7 +559,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // WIDGET HELPER
   Widget _buildInfoRow(
     IconData icon,
     String label,
@@ -803,7 +828,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     if (url.startsWith('http')) {
       targetUri = Uri.parse(url);
     } else {
-      // Fallback for coordinate-like strings
       targetUri = Uri.parse('http://googleusercontent.com/maps.google.com/5');
     }
     try {
