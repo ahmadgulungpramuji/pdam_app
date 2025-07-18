@@ -224,33 +224,34 @@ class ApiService {
       throw Exception('Gagal memuat data riwayat dari API'); //
     }
   }
-      ///riwayat yg baru di tambahkan
-  
-Future<void> batalkanPenugasanMandiri({
+
+  ///riwayat yg baru di tambahkan
+
+  Future<void> batalkanPenugasanMandiri({
     required int idTugas,
     required String tipeTugas,
     required String alasan,
-}) async {
+  }) async {
     final token = await getToken();
-    final url = Uri.parse('$baseUrl/tugas/$tipeTugas/$idTugas/batalkan-mandiri');
+    final url = Uri.parse(
+      '$baseUrl/tugas/$tipeTugas/$idTugas/batalkan-mandiri',
+    );
 
     final response = await http.post(
-        url,
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'alasan_pembatalan': alasan}),
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'alasan_pembatalan': alasan}),
     );
 
     if (response.statusCode != 200) {
-        final errorBody = jsonDecode(response.body);
-        throw Exception(errorBody['message'] ?? 'Gagal membatalkan penugasan.');
+      final errorBody = jsonDecode(response.body);
+      throw Exception(errorBody['message'] ?? 'Gagal membatalkan penugasan.');
     }
-}
-
-
+  }
 
   Future<Map<String, dynamic>> registerCalonPelanggan({
     //
@@ -1545,6 +1546,53 @@ Future<void> batalkanPenugasanMandiri({
     }
   }
 
+  Future<Map<String, dynamic>> getChatInfoForPetugas(
+    String tipeTugas,
+    int idTugas,
+  ) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Autentikasi diperlukan.");
+
+    // tipeTugas bisa 'pengaduan' atau 'temuan'
+    final url = Uri.parse('$baseUrl/chat/petugas/info/$tipeTugas/$idTugas');
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['data'];
+    } else {
+      throw Exception(data['message'] ?? 'Gagal mendapatkan info chat.');
+    }
+  }
+
+  /// Mengambil info petugas pelapor untuk memulai chat dari sisi Pelanggan
+  Future<Map<String, dynamic>> getChatInfoForPelanggan(
+    String tipeLaporan,
+    int idLaporan,
+  ) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Autentikasi diperlukan.");
+
+    // tipeLaporan bisa 'pengaduan' atau 'temuan'
+    final url = Uri.parse(
+      '$baseUrl/chat/pelanggan/info/$tipeLaporan/$idLaporan',
+    );
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['data'];
+    } else {
+      throw Exception(data['message'] ?? 'Gagal mendapatkan info chat.');
+    }
+  }
+
   Future<Map<String, dynamic>> submitRating({
     //
     required String tipeLaporan, // 'pengaduan' atau 'temuan_kebocoran'
@@ -1823,4 +1871,4 @@ Future<void> batalkanPenugasanMandiri({
   }
 }
 
-  // Di dalam class ApiService
+// Di dalam class ApiService

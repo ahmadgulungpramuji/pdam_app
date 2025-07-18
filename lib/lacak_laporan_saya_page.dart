@@ -1,11 +1,17 @@
 // lib/lacak_laporan_saya_page.dart
+// ignore_for_file: unused_element
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/pengaduan_model.dart';
+import 'package:pdam_app/models/petugas_simple_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:pdam_app/pages/shared/reusable_chat_page.dart'; // <-- Diperlukan untuk halaman chat
+import 'package:pdam_app/services/chat_service.dart'; // <-- Diperlukan untuk layanan chat
 
 class LacakLaporanSayaPage extends StatefulWidget {
   const LacakLaporanSayaPage({super.key});
@@ -25,12 +31,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   double _dialogRatingPelayanan = 0;
   double _dialogRatingHasil = 0;
   bool _isDialogRatingLoading = false;
+  final ChatService _chatService = ChatService();
+  Map<String, dynamic>? _currentUserData;
 
   @override
   void initState() {
     super.initState();
     Intl.defaultLocale = 'id_ID';
     _fetchLaporan();
+    _loadCurrentUser();
   }
 
   @override
@@ -44,6 +53,16 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     return prefs.getString('user_token');
   }
 
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('user_data');
+    if (jsonString != null && mounted) {
+      setState(() {
+        _currentUserData = jsonDecode(jsonString);
+      });
+    }
+  }
+
   Future<void> _fetchLaporan({bool showLoadingIndicator = true}) async {
     if (showLoadingIndicator) {
       setState(() {
@@ -55,10 +74,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     try {
       final List<dynamic> rawData = await _apiService.getLaporanPengaduan();
       if (mounted) {
-        final tempList = rawData
-            .whereType<Map<String, dynamic>>()
-            .map((item) => Pengaduan.fromJson(item))
-            .toList();
+        final tempList =
+            rawData
+                .whereType<Map<String, dynamic>>()
+                .map((item) => Pengaduan.fromJson(item))
+                .toList();
         tempList.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         setState(() {
           _laporanList = tempList;
@@ -114,7 +134,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
         if (responseData['data'] != null &&
             responseData['data'] is Map<String, dynamic>) {
           final updatedLaporan = Pengaduan.fromJson(responseData['data']);
-          final index = _laporanList.indexWhere((item) => item.id == laporan.id);
+          final index = _laporanList.indexWhere(
+            (item) => item.id == laporan.id,
+          );
           if (index != -1) {
             setState(() {
               _laporanList[index] = updatedLaporan;
@@ -174,13 +196,21 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
             void updateSheetLoadingState(bool isLoading) {
               setSheetState(() => _isDialogRatingLoading = isLoading);
             }
-            
-            bool allRatingsGiven = _dialogRatingKecepatan > 0 && _dialogRatingPelayanan > 0 && _dialogRatingHasil > 0;
-            bool ratingsChanged = (laporan.ratingKecepatan?.toDouble() ?? 0) != _dialogRatingKecepatan ||
-                                  (laporan.ratingPelayanan?.toDouble() ?? 0) != _dialogRatingPelayanan ||
-                                  (laporan.ratingHasil?.toDouble() ?? 0) != _dialogRatingHasil ||
-                                  (laporan.komentarRating ?? '') != _komentarRatingController.text.trim();
-            bool canSubmit = allRatingsGiven && ratingsChanged && !_isDialogRatingLoading;
+
+            bool allRatingsGiven =
+                _dialogRatingKecepatan > 0 &&
+                _dialogRatingPelayanan > 0 &&
+                _dialogRatingHasil > 0;
+            bool ratingsChanged =
+                (laporan.ratingKecepatan?.toDouble() ?? 0) !=
+                    _dialogRatingKecepatan ||
+                (laporan.ratingPelayanan?.toDouble() ?? 0) !=
+                    _dialogRatingPelayanan ||
+                (laporan.ratingHasil?.toDouble() ?? 0) != _dialogRatingHasil ||
+                (laporan.komentarRating ?? '') !=
+                    _komentarRatingController.text.trim();
+            bool canSubmit =
+                allRatingsGiven && ratingsChanged && !_isDialogRatingLoading;
 
             return DraggableScrollableSheet(
               initialChildSize: 0.6,
@@ -214,70 +244,128 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                           children: [
                             Text(
                               'Detail Laporan #${laporan.id}',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Center(child: _buildStatusBadge(laporan.status)),
                             const SizedBox(height: 16),
-                            _buildDetailRowSheet('Kategori', laporan.friendlyKategori),
-                            _buildDetailRowSheet('Tanggal Lapor', DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt)),
-                            _buildDetailRowSheet('Deskripsi', laporan.deskripsi, isMultiline: true),
-                            
+                            _buildDetailRowSheet(
+                              'Kategori',
+                              laporan.friendlyKategori,
+                            ),
+                            _buildDetailRowSheet(
+                              'Tanggal Lapor',
+                              DateFormat(
+                                'd MMMM yyyy, HH:mm',
+                              ).format(laporan.createdAt),
+                            ),
+                            _buildDetailRowSheet(
+                              'Deskripsi',
+                              laporan.deskripsi,
+                              isMultiline: true,
+                            ),
+                            const Divider(height: 32, thickness: 1.5),
+                            _buildContactButtons(laporan),
+
                             // Blok baru untuk status 'menunggu_pelanggan'
-                            if (laporan.status.toLowerCase() == 'menunggu_pelanggan') ...[
+                            if (laporan.status.toLowerCase() ==
+                                'menunggu_pelanggan') ...[
                               const SizedBox(height: 16),
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.blue.shade200),
+                                  border: Border.all(
+                                    color: Colors.blue.shade200,
+                                  ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Tindak Lanjut Laporan',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade800,
+                                      ),
                                     ),
                                     const SizedBox(height: 8),
                                     const Text(
                                       'Anda diminta untuk datang ke kantor cabang PDAM untuk diskusi lebih lanjut mengenai laporan tagihan membengkak. Mohon berikan konfirmasi Anda di bawah ini.',
-                                      style: TextStyle(fontSize: 14, height: 1.5),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        height: 1.5,
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     if (_isDialogRatingLoading)
-                                      const Center(child: CircularProgressIndicator())
+                                      const Center(
+                                        child: CircularProgressIndicator(),
+                                      )
                                     else ...[
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.green,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
                                           ),
                                           onPressed: () async {
                                             updateSheetLoadingState(true);
                                             try {
-                                              await _apiService.respondToComplaint(laporan.id, 'bersedia');
-                                              if(mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konfirmasi berhasil dikirim.'), backgroundColor: Colors.green));
+                                              await _apiService
+                                                  .respondToComplaint(
+                                                    laporan.id,
+                                                    'bersedia',
+                                                  );
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Konfirmasi berhasil dikirim.',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
                                                 Navigator.of(context).pop();
                                               }
-                                              _fetchLaporan(showLoadingIndicator: false);
+                                              _fetchLaporan(
+                                                showLoadingIndicator: false,
+                                              );
                                             } catch (e) {
-                                              if(mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
                                               }
                                             } finally {
-                                              if(mounted) {
+                                              if (mounted) {
                                                 updateSheetLoadingState(false);
                                               }
                                             }
                                           },
-                                          child: const Text('Ya, Saya Bersedia Datang'),
+                                          child: const Text(
+                                            'Ya, Saya Bersedia Datang',
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -285,30 +373,65 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                         width: double.infinity,
                                         child: OutlinedButton(
                                           style: OutlinedButton.styleFrom(
-                                            side: BorderSide(color: Colors.orange.shade700),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            side: BorderSide(
+                                              color: Colors.orange.shade700,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
                                           ),
                                           onPressed: () async {
                                             updateSheetLoadingState(true);
                                             try {
-                                              await _apiService.respondToComplaint(laporan.id, 'permohonan_cek_kebocoran');
-                                              if(mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permohonan cek kebocoran berhasil diajukan.'), backgroundColor: Colors.green));
+                                              await _apiService
+                                                  .respondToComplaint(
+                                                    laporan.id,
+                                                    'permohonan_cek_kebocoran',
+                                                  );
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Permohonan cek kebocoran berhasil diajukan.',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
                                                 Navigator.of(context).pop();
                                               }
-                                              _fetchLaporan(showLoadingIndicator: false);
+                                              _fetchLaporan(
+                                                showLoadingIndicator: false,
+                                              );
                                             } catch (e) {
-                                              if(mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
                                               }
                                             } finally {
-                                              if(mounted) {
+                                              if (mounted) {
                                                 updateSheetLoadingState(false);
                                               }
                                             }
                                           },
-                                          child: Text('Saya Ingin Ajukan Cek Kebocoran Persil', style: TextStyle(color: Colors.orange.shade800)),
+                                          child: Text(
+                                            'Saya Ingin Ajukan Cek Kebocoran Persil',
+                                            style: TextStyle(
+                                              color: Colors.orange.shade800,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -327,30 +450,41 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                               _buildFotoHasil(laporan.fotoSesudah!),
                             ],
                             */
-
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32, thickness: 1),
                               Text(
-                                laporan.ratingHasil == null ? 'Beri Penilaian' : 'Penilaian Anda',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                                laporan.ratingHasil == null
+                                    ? 'Beri Penilaian'
+                                    : 'Penilaian Anda',
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 16),
-                               _buildRatingBar(
+                              _buildRatingBar(
                                 title: 'Kecepatan Respon',
                                 currentRating: _dialogRatingKecepatan,
-                                onRatingUpdate: (rating) => setSheetState(() => _dialogRatingKecepatan = rating),
+                                onRatingUpdate:
+                                    (rating) => setSheetState(
+                                      () => _dialogRatingKecepatan = rating,
+                                    ),
                                 isLoading: _isDialogRatingLoading,
                               ),
                               _buildRatingBar(
                                 title: 'Pelayanan Petugas',
                                 currentRating: _dialogRatingPelayanan,
-                                onRatingUpdate: (rating) => setSheetState(() => _dialogRatingPelayanan = rating),
+                                onRatingUpdate:
+                                    (rating) => setSheetState(
+                                      () => _dialogRatingPelayanan = rating,
+                                    ),
                                 isLoading: _isDialogRatingLoading,
                               ),
                               _buildRatingBar(
                                 title: 'Hasil Penanganan',
                                 currentRating: _dialogRatingHasil,
-                                onRatingUpdate: (rating) => setSheetState(() => _dialogRatingHasil = rating),
+                                onRatingUpdate:
+                                    (rating) => setSheetState(
+                                      () => _dialogRatingHasil = rating,
+                                    ),
                                 isLoading: _isDialogRatingLoading,
                               ),
                               const SizedBox(height: 16),
@@ -358,7 +492,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                 controller: _komentarRatingController,
                                 decoration: InputDecoration(
                                   labelText: 'Komentar (Opsional)',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                   filled: true,
                                   fillColor: Colors.grey.shade100,
                                 ),
@@ -375,20 +511,34 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
-                                    icon: Icon(laporan.ratingHasil == null ? Icons.send_rounded : Icons.edit_note_rounded),
-                                    label: Text(laporan.ratingHasil == null ? 'Kirim Penilaian' : 'Update Penilaian'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    icon: Icon(
+                                      laporan.ratingHasil == null
+                                          ? Icons.send_rounded
+                                          : Icons.edit_note_rounded,
                                     ),
-                                    onPressed: !canSubmit
-                                        ? null
-                                        : () => _handleRatingSubmission(
+                                    label: Text(
+                                      laporan.ratingHasil == null
+                                          ? 'Kirim Penilaian'
+                                          : 'Update Penilaian',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed:
+                                        !canSubmit
+                                            ? null
+                                            : () => _handleRatingSubmission(
                                               laporan,
                                               _dialogRatingKecepatan,
                                               _dialogRatingPelayanan,
                                               _dialogRatingHasil,
-                                              _komentarRatingController.text.trim(),
+                                              _komentarRatingController.text
+                                                  .trim(),
                                               context,
                                               updateSheetLoadingState,
                                             ),
@@ -421,7 +571,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+          ),
           const SizedBox(height: 8),
           Center(
             child: RatingBar.builder(
@@ -430,7 +583,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
               itemCount: 5,
               itemSize: 40.0,
               itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
-              itemBuilder: (context, _) => Icon(Icons.star_rounded, color: Colors.amber.shade600),
+              itemBuilder:
+                  (context, _) =>
+                      Icon(Icons.star_rounded, color: Colors.amber.shade600),
               onRatingUpdate: onRatingUpdate,
               ignoreGestures: isLoading,
             ),
@@ -439,13 +594,148 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
       ),
     );
   }
-  Widget _buildDetailRowSheet(String label, String value, {bool isMultiline = false}) {
+
+  Widget _buildContactButtons(Pengaduan laporan) {
+    if (_currentUserData == null) return const SizedBox.shrink();
+
+    // Logika untuk menemukan petugas pelapor utama
+    final petugasPelapor =
+        (laporan.petugasDitugaskan != null && laporan.idPetugasPelapor != null)
+            ? laporan.petugasDitugaskan!.firstWhere(
+              (p) => p.id == laporan.idPetugasPelapor,
+              orElse: () => PetugasSimple(id: 0, nama: ''), // Fallback
+            )
+            : null;
+    final bool hasPetugasPelapor =
+        petugasPelapor != null && petugasPelapor.id != 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Butuh Bantuan?',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 16),
+        // Tombol Chat Admin
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.support_agent),
+            label: const Text('Chat dengan Admin Cabang'),
+            onPressed: () async {
+              try {
+                final token = await _apiService.getToken();
+                if (token == null || !mounted) return;
+
+                final threadId = await _chatService
+                    .getOrCreateAdminChatThreadForPelanggan(
+                      userData: _currentUserData!,
+                      apiToken: token,
+                    );
+
+                if (mounted) {
+                  Navigator.pop(context); // Tutup bottom sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => ReusableChatPage(
+                            threadId: threadId,
+                            chatTitle: "Live Chat Admin",
+                            currentUser: _currentUserData!,
+                          ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Gagal memulai chat admin: $e")),
+                  );
+                }
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Tombol Chat Petugas (Hanya muncul jika ada petugas pelapor)
+        if (hasPetugasPelapor)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.person),
+              label: Text('Chat dengan Petugas ${petugasPelapor.nama}'),
+              onPressed: () async {
+                try {
+                  // 1. Dapatkan info chat petugas dari API
+                  final petugasInfo = await _apiService.getChatInfoForPelanggan(
+                    'pengaduan',
+                    laporan.id,
+                  );
+
+                  // 2. Buat atau dapatkan thread chat di Firestore
+                  final threadId = await _chatService
+                      .getOrCreateTugasChatThread(
+                        tipeTugas: 'pengaduan',
+                        idTugas: laporan.id,
+                        currentUser: _currentUserData!,
+                        otherUser: petugasInfo,
+                      );
+
+                  // 3. Navigasi ke halaman chat
+                  if (mounted) {
+                    Navigator.pop(context); // Tutup bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => ReusableChatPage(
+                              threadId: threadId,
+                              chatTitle: "Chat Petugas: #${laporan.id}",
+                              currentUser: _currentUserData!,
+                            ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Gagal memulai chat petugas: $e")),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildDetailRowSheet(
+    String label,
+    String value, {
+    bool isMultiline = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 16, height: 1.4)),
         ],
@@ -478,9 +768,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                   color: Colors.grey.shade200,
                   child: Center(
                     child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                          : null,
+                      value:
+                          loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
                     ),
                   ),
                 );
@@ -511,23 +803,24 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.white),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              panEnabled: true,
-              boundaryMargin: const EdgeInsets.all(20),
-              minScale: 0.5,
-              maxScale: 4,
-              child: Image.network(imageUrl),
+        builder:
+            (context) => Scaffold(
+              backgroundColor: Colors.black,
+              appBar: AppBar(
+                backgroundColor: Colors.black,
+                elevation: 0,
+                iconTheme: const IconThemeData(color: Colors.white),
+              ),
+              body: Center(
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: Image.network(imageUrl),
+                ),
+              ),
             ),
-          ),
-        ),
       ),
     );
   }
@@ -536,9 +829,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
-        return (color: Colors.blue.shade700, icon: Icons.pending_actions_rounded);
+        return (
+          color: Colors.blue.shade700,
+          icon: Icons.pending_actions_rounded,
+        );
       case 'menunggu_pelanggan':
-        return (color: Colors.purple.shade700, icon: Icons.person_search_rounded);
+        return (
+          color: Colors.purple.shade700,
+          icon: Icons.person_search_rounded,
+        );
       case 'diproses':
       case 'diterima':
       case 'menunggu_konfirmasi':
@@ -569,8 +868,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           Icon(meta.icon, color: meta.color, size: 16),
           const SizedBox(width: 6),
           Text(
-            status.replaceAll('_', ' ').toUpperCase(), // Mengganti '_' dengan spasi
-            style: TextStyle(color: meta.color, fontWeight: FontWeight.bold, fontSize: 12),
+            status
+                .replaceAll('_', ' ')
+                .toUpperCase(), // Mengganti '_' dengan spasi
+            style: TextStyle(
+              color: meta.color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -594,11 +899,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
               ),
               child: Icon(statusMeta.icon, color: statusMeta.color, size: 24),
             ),
-            Container(
-              width: 2,
-              height: 100,
-              color: Colors.grey.shade300,
-            ),
+            Container(width: 2, height: 100, color: Colors.grey.shade300),
           ],
         ),
         const SizedBox(width: 12),
@@ -606,7 +907,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           child: Card(
             elevation: 3,
             margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => _showDetailAndRatingSheet(laporan),
@@ -618,7 +921,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Flexible(child: _buildStatusBadge(laporan.friendlyStatus)),
+                        Flexible(
+                          child: _buildStatusBadge(laporan.friendlyStatus),
+                        ),
                         if (isRated)
                           Icon(
                             Icons.star_rate_rounded,
@@ -630,17 +935,28 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                     const SizedBox(height: 12),
                     Text(
                       laporan.friendlyKategori,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'ID: ${laporan.id}',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt),
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      DateFormat(
+                        'd MMMM yyyy, HH:mm',
+                      ).format(laporan.createdAt),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                     const Divider(height: 24),
                     Text(
@@ -689,15 +1005,17 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
         backgroundColor: Theme.of(context).canvasColor,
         elevation: 1,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
               ? Center(child: Text(_errorMessage!))
               : RefreshIndicator(
-                  onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
-                  child: _laporanList.isEmpty
-                      ? _buildEmptyState()
-                      : AnimationLimiter(
+                onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
+                child:
+                    _laporanList.isEmpty
+                        ? _buildEmptyState()
+                        : AnimationLimiter(
                           child: ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _laporanList.length,
@@ -716,7 +1034,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                             },
                           ),
                         ),
-                ),
+              ),
     );
   }
 }
