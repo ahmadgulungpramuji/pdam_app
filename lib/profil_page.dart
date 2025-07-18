@@ -1,3 +1,5 @@
+// ignore_for_file: unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -54,7 +56,8 @@ class _ProfilPageState extends State<ProfilPage> {
         if (data != null) {
           setState(() {
             _userData = data;
-            _nameController.text = _userData?['nama'] ?? _userData?['username'] ?? '';
+            _nameController.text =
+                _userData?['nama'] ?? _userData?['username'] ?? '';
             _emailController.text = _userData?['email'] ?? '';
             _nomorHpController.text = _userData?['nomor_hp'] ?? '';
             _selectedImage = null;
@@ -68,7 +71,10 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Error memuat profil: ${e.toString().replaceFirst('Exception: ', '')}', isError: true);
+        _showSnackbar(
+          'Error memuat profil: ${e.toString().replaceFirst('Exception: ', '')}',
+          isError: true,
+        );
       }
     } finally {
       if (mounted) {
@@ -87,12 +93,17 @@ class _ProfilPageState extends State<ProfilPage> {
 
     if (pickedFile != null) {
       final fileExtension = pickedFile.path.split('.').last.toLowerCase();
-      if (fileExtension == 'jpg' || fileExtension == 'jpeg' || fileExtension == 'png') {
+      if (fileExtension == 'jpg' ||
+          fileExtension == 'jpeg' ||
+          fileExtension == 'png') {
         setState(() {
           _selectedImage = File(pickedFile.path);
         });
       } else {
-        _showSnackbar('Format file tidak didukung. Harap pilih JPG atau PNG.', isError: true);
+        _showSnackbar(
+          'Format file tidak didukung. Harap pilih JPG atau PNG.',
+          isError: true,
+        );
       }
     }
   }
@@ -100,29 +111,30 @@ class _ProfilPageState extends State<ProfilPage> {
   Future<void> _showImageSourceActionSheet(BuildContext context) async {
     await showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Ambil Foto'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
+      builder:
+          (context) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Ambil Foto'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Pilih dari Galeri'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Pilih dari Galeri'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -143,9 +155,9 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     }
     setState(() => _isSaving = true);
-    
+
     final updatedData = {
-      'nama': _nameController.text.trim(), 
+      'nama': _nameController.text.trim(),
       'username': _nameController.text.trim(),
       'nomor_hp': _nomorHpController.text.trim(),
       'email': _emailController.text.trim(),
@@ -161,7 +173,7 @@ class _ProfilPageState extends State<ProfilPage> {
         updatedData,
         profileImage: _selectedImage,
       );
-      
+
       if (mounted) {
         _showSnackbar('Profil berhasil diperbarui!');
         // Menutup halaman edit dan mengirimkan sinyal 'true' bahwa update berhasil
@@ -196,20 +208,19 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Edit Profil'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _userData == null
+      appBar: AppBar(title: const Text('Edit Profil')),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _userData == null
               ? _buildErrorState()
               : SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
-                       _buildProfileImage(),
-                       const SizedBox(height: 24),
+                      _buildProfileImage(),
+                      const SizedBox(height: 24),
                       _buildSectionCard(
                         title: 'Data Pribadi',
                         icon: FontAwesomeIcons.solidUser,
@@ -257,22 +268,24 @@ class _ProfilPageState extends State<ProfilPage> {
                       const SizedBox(height: 32),
                       ElevatedButton.icon(
                         onPressed: _isSaving ? null : _saveChanges,
-                        icon: _isSaving
-                            ? Container()
-                            : const Icon(
-                                FontAwesomeIcons.solidFloppyDisk,
-                                size: 18,
-                              ),
-                        label: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                        icon:
+                            _isSaving
+                                ? Container()
+                                : const Icon(
+                                  FontAwesomeIcons.solidFloppyDisk,
+                                  size: 18,
                                 ),
-                              )
-                            : const Text('Simpan Perubahan'),
+                        label:
+                            _isSaving
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Text('Simpan Perubahan'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2962FF),
                           foregroundColor: Colors.white,
@@ -293,29 +306,33 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
-  Widget _buildProfileImage(){
+  Widget _buildProfileImage() {
     final String? profilePhotoPath = _userData?['foto_profil'];
-    final String fullImageUrl = profilePhotoPath != null && profilePhotoPath.isNotEmpty
-        ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
-        : '';
+    final String fullImageUrl =
+        profilePhotoPath != null && profilePhotoPath.isNotEmpty
+            ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
+            : '';
     return Center(
       child: Stack(
         children: [
           CircleAvatar(
             radius: 50,
             backgroundColor: Colors.grey.shade300,
-            backgroundImage: _selectedImage != null
-                ? FileImage(_selectedImage!)
-                : (fullImageUrl.isNotEmpty
-                    ? CachedNetworkImageProvider(fullImageUrl)
-                    : null) as ImageProvider<Object>?,
-            child: _selectedImage == null && fullImageUrl.isEmpty
-                ? Icon(
-                    FontAwesomeIcons.solidUserCircle,
-                    size: 95,
-                    color: Colors.grey.shade400,
-                  )
-                : null,
+            backgroundImage:
+                _selectedImage != null
+                    ? FileImage(_selectedImage!)
+                    : (fullImageUrl.isNotEmpty
+                            ? CachedNetworkImageProvider(fullImageUrl)
+                            : null)
+                        as ImageProvider<Object>?,
+            child:
+                _selectedImage == null && fullImageUrl.isEmpty
+                    ? Icon(
+                      FontAwesomeIcons.solidUserCircle,
+                      size: 95,
+                      color: Colors.grey.shade400,
+                    )
+                    : null,
           ),
           Positioned(
             bottom: 0,
@@ -330,11 +347,7 @@ class _ProfilPageState extends State<ProfilPage> {
                 ),
                 child: const Padding(
                   padding: EdgeInsets.all(6.0),
-                  child: Icon(
-                    Icons.camera_alt,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.camera_alt, color: Colors.white, size: 20),
                 ),
               ),
             ),
@@ -343,7 +356,7 @@ class _ProfilPageState extends State<ProfilPage> {
       ),
     );
   }
-  
+
   Widget _buildErrorState() {
     return Center(
       child: Column(

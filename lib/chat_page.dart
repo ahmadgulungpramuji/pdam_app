@@ -94,10 +94,11 @@ class _ChatPageState extends State<ChatPage> {
         throw Exception("Sesi berakhir. Silakan login kembali.");
       }
 
-      final threadId = await _chatService.getOrCreateAdminChatThread(
-        userData: widget.userData,
-        apiToken: token,
-      );
+      final threadId = await _chatService
+          .getOrCreateAdminChatThreadForPelanggan(
+            userData: widget.userData,
+            apiToken: token,
+          );
 
       setState(() {
         _isLiveChatActive = true;

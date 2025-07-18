@@ -1,3 +1,7 @@
+// ignore_for_file: unused_import
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/register_page.dart';
@@ -5,6 +9,7 @@ import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <-- TAMBAHKAN IMPORT INI
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -105,6 +110,8 @@ class _LoginPageState extends State<LoginPage> {
           responseData['user'] as Map<String, dynamic>;
 
       await _apiService.saveToken(token);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_data', jsonEncode(userData));
 
       if (!mounted) return;
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
@@ -119,6 +126,7 @@ class _LoginPageState extends State<LoginPage> {
       } else if (userType == 'petugas') {
         if (!mounted) return;
         final int petugasId = userData['id'] as int;
+        // Navigasi ke home petugas sudah benar
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/home_petugas',
@@ -267,8 +275,11 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             obscureText: !_passwordVisible,
-            validator: (val) =>
-                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
+            validator:
+                (val) =>
+                    val == null || val.isEmpty
+                        ? 'Password tidak boleh kosong'
+                        : null,
           ),
           const SizedBox(height: 28),
           SizedBox(
@@ -284,22 +295,23 @@ class _LoginPageState extends State<LoginPage> {
                 elevation: 2,
               ),
               onPressed: _isLoading || _isTrackingReport ? null : _login,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
+              child:
+                  _isLoading
+                      ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                      : const Text(
+                        'LOGIN',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'LOGIN',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -315,16 +327,17 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterPage(),
-                          ),
-                        );
-                      },
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterPage(),
+                            ),
+                          );
+                        },
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(
@@ -342,16 +355,18 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: _isLoading || _isTrackingReport
-                  ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CalonPelangganRegisterPage(),
-                        ),
-                      );
-                    },
+              onPressed:
+                  _isLoading || _isTrackingReport
+                      ? null
+                      : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const CalonPelangganRegisterPage(),
+                          ),
+                        );
+                      },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.green.shade700,
                 side: BorderSide(color: Colors.green.shade700, width: 1.5),
@@ -396,27 +411,29 @@ class _LoginPageState extends State<LoginPage> {
               ),
               elevation: 2,
             ),
-            onPressed: (_trackCodeController.text.trim().isEmpty ||
-                    _isTrackingReport ||
-                    _isLoading)
-                ? null
-                : _trackReportFromLogin,
-            child: _isTrackingReport
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
+            onPressed:
+                (_trackCodeController.text.trim().isEmpty ||
+                        _isTrackingReport ||
+                        _isLoading)
+                    ? null
+                    : _trackReportFromLogin,
+            child:
+                _isTrackingReport
+                    ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                    : const Text(
+                      "LACAK LAPORAN",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  )
-                : const Text(
-                    "LACAK LAPORAN",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -425,9 +442,10 @@ class _LoginPageState extends State<LoginPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text("BUAT LAPORAN BARU"),
-            onPressed: _isLoading || _isTrackingReport
-                ? null
-                : () => Navigator.push(
+            onPressed:
+                _isLoading || _isTrackingReport
+                    ? null
+                    : () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TemuanKebocoranPage(),
@@ -500,9 +518,10 @@ class _LoginPageState extends State<LoginPage> {
           height: 10.0,
           width: _currentPage == index ? 25.0 : 10.0,
           decoration: BoxDecoration(
-            color: _currentPage == index
-                ? const Color(0xFF005A9C)
-                : Colors.grey.shade400,
+            color:
+                _currentPage == index
+                    ? const Color(0xFF005A9C)
+                    : Colors.grey.shade400,
             borderRadius: BorderRadius.circular(12),
           ),
         );
@@ -522,12 +541,18 @@ class _LoginPageState extends State<LoginPage> {
           curve: Curves.easeInOut,
         );
       },
-      borderRadius: BorderRadius.circular(30.0), // Memberi efek ripple yang membulat.
+      borderRadius: BorderRadius.circular(
+        30.0,
+      ), // Memberi efek ripple yang membulat.
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0), // Padding untuk area klik yang lebih besar.
+        padding: const EdgeInsets.symmetric(
+          vertical: 10.0,
+          horizontal: 20.0,
+        ), // Padding untuk area klik yang lebih besar.
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min, // Memastikan Row tidak melebar sia-sia.
+          mainAxisSize:
+              MainAxisSize.min, // Memastikan Row tidak melebar sia-sia.
           children: [
             Icon(
               Ionicons.swap_horizontal,
@@ -549,5 +574,6 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+
   // == AKHIR PERUBAHAN ==
 }
