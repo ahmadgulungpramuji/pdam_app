@@ -76,7 +76,6 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
     );
   }
 
-  // --- PERUBAHAN UTAMA ADA DI DALAM METHOD INI ---
   Widget _buildChatList({required bool isInternal}) {
     return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getPetugasChatThreadsStream(
@@ -93,7 +92,6 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
 
         final allDocs = snapshot.data?.docs ?? [];
 
-        // Logika untuk tab "Tugas Pelanggan" tetap sama
         if (!isInternal) {
           final filteredDocs =
               allDocs.where((doc) => !doc.id.contains('internal')).toList();
@@ -105,7 +103,6 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
           return _buildListView(filteredDocs);
         }
 
-        // --- LOGIKA BARU UNTUK TAB "INTERNAL ADMIN" ---
         final String internalThreadId =
             'cabang_${_currentUserData!['id_cabang']}_internal_petugas';
         final internalThreadExists = allDocs.any(
@@ -134,7 +131,6 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
                 overflow: TextOverflow.ellipsis,
               ),
               onTap: () async {
-                // Saat di-tap, panggil metode untuk membuat thread jika belum ada
                 try {
                   final threadId = await _chatService
                       .getOrCreateAdminChatThreadForPetugas(
@@ -167,7 +163,7 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
     );
   }
 
-  // --- WIDGET HELPER BARU UNTUK MENGHINDARI DUPLIKASI KODE ---
+  // --- PERUBAHAN UTAMA ADA DI DALAM METHOD INI ---
   Widget _buildListView(List<DocumentSnapshot> docs) {
     return ListView.builder(
       itemCount: docs.length,
@@ -181,27 +177,40 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
         String timeAgo = '';
         if (timestamp != null) {
           final dt = timestamp.toDate();
-          timeAgo = DateFormat.jm().format(dt); // Contoh format: 5:08 PM
+          timeAgo = DateFormat.jm().format(dt);
         }
 
+        // --- AWAL LOGIKA BARU UNTUK JUDUL CHAT ---
+        // 1. Ambil nama pelanggan seperti sebelumnya
         final participants = data['participantNames'] as Map<String, dynamic>?;
-        String chatTitle = threadInfo?['title'] ?? 'Chat';
+        String customerName = 'Pelanggan';
         if (participants != null) {
           final otherUserEntry = participants.entries.firstWhere(
             (entry) => entry.key != _currentUserData!['firebase_uid'],
-            orElse: () => const MapEntry('', 'User'),
+            orElse: () => const MapEntry('', 'Pelanggan'),
           );
-          chatTitle = otherUserEntry.value;
+          customerName = otherUserEntry.value;
         }
+
+        // 2. Ambil detail tugas dari threadInfo
+        final idTugas = threadInfo?['idTugas']?.toString() ?? '';
+        String tipeTugas = (threadInfo?['tipeTugas'] as String? ?? 'Tugas')
+            .replaceAll('_', ' ');
+        // Format agar huruf pertama kapital
+        tipeTugas = "${tipeTugas[0].toUpperCase()}${tipeTugas.substring(1)}";
+
+        // 3. Gabungkan menjadi satu judul yang deskriptif
+        final String chatTitle = '$customerName ($tipeTugas #$idTugas)';
+        // --- AKHIR LOGIKA BARU UNTUK JUDUL CHAT ---
 
         return ListTile(
           leading: CircleAvatar(
             child: Text(
-              chatTitle.isNotEmpty ? chatTitle[0].toUpperCase() : 'U',
+              customerName.isNotEmpty ? customerName[0].toUpperCase() : 'P',
             ),
           ),
           title: Text(
-            chatTitle,
+            chatTitle, // Gunakan judul baru yang sudah diformat
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
@@ -220,7 +229,7 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
                 builder:
                     (context) => ReusableChatPage(
                       threadId: doc.id,
-                      chatTitle: chatTitle,
+                      chatTitle: chatTitle, // Kirim judul baru ke halaman chat
                       currentUser: _currentUserData!,
                     ),
               ),
