@@ -1,6 +1,6 @@
 // lib/pages/home_petugas_page.dart
 
-// ignore_for_file: unused_import
+// ignore_for_file: unused_import, unused_element
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -18,6 +18,8 @@ import 'package:pdam_app/models/paginated_response.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pdam_app/login_page.dart'; // Impor halaman login untuk logout
 import 'package:pdam_app/pages/petugas_chat_home_page.dart'; // Import halaman chat
+import 'package:fl_chart/fl_chart.dart';
+import 'package:pdam_app/models/kinerja_model.dart';
 
 // ===============================================================
 // == HALAMAN UTAMA (FRAME) UNTUK PETUGAS ==
@@ -1157,13 +1159,375 @@ class _ProfilePageState extends State<ProfilePage> {
 // ===============================================================
 // == HALAMAN KINERJA (TAB 2) - PLACEHOLDER ==
 // ===============================================================
-class KinerjaPage extends StatelessWidget {
+class KinerjaPage extends StatefulWidget {
   const KinerjaPage({super.key});
+
+  @override
+  State<KinerjaPage> createState() => _KinerjaPageState();
+}
+
+class _KinerjaPageState extends State<KinerjaPage> {
+  final ApiService _apiService = ApiService();
+  late Future<KinerjaResponse> _kinerjaFuture;
+  String _selectedPeriode = 'bulanan';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKinerjaData();
+  }
+
+  void _loadKinerjaData() {
+    setState(() {
+      // Anda perlu menambahkan getKinerja di ApiService
+      _kinerjaFuture = _apiService.getKinerja(_selectedPeriode);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _buildComingSoonPage(
-      'Kinerja Petugas',
-      Ionicons.stats_chart_outline,
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: RefreshIndicator(
+        onRefresh: () async => _loadKinerjaData(),
+        child: FutureBuilder<KinerjaResponse>(
+          future: _kinerjaFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return _buildErrorUI(
+                'Gagal memuat data kinerja: ${snapshot.error}',
+              );
+            }
+            if (!snapshot.hasData) {
+              return _buildErrorUI('Data kinerja tidak tersedia.');
+            }
+
+            final kinerjaData = snapshot.data!;
+
+            return ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildFilterPeriode(),
+                const SizedBox(height: 20),
+                _buildKpiGrid(kinerjaData.kpiUtama),
+                const SizedBox(height: 24),
+                if (kinerjaData.trenKinerja.isNotEmpty) ...[
+                  _buildChartTitle('Tren Penyelesaian (7 Hari Terakhir)'),
+                  const SizedBox(height: 16),
+                  _buildBarChart(kinerjaData.trenKinerja),
+                  const SizedBox(height: 24),
+                ],
+                _buildChartTitle('Komposisi Pekerjaan'),
+                const SizedBox(height: 16),
+                _buildPieChart(kinerjaData.komposisiTugas),
+                const SizedBox(height: 24),
+                _buildChartTitle('Rincian per Jenis Tugas'),
+                const SizedBox(height: 12),
+                _buildRincianList(kinerjaData.rincianPerTipe),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterPeriode() {
+    return SegmentedButton<String>(
+      segments: const <ButtonSegment<String>>[
+        ButtonSegment(value: 'mingguan', label: Text('Minggu Ini')),
+        ButtonSegment(value: 'bulanan', label: Text('Bulan Ini')),
+      ],
+      selected: <String>{_selectedPeriode},
+      onSelectionChanged: (Set<String> newSelection) {
+        setState(() {
+          _selectedPeriode = newSelection.first;
+          _loadKinerjaData();
+        });
+      },
+      style: SegmentedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.grey[700],
+        selectedForegroundColor: Colors.white,
+        selectedBackgroundColor: const Color(0xFF0D47A1),
+      ),
+    );
+  }
+
+  Widget _buildKpiGrid(KpiUtama kpi) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.5,
+      children: [
+        _buildKpiCard(
+          'Rating Rata-rata',
+          kpi.ratingRataRata.toStringAsFixed(1),
+          Ionicons.star,
+          Colors.amber,
+        ),
+        _buildKpiCard(
+          'Rata-rata Kecepatan',
+          '${kpi.kecepatanRataRataMenit} mnt',
+          Ionicons.timer_outline,
+          Colors.blue,
+        ),
+        _buildKpiCard(
+          'Tugas Selesai',
+          kpi.totalTugasSelesai.toString(),
+          Ionicons.checkmark_circle_outline,
+          Colors.green,
+        ),
+        _buildKpiCard(
+          'Tugas Dibatalkan',
+          kpi.totalTugasDibatalkan.toString(),
+          Ionicons.close_circle_outline,
+          Colors.red,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKpiCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 28, color: color),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                title,
+                style: GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.poppins(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    );
+  }
+
+  Widget _buildBarChart(List<TrenKinerja> data) {
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY:
+              (data.map((e) => e.selesai).reduce((a, b) => a > b ? a : b) * 1.2)
+                  .toDouble(), // Add 20% buffer
+          barGroups:
+              data.asMap().entries.map((e) {
+                return BarChartGroupData(
+                  x: e.key,
+                  barRods: [
+                    BarChartRodData(
+                      toY: e.value.selesai.toDouble(),
+                      color: const Color(0xFF0D47A1),
+                      width: 16,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(4),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    data[value.toInt()].label,
+                    style: const TextStyle(fontSize: 12),
+                  );
+                },
+                reservedSize: 24,
+              ),
+            ),
+          ),
+          gridData: const FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPieChart(List<KomposisiTugas> data) {
+    // Generate random colors for fun
+    final colors = List.generate(
+      data.length,
+      (index) => Colors.primaries[index % Colors.primaries.length],
+    );
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections:
+                    data.asMap().entries.map((entry) {
+                      final int index = entry.key;
+                      final KomposisiTugas item = entry.value;
+                      return PieChartSectionData(
+                        color: colors[index],
+                        value: item.total.toDouble(),
+                        title: '${item.total}',
+                        radius: 50,
+                        titleStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      );
+                    }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children:
+                  data.asMap().entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            color: colors[entry.key],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(entry.value.tipeTugas),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRincianList(List<RincianPerTipe> data) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListView.separated(
+        itemCount: data.length,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        separatorBuilder:
+            (context, index) =>
+                const Divider(height: 1, indent: 16, endIndent: 16),
+        itemBuilder: (context, index) {
+          final item = data[index];
+          return ListTile(
+            title: Text(
+              item.tipeTugas,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Selesai: ${item.totalSelesai} | Kecepatan: ${item.kecepatanRataRataMenit} mnt ${item.ratingRataRata != null ? "| Rating: ${item.ratingRataRata} ★" : ""}',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorUI(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Ionicons.cloud_offline_outline,
+              size: 60,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Ionicons.refresh, size: 18),
+              label: const Text('Coba Lagi'),
+              onPressed: _loadKinerjaData,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -12,13 +12,51 @@ import 'package:pdam_app/models/cabang_model.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
+import 'package:dio/dio.dart'; // <-- GANTI http DENGAN dio
+import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.169.196:8000/api'; //
+  final Dio _dio; // Untuk fungsi-fungsi baru
+
+  final String baseUrl = 'http://192.168.0.119:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
   final String _witAiApiVersion = '20240514'; //
+
+  ApiService()
+    : _dio = Dio(
+        BaseOptions(
+          // Menggunakan `baseUrl` yang sudah didefinisikan di atas
+          baseUrl: 'http://192.168.0.119:8000/api',
+          connectTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 20),
+          headers: {'Accept': 'application/json'},
+        ),
+      ) {
+    // Interceptor untuk menambahkan token otentikasi secara otomatis ke setiap request DIO
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final prefs = await SharedPreferences.getInstance();
+          final token = prefs.getString('user_token');
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          log('--> DIO: ${options.method} ${options.uri}');
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          log('<-- DIO: ${response.statusCode} ${response.requestOptions.uri}');
+          return handler.next(response);
+        },
+        onError: (DioException e, handler) {
+          log('DIO Error: ${e.response?.statusCode} Pesan: ${e.message}');
+          return handler.next(e);
+        },
+      ),
+    );
+  }
 
   String get rootBaseUrl {
     //
@@ -175,6 +213,37 @@ class ApiService {
       //
       print('ApiService Error getCabangList: $e'); //
       rethrow; //
+    }
+  }
+
+  Future<KinerjaResponse> getKinerja(String periode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString('user_data');
+      if (userDataString == null) {
+        throw Exception('Data user tidak ditemukan. Silakan login ulang.');
+      }
+      final userData = jsonDecode(userDataString) as Map<String, dynamic>;
+      final idPetugas = userData['id'];
+
+      if (idPetugas == null) {
+        throw Exception('ID Petugas tidak ditemukan di data user.');
+      }
+
+      final response = await _dio.get(
+        '/petugas/$idPetugas/kinerja',
+        queryParameters: {'periode': periode},
+      );
+
+      return KinerjaResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      String errorMessage = 'Gagal terhubung ke server.';
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMessage = e.response?.data['message'];
+      }
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Terjadi kesalahan saat memproses data kinerja: $e');
     }
   }
 
@@ -1515,34 +1584,25 @@ class ApiService {
   }
 
   Future<Petugas> getPetugasProfile() async {
-    //
-    final token = await getToken(); //
-    if (token == null) {
-      //
-      throw Exception('Token tidak ditemukan, silakan login ulang.'); //
-    }
+    try {
+      final response = await _dio.get('/user/profile');
+      final responseData = response.data;
 
-    final response = await http.get(
-      //
-      Uri.parse('$baseUrl/user/profile'), //
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      }, //
-    );
-
-    if (response.statusCode == 200) {
-      //
-      final responseData = jsonDecode(response.body); //
-      // Periksa apakah data ada di dalam key 'user'
       if (responseData.containsKey('user') &&
           responseData['user'] is Map<String, dynamic>) {
         return Petugas.fromJson(responseData['user']);
       }
-      // Fallback jika 'user' tidak ada (meski seharusnya ada berdasarkan AuthController)
       return Petugas.fromJson(responseData);
-    } else {
-      throw Exception('Gagal mengambil data profil: ${response.body}'); //
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await removeToken();
+        throw Exception('Sesi Anda berakhir. Silakan login ulang.');
+      }
+      throw Exception(
+        'Gagal mengambil data profil: ${e.response?.data['message'] ?? e.message}',
+      );
+    } catch (e) {
+      throw Exception('Terjadi kesalahan tidak dikenal: $e');
     }
   }
 
@@ -1869,7 +1929,8 @@ class ApiService {
       );
     }
   }
-          Future<Tugas> getTugasById({
+
+  Future<Tugas> getTugasById({
     required String tipeTugas,
     required int idTugas,
   }) async {
@@ -1895,8 +1956,6 @@ class ApiService {
       throw Exception(errorBody['message'] ?? 'Gagal mengambil detail tugas.');
     }
   }
-
-
 }
 
 // Di dalam class ApiService
