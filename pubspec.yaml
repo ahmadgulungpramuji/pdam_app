@@ -37,6 +37,7 @@ dependencies:
   cached_network_image: ^3.3.1
   fl_chart: ^0.68.0 # atau versi terbaru
   dio: ^5.4.3+1 # <-- TAMBAHKAN BARIS INI (gunakan versi terbaru)
+  
 
   # Firebase essentials
   firebase_core: any

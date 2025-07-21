@@ -1,7 +1,5 @@
 // lib/pages/home_petugas_page.dart
 
-// ignore_for_file: unused_import, unused_element
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,8 +14,8 @@ import 'package:animate_do/animate_do.dart';
 import 'package:pdam_app/pages/detail_calon_pelanggan_page.dart';
 import 'package:pdam_app/models/paginated_response.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:pdam_app/login_page.dart'; // Impor halaman login untuk logout
-import 'package:pdam_app/pages/petugas_chat_home_page.dart'; // Import halaman chat
+import 'package:pdam_app/login_page.dart';
+import 'package:pdam_app/pages/petugas_chat_home_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
 
@@ -39,12 +37,11 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi daftar halaman/widget untuk BottomNavigationBar
     _widgetOptions = <Widget>[
       AssignmentsPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
-      KinerjaPage(idPetugasLoggedIn: widget.idPetugasLoggedIn), // Berikan idPetugas
+      KinerjaPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
       HistoryPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
-      const PetugasChatHomePage(), // Halaman Chat Baru
+      const PetugasChatHomePage(),
       const ProfilePage(),
     ];
   }
@@ -75,11 +72,12 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
   @override
   Widget build(BuildContext context) {
     final bool isProfilePage = _selectedIndex == 4;
+    final bool isKinerjaPage = _selectedIndex == 1;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: isProfilePage
-          ? null // Sembunyikan AppBar jika di halaman profil
+      backgroundColor: Colors.grey.shade100,
+      appBar: isProfilePage || isKinerjaPage
+          ? null
           : AppBar(
               title: Text(
                 _getAppBarTitle(_selectedIndex),
@@ -162,7 +160,7 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
 }
 
 // ===============================================================
-// == HALAMAN DAFTAR TUGAS (TAB 1) - KODE ASLI TANPA LOGIKA RATING
+// == HALAMAN DAFTAR TUGAS (TAB 1)
 // ===============================================================
 class AssignmentsPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -246,9 +244,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
           DateTime.parse(tugas.tanggalTugas),
         );
       }
-    } catch (e) {
-      /* Biarkan tanggal asli */
-    }
+    } catch (e) { /* Biarkan tanggal asli */ }
     Color statusColor = _getColorForStatus(tugas.status);
     return Card(
       elevation: 4,
@@ -459,7 +455,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
 }
 
 // ===============================================================
-// == HALAMAN RIWAYAT (TAB 3) - DENGAN LOGIKA RATING
+// == HALAMAN RIWAYAT (TAB 3)
 // ===============================================================
 class HistoryPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -592,12 +588,8 @@ class _HistoryPageState extends State<HistoryPage> {
           DateTime.parse(tugas.tanggalTugas),
         );
       }
-    } catch (e) {
-      /* Biarkan tanggal asli */
-    }
+    } catch (e) { /* Biarkan tanggal asli */ }
     Color statusColor = _getColorForStatus(tugas.status);
-
-    // Cek apakah tugas punya rating
     final bool hasRating = (tugas.ratingHasil ?? 0) > 0;
 
     return Card(
@@ -702,7 +694,6 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                         ),
                       ),
-                      // Tampilkan chip rating jika ada
                       if (hasRating)
                         InkWell(
                           onTap: () => _showRatingDialog(context, tugas),
@@ -730,7 +721,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             ),
                           ),
                         )
-                      else // Jika tidak ada rating, tampilkan panah "Lihat Detail"
+                      else
                         Row(
                           children: [
                             Text(
@@ -1242,7 +1233,7 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 // ===============================================================
-// == HALAMAN KINERJA (TAB 2)
+// == HALAMAN KINERJA (TAB 2) - VERSI MODIFIKASI LENGKAP
 // ===============================================================
 class KinerjaPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -1265,69 +1256,15 @@ class _KinerjaPageState extends State<KinerjaPage> {
 
   void _loadKinerjaData() {
     setState(() {
-      _kinerjaFuture = _apiService.getKinerja(widget.idPetugasLoggedIn, _selectedPeriode);
+      _kinerjaFuture =
+          _apiService.getKinerja(widget.idPetugasLoggedIn, _selectedPeriode);
     });
   }
-  void _showRatingDetailsDialog(BuildContext context, KpiUtama kpi) {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Rincian Rata-Rata Rating'),
-        content: SingleChildScrollView(
-          child: ListBody(
-            children: <Widget>[
-              _buildRatingRow('Kecepatan', kpi.ratingRataRataKecepatan),
-              _buildRatingRow('Pelayanan', kpi.ratingRataRataPelayanan),
-              _buildRatingRow('Hasil', kpi.ratingRataRataHasil),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Tutup'),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      );
-    },
-  );
-}
 
-Widget _buildRatingRow(String label, double rating) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8.0),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: GoogleFonts.lato(fontSize: 16)),
-        Row(
-          children: List.generate(5, (index) {
-            return Icon(
-              index < rating.round() ? Icons.star : Icons.star_border,
-              color: Colors.amber,
-              size: 22,
-            );
-          }),
-        ),
-        Text(
-          rating.toStringAsFixed(1),
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade700,
-          ),
-        ),
-      ],
-    ),
-  );
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey.shade100,
       body: RefreshIndicator(
         onRefresh: () async => _loadKinerjaData(),
         child: FutureBuilder<KinerjaResponse>(
@@ -1338,7 +1275,7 @@ Widget _buildRatingRow(String label, double rating) {
             }
             if (snapshot.hasError) {
               return _buildErrorUI(
-                'Gagal memuat data kinerja: ${snapshot.error}',
+                'Gagal memuat data kinerja: ${snapshot.error.toString().replaceAll("Exception: ", "")}',
               );
             }
             if (!snapshot.hasData) {
@@ -1347,26 +1284,66 @@ Widget _buildRatingRow(String label, double rating) {
 
             final kinerjaData = snapshot.data!;
 
-            return ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                _buildFilterPeriode(),
-                const SizedBox(height: 20),
-                _buildKpiGrid(kinerjaData.kpiUtama),
-                const SizedBox(height: 24),
-                if (kinerjaData.trenKinerja.isNotEmpty) ...[
-                  _buildChartTitle('Tren Penyelesaian (7 Hari Terakhir)'),
-                  const SizedBox(height: 16),
-                  _buildBarChart(kinerjaData.trenKinerja),
-                  const SizedBox(height: 24),
-                ],
-                _buildChartTitle('Komposisi Pekerjaan'),
-                const SizedBox(height: 16),
-                _buildPieChart(kinerjaData.komposisiTugas),
-                const SizedBox(height: 24),
-                _buildChartTitle('Rincian per Jenis Tugas'),
-                const SizedBox(height: 12),
-                _buildRincianList(kinerjaData.rincianPerTipe),
+            // Tampilan utama menggunakan CustomScrollView
+            return CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  floating: true,
+                  pinned: false,
+                  snap: true,
+                  backgroundColor: Colors.grey.shade100,
+                  elevation: 0,
+                  automaticallyImplyLeading: false,
+                  flexibleSpace: FlexibleSpaceBar(
+                    titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    title: _buildFilterPeriode(),
+                  ),
+                  toolbarHeight: 80,
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate.fixed(
+                      [
+                        FadeInUp(
+                          from: 20,
+                          delay: const Duration(milliseconds: 100),
+                          child: _buildKpiGrid(kinerjaData.kpiUtama),
+                        ),
+                        const SizedBox(height: 32),
+                        
+                        if (kinerjaData.komposisiTugas.isNotEmpty) ...[
+                          FadeInUp(
+                            from: 20,
+                            delay: const Duration(milliseconds: 200),
+                            child: _buildChartTitle('Komposisi Pekerjaan'),
+                          ),
+                          const SizedBox(height: 16),
+                          FadeInUp(
+                            from: 20,
+                            delay: const Duration(milliseconds: 300),
+                            child: _buildPieChart(kinerjaData.komposisiTugas),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
+                        
+                        if (kinerjaData.rincianPerTipe.isNotEmpty) ...[
+                          FadeInUp(
+                            from: 20,
+                            delay: const Duration(milliseconds: 400),
+                            child: _buildChartTitle('Rincian per Jenis Tugas'),
+                          ),
+                          const SizedBox(height: 16),
+                          FadeInUp(
+                            from: 20,
+                            delay: const Duration(milliseconds: 500),
+                            child: _buildRincianList(kinerjaData.rincianPerTipe),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -1378,8 +1355,14 @@ Widget _buildRatingRow(String label, double rating) {
   Widget _buildFilterPeriode() {
     return SegmentedButton<String>(
       segments: const <ButtonSegment<String>>[
-        ButtonSegment(value: 'mingguan', label: Text('Minggu Ini')),
-        ButtonSegment(value: 'bulanan', label: Text('Bulan Ini')),
+        ButtonSegment(
+            value: 'mingguan',
+            label: Text('Minggu Ini'),
+            icon: Icon(Ionicons.calendar_outline, size: 18)),
+        ButtonSegment(
+            value: 'bulanan',
+            label: Text('Bulan Ini'),
+            icon: Icon(Ionicons.calendar, size: 18)),
       ],
       selected: <String>{_selectedPeriode},
       onSelectionChanged: (Set<String> newSelection) {
@@ -1389,88 +1372,98 @@ Widget _buildRatingRow(String label, double rating) {
         });
       },
       style: SegmentedButton.styleFrom(
+        textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         backgroundColor: Colors.white,
         foregroundColor: Colors.grey[700],
         selectedForegroundColor: Colors.white,
         selectedBackgroundColor: const Color(0xFF0D47A1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
- Widget _buildKpiGrid(KpiUtama kpi) {
-  return GridView.count(
-    crossAxisCount: 2,
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    crossAxisSpacing: 16,
-    mainAxisSpacing: 16,
-    childAspectRatio: 1.5,
-    children: [
-      // BUNGKUS KARTU RATING DENGAN GestureDetector
-      GestureDetector(
-        onTap: () => _showRatingDetailsDialog(context, kpi),
-        child: _buildKpiCard(
-          'Rating Rata-rata',
-          kpi.ratingRataRata > 0 ? kpi.ratingRataRata.toStringAsFixed(1) : 'N/A',
-          Ionicons.star,
-          Colors.amber,
+  Widget _buildKpiGrid(KpiUtama kpi) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.1,
+      children: [
+        GestureDetector(
+          onTap: () => _showRatingDetailsDialog(context, kpi),
+          child: _buildKpiCard(
+            'Rating Rata-rata',
+            kpi.ratingRataRata > 0
+                ? kpi.ratingRataRata.toStringAsFixed(1)
+                : 'N/A',
+            Ionicons.star,
+            Colors.amber,
+          ),
         ),
-      ),
-      _buildKpiCard(
-        'Rata-rata Kecepatan',
-        '${kpi.kecepatanRataRataMenit} mnt',
-        Ionicons.timer_outline,
-        Colors.blue,
-      ),
-      _buildKpiCard(
-        'Tugas Selesai',
-        kpi.totalTugasSelesai.toString(),
-        Ionicons.checkmark_circle_outline,
-        Colors.green,
-      ),
-      _buildKpiCard(
-        'Tugas Dibatalkan',
-        kpi.totalTugasDibatalkan.toString(),
-        Ionicons.close_circle_outline,
-        Colors.red,
-      ),
-    ],
-  );
-} 
+        _buildKpiCard(
+          'Rata-rata Cepat',
+          '${kpi.kecepatanRataRataMenit} mnt',
+          Ionicons.timer_outline,
+          Colors.blue,
+        ),
+        _buildKpiCard(
+          'Tugas Selesai',
+          kpi.totalTugasSelesai.toString(),
+          Ionicons.checkmark_circle_outline,
+          Colors.green,
+        ),
+        _buildKpiCard(
+          'Tugas Batal',
+          kpi.totalTugasDibatalkan.toString(),
+          Ionicons.close_circle_outline,
+          Colors.red,
+        ),
+      ],
+    );
+  }
 
   Widget _buildKpiCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, size: 28, color: color),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              Text(
-                title,
-                style: GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
-              ),
-            ],
+    return Card(
+      elevation: 5,
+      shadowColor: color.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.8), color],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(icon, size: 28, color: Colors.white),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.lato(
+                      fontSize: 14, color: Colors.white.withOpacity(0.9)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1486,149 +1479,101 @@ Widget _buildRatingRow(String label, double rating) {
     );
   }
 
-  Widget _buildBarChart(List<TrenKinerja> data) {
-    // Check if data is not empty to avoid reduce on empty list error
-    if (data.isEmpty) return const SizedBox.shrink(); 
-
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY:
-              (data.map((e) => e.selesai).reduce((a, b) => a > b ? a : b) * 1.2)
-                  .toDouble(), // Add 20% buffer
-          barGroups: data.asMap().entries.map((e) {
-            return BarChartGroupData(
-              x: e.key,
-              barRods: [
-                BarChartRodData(
-                  toY: e.value.selesai.toDouble(),
-                  color: const Color(0xFF0D47A1),
-                  width: 16,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-          titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    data[value.toInt()].label,
-                    style: const TextStyle(fontSize: 12),
-                  );
-                },
-                reservedSize: 24,
-              ),
-            ),
-          ),
-          gridData: const FlGridData(show: false),
-          borderData: FlBorderData(show: false),
-        ),
-      ),
-    );
-  }
-
   Widget _buildPieChart(List<KomposisiTugas> data) {
     if (data.isEmpty) return const SizedBox.shrink();
 
-    final colors = List.generate(
-      data.length,
-      (index) => Colors.primaries[index % Colors.primaries.length],
-    );
+    final colors = [
+      Colors.blue.shade400,
+      Colors.green.shade400,
+      Colors.orange.shade400,
+      Colors.purple.shade400,
+      Colors.red.shade400,
+    ];
 
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 40,
-                sections: data.asMap().entries.map((entry) {
-                  final int index = entry.key;
-                  final KomposisiTugas item = entry.value;
-                  return PieChartSectionData(
-                    color: colors[index],
-                    value: item.total.toDouble(),
-                    title: '${item.total}',
-                    radius: 50,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: data.asMap().entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 16,
-                        color: colors[entry.key],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(entry.value.tipeTugas)),
-                    ],
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: 180,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: data.asMap().entries.map((entry) {
+                      final int index = entry.key;
+                      final KomposisiTugas item = entry.value;
+                      return PieChartSectionData(
+                        color: colors[index % colors.length],
+                        value: item.total.toDouble(),
+                        title: '${item.total}',
+                        radius: 50,
+                        titleStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      );
+                    }).toList(),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: data.asMap().entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors[entry.key % colors.length],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: Text(
+                            entry.value.tipeTugas,
+                            style: GoogleFonts.lato(),
+                          )),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildRincianList(List<RincianPerTipe> data) {
     if (data.isEmpty) return const SizedBox.shrink();
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListView.separated(
         itemCount: data.length,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
         separatorBuilder: (context, index) =>
             const Divider(height: 1, indent: 16, endIndent: 16),
         itemBuilder: (context, index) {
@@ -1636,13 +1581,73 @@ Widget _buildRatingRow(String label, double rating) {
           return ListTile(
             title: Text(
               item.tipeTugas,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Selesai: ${item.totalSelesai} | Kecepatan: ${item.kecepatanRataRataMenit} mnt ${item.ratingRataRata != null ? "| Rating: ${item.ratingRataRata} ★" : ""}',
+              'Selesai: ${item.totalSelesai} | Cepat: ${item.kecepatanRataRataMenit} mnt ${item.ratingRataRata != null ? "| Rating: ${item.ratingRataRata} ★" : ""}',
+              style: GoogleFonts.lato(),
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showRatingDetailsDialog(BuildContext context, KpiUtama kpi) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Rincian Rata-Rata Rating',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                _buildRatingRowDialog('Kecepatan', kpi.ratingRataRataKecepatan),
+                _buildRatingRowDialog('Pelayanan', kpi.ratingRataRataPelayanan),
+                _buildRatingRowDialog('Hasil', kpi.ratingRataRataHasil),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Tutup'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRatingRowDialog(String label, double rating) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.lato(fontSize: 16)),
+          Row(
+            children: List.generate(5, (index) {
+              return Icon(
+                index < rating.round() ? Icons.star : Icons.star_border,
+                color: Colors.amber,
+                size: 22,
+              );
+            }),
+          ),
+          Text(
+            rating.toStringAsFixed(1),
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
       ),
     );
   }
