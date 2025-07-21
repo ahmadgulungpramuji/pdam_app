@@ -40,12 +40,18 @@ class KpiUtama {
   final int kecepatanRataRataMenit;
   final int totalTugasSelesai;
   final int totalTugasDibatalkan;
+  final double ratingRataRataKecepatan;
+  final double ratingRataRataPelayanan;
+  final double ratingRataRataHasil;
 
   KpiUtama({
     required this.ratingRataRata,
     required this.kecepatanRataRataMenit,
     required this.totalTugasSelesai,
     required this.totalTugasDibatalkan,
+    required this.ratingRataRataKecepatan,
+    required this.ratingRataRataPelayanan,
+    required this.ratingRataRataHasil,
   });
 
   // Factory constructor untuk membuat instance KpiUtama dari JSON
@@ -55,6 +61,9 @@ class KpiUtama {
       kecepatanRataRataMenit: json['kecepatan_rata_rata_menit'] as int,
       totalTugasSelesai: json['total_tugas_selesai'] as int,
       totalTugasDibatalkan: json['total_tugas_dibatalkan'] as int,
+      ratingRataRataKecepatan: (json['rating_rata_rata_kecepatan'] as num? ?? 0).toDouble(),
+      ratingRataRataPelayanan: (json['rating_rata_rata_pelayanan'] as num? ?? 0).toDouble(),
+      ratingRataRataHasil: (json['rating_rata_rata_hasil'] as num? ?? 0).toDouble(),
     );
   }
 }

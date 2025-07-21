@@ -17,18 +17,17 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio; // Untuk fungsi-fungsi baru
-
-  final String baseUrl = 'http://192.168.0.119:8000/api'; //
+  final String baseUrl = 'http://192.250.1.166:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
   final String _witAiApiVersion = '20240514'; //
 
-  ApiService()
+  ApiService() 
     : _dio = Dio(
         BaseOptions(
           // Menggunakan `baseUrl` yang sudah didefinisikan di atas
-          baseUrl: 'http://192.168.0.119:8000/api',
+          baseUrl: 'http://192.250.1.166:8000/api',
           connectTimeout: const Duration(seconds: 20),
           receiveTimeout: const Duration(seconds: 20),
           headers: {'Accept': 'application/json'},
@@ -216,18 +215,12 @@ class ApiService {
     }
   }
 
-  Future<KinerjaResponse> getKinerja(String periode) async {
+    Future<KinerjaResponse> getKinerja(int idPetugas, String periode) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userDataString = prefs.getString('user_data');
-      if (userDataString == null) {
-        throw Exception('Data user tidak ditemukan. Silakan login ulang.');
-      }
-      final userData = jsonDecode(userDataString) as Map<String, dynamic>;
-      final idPetugas = userData['id'];
-
-      if (idPetugas == null) {
-        throw Exception('ID Petugas tidak ditemukan di data user.');
+      // Method ini sekarang menerima idPetugas langsung dari argumen,
+      // tidak perlu lagi mengambil dari SharedPreferences.
+      if (idPetugas == 0) {
+        throw Exception('ID Petugas tidak valid.');
       }
 
       final response = await _dio.get(
@@ -246,7 +239,7 @@ class ApiService {
       throw Exception('Terjadi kesalahan saat memproses data kinerja: $e');
     }
   }
-
+  
   Future<PaginatedTugasResponse> getRiwayatPetugas(
     //
     int idPetugas, //

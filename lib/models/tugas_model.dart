@@ -29,11 +29,14 @@ abstract class Tugas {
   final String? fotoBuktiUrl;
   final String? fotoSebelumUrl;
   final String? fotoSesudahUrl;
-  final String?
-  alasanPembatalan; // <--- TETAPKAN DI SINI (untuk Pengaduan & Temuan)
+  final String? alasanPembatalan; // <--- TETAPKAN DI SINI (untuk Pengaduan & Temuan)
 
   final DateTime tanggalDibuatPenugasan;
   final Map<String, dynamic>? detailTugasLengkap;
+  final int? ratingKecepatan;
+  final int? ratingPelayanan;
+  final int? ratingHasil;
+  final String? komentarRating;
 
   Tugas({
     required this.idPenugasanInternal,
@@ -52,6 +55,10 @@ abstract class Tugas {
     this.alasanPembatalan, // <--- TETAPKAN DI KONSTRUKTOR INI
     required this.tanggalDibuatPenugasan,
     this.detailTugasLengkap,
+    this.ratingKecepatan,
+    this.ratingPelayanan,
+    this.ratingHasil,
+    this.komentarRating,
   });
 
   String get kategoriDisplay;
