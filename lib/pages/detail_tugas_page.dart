@@ -8,7 +8,7 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/models/tugas_model.dart'; // Pastikan ini diimpor
+import 'package:pdam_app/models/tugas_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
 
@@ -150,42 +150,45 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
       ),
-       body: Stack(
-    children: [
-      RefreshIndicator(
-        onRefresh: _reloadData, // Panggil fungsi yang kita buat tadi
-        color: Colors.white,
-        backgroundColor: Colors.blue[700],
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(), // Pastikan bisa di-scroll walaupun konten pendek
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FadeInDown(child: _buildInfoSection()),
-              const SizedBox(height: 20),
-              FadeInUp(
-                delay: const Duration(milliseconds: 100),
-                child: _buildActionSection(),
+      // --- MODIFIKASI: Mematikan Fitur Refresh Manual ---
+      body: NotificationListener<OverscrollIndicatorNotification>(
+        onNotification: (OverscrollIndicatorNotification notification) {
+          notification.disallowIndicator(); // Mencegah indikator refresh muncul
+          return true;
+        },
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FadeInDown(child: _buildInfoSection()),
+                  const SizedBox(height: 20),
+                  if (_tugasSaatIni.isPetugasPelapor)
+                    FadeInUp(
+                      delay: const Duration(milliseconds: 100),
+                      child: _buildActionSection(),
+                    ),
+                  const SizedBox(height: 20),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 200),
+                    child: _buildFotoProgresSection(),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              FadeInUp(
-                delay: const Duration(milliseconds: 200),
-                child: _buildFotoProgresSection(),
+            ),
+            if (_isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
-      if (_isLoading)
-        Container(
-          color: Colors.black.withOpacity(0.5),
-          child: const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-        ),
-    ],
-  ),
+      // --- AKHIR MODIFIKASI ---
     );
   }
 
@@ -322,101 +325,82 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   Widget _buildActionSection() {
-    bool canCancel = !['selesai', 'ditolak', 'dibatalkan'].contains(_tugasSaatIni.status);
+    if (!_tugasSaatIni.isPetugasPelapor) return const SizedBox.shrink();
 
     List<Widget> actionButtons = [];
-    if (_tugasSaatIni.isPetugasPelapor) {
-      switch (_tugasSaatIni.status) {
-        case 'menunggu_konfirmasi':
-          actionButtons.add(
-            _buildActionButton(
-              label: 'Terima Laporan',
-              icon: Ionicons.checkmark_circle_outline,
-              onPressed: () => _updateStatus('diterima'),
-              color: Colors.green[600],
-            ),
-          );
-          break;
-        case 'diterima':
-          actionButtons.add(
-            _buildActionButton(
-              label: 'Mulai Perjalanan',
-              icon: Ionicons.paper_plane_outline,
-              onPressed: () => _updateStatus('dalam_perjalanan'),
-              color: Colors.blue[600],
-            ),
-          );
-          break;
-        case 'dalam_perjalanan':
-          actionButtons.add(
-            _buildActionButton(
-              label: 'Ambil Foto Sebelum & Proses',
-              icon: Ionicons.camera_outline,
-              onPressed: () => _pickAndUploadImage('foto_sebelum', 'diproses'),
-              color: Colors.orange[700],
-            ),
-          );
-          break;
-        case 'diproses':
-          actionButtons.add(
-            _buildActionButton(
-              label: 'Ambil Foto Sesudah & Selesaikan',
-              icon: Ionicons.cloud_upload_outline,
-              onPressed: () => _pickAndUploadImage('foto_sesudah', 'selesai'),
-              color: Colors.teal[600],
-            ),
-          );
-          break;
-      }
-    }
-
-    if (canCancel) {
-      if (actionButtons.isNotEmpty) {
-        actionButtons.add(const SizedBox(height: 8));
-      }
-      actionButtons.add(
-        _buildActionButton(
-          label: 'Batalkan Penugasan Saya',
-          icon: Ionicons.close_circle_outline,
-          onPressed: _showSelfCancelDialog,
-          color: Colors.red[600],
-        ),
-      );
-    }
-
-    if (actionButtons.isEmpty) {
-      if (['selesai', 'dibatalkan'].contains(_tugasSaatIni.status)) {
-         return Card(
-          elevation: 2,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Aksi Petugas',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[700],
-                  ),
-                ),
-                const Divider(height: 24),
-                _buildStatusDisplay(
-                  _tugasSaatIni.status == 'selesai' ? 'Pekerjaan Telah Selesai' : 'Tugas Dibatalkan',
-                  _tugasSaatIni.status == 'selesai' ? Ionicons.checkmark_done_circle : Ionicons.close_circle,
-                  _tugasSaatIni.status == 'selesai' ? Colors.teal[600]! : Colors.red[700]!,
-                ),
-              ],
-            ),
+    switch (_tugasSaatIni.status) {
+      case 'menunggu_konfirmasi':
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Terima Laporan',
+            icon: Ionicons.checkmark_circle_outline,
+            onPressed: () => _updateStatus('diterima'),
+            color: Colors.green[600],
           ),
         );
-      }
-      return const SizedBox.shrink();
+        actionButtons.add(
+          const SizedBox(height: 8),
+        );
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Batalkan Laporan',
+            icon: Ionicons.close_circle_outline,
+            onPressed: _showCancelDialog,
+            color: Colors.red[600],
+          ),
+        );
+        break;
+      case 'diterima':
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Mulai Perjalanan',
+            icon: Ionicons.paper_plane_outline,
+            onPressed: () => _updateStatus('dalam_perjalanan'),
+            color: Colors.blue[600],
+          ),
+        );
+        break;
+      case 'dalam_perjalanan':
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Ambil Foto Sebelum & Proses',
+            icon: Ionicons.camera_outline,
+            onPressed: () => _pickAndUploadImage('foto_sebelum', 'diproses'),
+            color: Colors.orange[700],
+          ),
+        );
+        break;
+      case 'diproses':
+        actionButtons.add(
+          _buildActionButton(
+            label: 'Ambil Foto Sesudah & Selesaikan',
+            icon: Ionicons.cloud_upload_outline,
+            onPressed: () => _pickAndUploadImage('foto_sesudah', 'selesai'),
+            color: Colors.teal[600],
+          ),
+        );
+        break;
+      case 'selesai':
+        actionButtons.add(
+          _buildStatusDisplay(
+            'Pekerjaan Telah Selesai',
+            Ionicons.checkmark_done_circle,
+            Colors.teal[600]!,
+          ),
+        );
+        break;
+      case 'dibatalkan':
+        actionButtons.add(
+          _buildStatusDisplay(
+            'Tugas Dibatalkan',
+            Ionicons.close_circle,
+            Colors.red[700]!,
+          ),
+        );
+        break;
     }
 
+    if (actionButtons.isEmpty) return const SizedBox.shrink();
 
     return Card(
       elevation: 2,
@@ -443,87 +427,64 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
- void _showSelfCancelDialog() {
-  final TextEditingController reasonController = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (BuildContext dialogContext) {
-      return AlertDialog(
-        title: Text(
-          'Batalkan Penugasan Saya',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: reasonController,
-          decoration: InputDecoration(
-            hintText: 'Masukkan alasan pembatalan...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+  void _showCancelDialog() {
+    final TextEditingController reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(
+            'Batalkan Laporan',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: TextField(
+            controller: reasonController,
+            decoration: InputDecoration(
+              hintText: 'Masukkan alasan pembatalan...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
+            maxLines: 3,
+            minLines: 1,
           ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Tutup', style: GoogleFonts.poppins()),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final String reason = reasonController.text.trim();
-              if (reason.isEmpty) {
-                // Cukup tutup dialog dan tampilkan snackbar, jangan panggil _showSnackbar dari dalam dialog
-                Navigator.pop(dialogContext);
-                _showSnackbar('Alasan pembatalan wajib diisi!');
-              } else {
-                Navigator.pop(dialogContext);
-                _executeSelfCancel(reason); // PANGGIL FUNGSI BARU INI
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red[600]),
-            child: Text('Konfirmasi Batal', style: GoogleFonts.poppins()),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-    Future<void> _executeSelfCancel(String alasan) async {
-  _setLoading(true);
-  try {
-    await _apiService.batalkanPenugasanMandiri(
-      idTugas: _tugasSaatIni.idTugas,
-      tipeTugas: _tugasSaatIni.tipeTugas,
-      alasan: alasan,
-    );
-
-    if (mounted) {
-      // Tampilkan dialog sukses dan kembali ke halaman utama
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Berhasil'),
-          content: const Text('Penugasan Anda telah dibatalkan. Anda akan dikembalikan ke halaman utama.'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                Navigator.pop(dialogContext);
               },
-              child: const Text('OK'),
-            )
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(color: Colors.grey[700]),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final String reason = reasonController.text.trim();
+                if (reason.isEmpty) {
+                  _showSnackbar(
+                    'Alasan pembatalan wajib diisi!',
+                    isError: true,
+                  );
+                } else {
+                  Navigator.pop(dialogContext);
+                  _updateStatus(
+                    'dibatalkan',
+                    keterangan: reason,
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Konfirmasi Batalkan', style: GoogleFonts.poppins()),
+            ),
           ],
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) _showSnackbar('Gagal membatalkan penugasan: $e');
-  } finally {
-    if (mounted) _setLoading(false);
+        );
+      },
+    );
   }
-}
 
   Widget _buildFotoProgresSection() {
     return Card(
@@ -565,6 +526,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
+  // WIDGET HELPER
   Widget _buildInfoRow(
     IconData icon,
     String label,
@@ -591,21 +553,20 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   ),
                   isLink
                       ? WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: InkWell(
-                          onTap:
-                              displayValue == 'Data tidak tersedia'
-                                  ? null
-                                  : () => _launchURL(displayValue),
-                          child: Text(
-                            displayValue,
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              decoration: TextDecoration.underline,
+                          alignment: PlaceholderAlignment.middle,
+                          child: InkWell(
+                            onTap: displayValue == 'Data tidak tersedia'
+                                ? null
+                                : () => _launchURL(displayValue),
+                            child: Text(
+                              displayValue,
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
-                        ),
-                      )
+                        )
                       : TextSpan(text: displayValue),
                 ],
               ),
@@ -669,16 +630,14 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           const SizedBox(height: 8),
           Center(
             child: GestureDetector(
-              onTap:
-                  () => showDialog(
-                    context: context,
-                    builder:
-                        (_) => Dialog(
-                          child: InteractiveViewer(
-                            child: Image.network(imageUrl),
-                          ),
-                        ),
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  child: InteractiveViewer(
+                    child: Image.network(imageUrl),
                   ),
+                ),
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
@@ -686,26 +645,23 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   height: 220,
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  loadingBuilder:
-                      (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : Container(
-                                height: 220,
-                                alignment: Alignment.center,
-                                child: const CircularProgressIndicator(),
-                              ),
-                  errorBuilder:
-                      (context, error, stack) => Container(
-                        height: 180,
-                        alignment: Alignment.center,
-                        color: Colors.grey[200],
-                        child: Icon(
-                          Ionicons.warning_outline,
-                          color: Colors.grey[400],
-                          size: 40,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          height: 220,
+                          alignment: Alignment.center,
+                          child: const CircularProgressIndicator(),
                         ),
-                      ),
+                  errorBuilder: (context, error, stack) => Container(
+                    height: 180,
+                    alignment: Alignment.center,
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Ionicons.warning_outline,
+                      color: Colors.grey[400],
+                      size: 40,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -729,28 +685,26 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child:
-                (imageUrl != null && imageUrl.isNotEmpty)
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: 160,
-                        errorBuilder:
-                            (c, e, s) => Icon(
-                              Ionicons.image_outline,
-                              size: 50,
-                              color: Colors.grey[400],
-                            ),
+            child: (imageUrl != null && imageUrl.isNotEmpty)
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 160,
+                      errorBuilder: (c, e, s) => Icon(
+                        Ionicons.image_outline,
+                        size: 50,
+                        color: Colors.grey[400],
                       ),
-                    )
-                    : Icon(
-                      Ionicons.image_outline,
-                      size: 50,
-                      color: Colors.grey[400],
                     ),
+                  )
+                : Icon(
+                    Ionicons.image_outline,
+                    size: 50,
+                    color: Colors.grey[400],
+                  ),
           ),
         ],
       ),
@@ -834,7 +788,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     if (url.startsWith('http')) {
       targetUri = Uri.parse(url);
     } else {
-      targetUri = Uri.parse('http://googleusercontent.com/maps.google.com/5');
+      // Fallback for coordinate-like strings
+      targetUri = Uri.parse('http://www.google.com/maps/search/?api=1&query=$url');
     }
     try {
       if (await canLaunchUrl(targetUri)) {
@@ -846,31 +801,4 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       _showSnackbar('Error membuka peta: $e');
     }
   }
-          Future<void> _reloadData() async {
-    // Tampilkan indikator loading kecil jika diperlukan, atau biarkan RefreshIndicator yang menanganinya
-    // _setLoading(true); 
-    try {
-      // Panggil API untuk mengambil satu tugas berdasarkan ID-nya
-      // ASUMSI: Anda perlu menambahkan method getTugasById di ApiService
-      final Tugas tugasTerbaru = await _apiService.getTugasById(
-        tipeTugas: _tugasSaatIni.tipeTugas,
-        idTugas: _tugasSaatIni.idTugas,
-      );
-
-      // Perbarui state dengan data yang baru
-      if (mounted) {
-        setState(() {
-          _tugasSaatIni = tugasTerbaru;
-        });
-        _showSnackbar('Data berhasil diperbarui.', isError: false);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnackbar('Gagal memuat data terbaru: $e');
-      }
-    } finally {
-      // _setLoading(false);
-    }
-  }
-
 }
