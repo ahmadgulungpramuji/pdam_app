@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/detail_temuan_page.dart';
@@ -6,6 +8,7 @@ import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdam_app/buat_laporan_page.dart';
+import 'package:pdam_app/services/notification_service.dart'; // <-- 1. IMPORT
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 
@@ -24,6 +27,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // lib/main.dart
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   // Baris ini wajib ada untuk memastikan semua binding siap
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +40,20 @@ void main() async {
 
   // Kode Anda yang sudah ada bisa tetap di sini
   await initializeDateFormatting('id_ID', null);
+  await NotificationService().init();
+  NotificationService().onNotificationTap.listen((data) {
+    log("Notifikasi di-tap dengan data: $data");
+    if (data.containsKey('pengaduan_id')) {
+      final pengaduanId = int.tryParse(data['pengaduan_id'] ?? '');
+      if (pengaduanId != null) {
+        // Gunakan GlobalKey untuk navigasi
+        navigatorKey.currentState?.pushNamed(
+          '/lacak_laporan_saya',
+          arguments: {'pengaduan_id': pengaduanId},
+        );
+      }
+    }
+  });
 
   final prefs = await SharedPreferences.getInstance();
   final bool hasSeenWelcomeScreen =
@@ -51,6 +70,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'PDAM App',
       theme: ThemeData(
         primarySwatch: Colors.blue,

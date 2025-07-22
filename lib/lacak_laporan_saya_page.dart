@@ -34,6 +34,23 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   final ChatService _chatService = ChatService();
   Map<String, dynamic>? _currentUserData;
 
+  int? _targetPengaduanId; // Variabel untuk menyimpan ID dari notifikasi
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ambil argumen saat widget pertama kali di-build
+    final arguments =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (arguments != null && arguments.containsKey('pengaduan_id')) {
+      // Cek hanya jika belum pernah di-set, untuk menghindari loop
+      if (_targetPengaduanId == null) {
+        setState(() {
+          _targetPengaduanId = arguments['pengaduan_id'];
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +101,25 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           _laporanList = tempList;
           _isLoading = false;
         });
+        if (_targetPengaduanId != null) {
+          final targetLaporan = _laporanList.firstWhere(
+            (l) => l.id == _targetPengaduanId,
+            orElse:
+                () =>
+                    Pengaduan.fallback(), // Gunakan fallback untuk menghindari error
+          );
+
+          if (targetLaporan.id != 0) {
+            // Gunakan post-frame callback untuk memastikan halaman sudah ter-render
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showDetailAndRatingSheet(targetLaporan);
+              }
+            });
+          }
+          // Reset target ID agar tidak terbuka lagi saat refresh manual
+          _targetPengaduanId = null;
+        }
       }
     } catch (e) {
       if (mounted) {

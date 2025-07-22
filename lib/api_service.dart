@@ -17,17 +17,17 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio; // Untuk fungsi-fungsi baru
-  final String baseUrl = 'http://192.250.1.166:8000/api'; //
+  final String baseUrl = 'http://10.172.174.148:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
   final String _witAiApiVersion = '20240514'; //
 
-  ApiService() 
+  ApiService()
     : _dio = Dio(
         BaseOptions(
           // Menggunakan `baseUrl` yang sudah didefinisikan di atas
-          baseUrl: 'http://192.250.1.166:8000/api',
+          baseUrl: 'http://10.172.174.148:8000/api',
           connectTimeout: const Duration(seconds: 20),
           receiveTimeout: const Duration(seconds: 20),
           headers: {'Accept': 'application/json'},
@@ -171,6 +171,31 @@ class ApiService {
     }
   }
 
+  Future<int> getUnreadNotifikasiCount() async {
+    try {
+      final response = await _dio.get('/notifikasi/unread-count');
+      if (response.data != null && response.data['unread_count'] != null) {
+        return response.data['unread_count'] as int;
+      }
+      return 0;
+    } catch (e) {
+      log('Gagal mengambil hitungan notifikasi: $e');
+      return 0; // Kembalikan 0 jika terjadi error agar UI tidak crash
+    }
+  }
+
+  Future<void> markNotifikasiAsRead() async {
+    try {
+      // Panggil endpoint POST yang baru kita buat
+      await _dio.post('/notifikasi/mark-all-as-read');
+      log("Berhasil mengirim permintaan 'tandai sudah dibaca' ke server.");
+    } catch (e) {
+      // Tidak apa-apa jika ini gagal, jangan tampilkan error ke pengguna
+      // Notifikasi akan ditandai dibaca pada kunjungan berikutnya.
+      log("Gagal menandai notifikasi sebagai dibaca: $e");
+    }
+  }
+
   Future<List<Cabang>> getCabangList() async {
     //
     // Endpoint ini sudah ada di api.php Anda: Route::apiResource('cabangs', CabangController::class);
@@ -215,7 +240,51 @@ class ApiService {
     }
   }
 
-    Future<KinerjaResponse> getKinerja(int idPetugas, String periode) async {
+  Future<void> updateFcmToken(String fcmToken) async {
+    // Endpoint ini sudah kita siapkan di api.php
+    const String endpoint = '/user/update-fcm-token';
+
+    try {
+      final response = await _dio.post(
+        // Menggunakan Dio POST
+        endpoint,
+        data: {'fcm_token': fcmToken},
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Gagal memperbarui FCM token: ${response.data['message']}',
+        );
+      }
+    } on DioException catch (e) {
+      // Tangani error spesifik dari Dio
+      log('Dio Error on updateFcmToken: ${e.message}');
+      throw Exception('Gagal terhubung ke server untuk update token.');
+    } catch (e) {
+      log('General Error on updateFcmToken: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getNotifikasiSaya() async {
+    try {
+      // Menggunakan Dio untuk request yang sudah terotentikasi secara otomatis
+      final response = await _dio.get('/notifikasi-saya');
+
+      // Data dari paginator Laravel ada di dalam key 'data'
+      if (response.data != null && response.data['data'] is List) {
+        return response.data['data'];
+      }
+      return [];
+    } on DioException catch (e) {
+      log(
+        'Gagal mengambil notifikasi: ${e.response?.data['message'] ?? e.message}',
+      );
+      throw Exception('Gagal memuat riwayat notifikasi.');
+    }
+  }
+
+  Future<KinerjaResponse> getKinerja(int idPetugas, String periode) async {
     try {
       // Method ini sekarang menerima idPetugas langsung dari argumen,
       // tidak perlu lagi mengambil dari SharedPreferences.
@@ -239,7 +308,7 @@ class ApiService {
       throw Exception('Terjadi kesalahan saat memproses data kinerja: $e');
     }
   }
-  
+
   Future<PaginatedTugasResponse> getRiwayatPetugas(
     //
     int idPetugas, //

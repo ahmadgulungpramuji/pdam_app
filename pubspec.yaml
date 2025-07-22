@@ -28,21 +28,24 @@ dependencies:
   flutter_spinkit: ^5.1.0
   url_launcher: ^6.3.1
   flutter_rating_bar: ^4.0.1
-  # Paket yang dipindahkan ke sini
+  
   intl: ^0.19.0
   flutter_staggered_animations: ^1.1.1
-  smooth_page_indicator: ^1.1.0 # <-- Tambahkan baris ini
+  smooth_page_indicator: ^1.1.0 
   cupertino_icons: ^1.0.6
-  google_fonts: ^6.2.1 # Pastikan versi ini atau yang lebih baru
+  google_fonts: ^6.2.1 
   cached_network_image: ^3.3.1
-  fl_chart: ^0.68.0 # atau versi terbaru
-  dio: ^5.4.3+1 # <-- TAMBAHKAN BARIS INI (gunakan versi terbaru)
+  fl_chart: ^0.68.0
+  dio: ^5.4.3+1 
+  firebase_messaging: ^15.0.3  
+  flutter_local_notifications: ^17.2.1 
   
 
   # Firebase essentials
   firebase_core: any
   cloud_firestore: any
   firebase_auth: any
+  timeago: ^3.7.1
 
 
 dev_dependencies:

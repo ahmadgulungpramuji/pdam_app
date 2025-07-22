@@ -1,5 +1,5 @@
 // lib/home_pelanggan_page.dart
-// ignore_for_file: unused_element
+// ignore_for_file: unused_element, unused_field
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +7,7 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/login_page.dart';
+import 'package:pdam_app/pages/notifikasi_page.dart';
 import 'package:pdam_app/view_profil_page.dart'; // **IMPORT HALAMAN BARU**
 
 class HomePelangganPage extends StatefulWidget {
@@ -21,6 +22,20 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _errorMessage;
+  int _unreadNotifCount = 0;
+
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final count = await _apiService.getUnreadNotifikasiCount();
+      if (mounted) {
+        setState(() {
+          _unreadNotifCount = count;
+        });
+      }
+    } catch (e) {
+      // Biarkan 0 jika gagal, tidak perlu menampilkan error
+    }
+  }
 
   final List<Map<String, dynamic>> _menuItems = [
     {
@@ -59,6 +74,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   void initState() {
     super.initState();
     _loadUserData();
+    _fetchUnreadCount();
   }
 
   Future<void> _loadUserData() async {
@@ -75,6 +91,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             _userData = data;
             _isLoading = false;
           });
+          _fetchUnreadCount(); // <-- Panggil juga di sini
         } else {
           _showSnackbar(
             'Gagal memuat data pengguna. Sesi mungkin telah berakhir.',
@@ -435,6 +452,56 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                               _loadUserData();
                             }
                           },
+                        ),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Ionicons.notifications_outline,
+                                size: 28,
+                              ),
+                              tooltip: 'Notifikasi',
+                              onPressed: () async {
+                                // Navigasi ke halaman notifikasi
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const NotifikasiPage(),
+                                  ),
+                                );
+                                // Setelah kembali dari halaman notifikasi, refresh hitungannya
+                                _fetchUnreadCount();
+                              },
+                            ),
+                            // Tampilkan badge HANYA JIKA ada notifikasi yang belum dibaca
+                            if (_unreadNotifCount > 0)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Text(
+                                    '$_unreadNotifCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         IconButton(
                           icon: Icon(

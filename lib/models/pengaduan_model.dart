@@ -27,6 +27,21 @@ class Pengaduan {
   final DateTime updatedAt;
   final List<PetugasSimple>? petugasDitugaskan;
 
+  factory Pengaduan.fallback() => Pengaduan(
+    id: 0,
+    idPdam: 0,
+    idPelanggan: 0,
+    idCabang: 0,
+    kategori: 'N/A',
+    lokasiMaps: 'N/A',
+    deskripsiLokasi: 'N/A',
+    deskripsi: 'Data tidak ditemukan.',
+    tanggalPengaduan: DateTime.now().toIso8601String(),
+    status: 'error',
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+  );
+
   Pengaduan({
     required this.id,
     required this.idPdam,

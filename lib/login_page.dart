@@ -9,7 +9,9 @@ import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <-- TAMBAHKAN IMPORT INI
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer';
+import 'package:pdam_app/services/notification_service.dart';
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -113,6 +115,13 @@ class _LoginPageState extends State<LoginPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_data', jsonEncode(userData));
 
+      // --- TAMBAHKAN KODE INI ---
+      // Panggil NotificationService untuk mengirim FCM Token ke server
+      // setelah login berhasil.
+      log("Mencoba mengirim FCM token ke server setelah login...");
+      await NotificationService().sendFcmTokenToServer();
+      // --- SELESAI PENAMBAHAN ---
+
       if (!mounted) return;
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
 
@@ -126,7 +135,6 @@ class _LoginPageState extends State<LoginPage> {
       } else if (userType == 'petugas') {
         if (!mounted) return;
         final int petugasId = userData['id'] as int;
-        // Navigasi ke home petugas sudah benar
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/home_petugas',
