@@ -465,6 +465,31 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
+  Future<void> _batalkanTugas(String alasan) async {
+    _setLoading(true);
+    try {
+      await _apiService.batalkanPenugasanMandiri(
+        idTugas: _tugasSaatIni.idTugas,
+        tipeTugas: _tugasSaatIni.tipeTugas,
+        alasan: alasan,
+      );
+
+      // Jika berhasil, tampilkan dialog sukses dan kembali ke halaman utama
+      if (mounted) {
+        // Hapus panggilannya di sini, karena akan dipanggil di dalam _showSuccessAndNavigateHome
+        // Navigator.of(context).pop(); 
+        await _showSuccessAndNavigateHome();
+      }
+
+    } catch (e) {
+      if (mounted) {
+        _showSnackbar('Gagal membatalkan tugas: $e');
+      }
+    } finally {
+      if (mounted) _setLoading(false);
+    }
+  }
+
   Widget _buildActionSection() {
     if (!_tugasSaatIni.isPetugasPelapor) return const SizedBox.shrink();
 
@@ -601,13 +626,16 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               onPressed: () {
                 final String reason = reasonController.text.trim();
                 if (reason.isEmpty) {
-                  _showSnackbar(
-                    'Alasan pembatalan wajib diisi!',
-                    isError: true,
+                  // Jangan tutup dialog, cukup tampilkan pesan
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Alasan pembatalan wajib diisi!'),
+                      backgroundColor: Colors.orange[800],
+                    ),
                   );
                 } else {
-                  Navigator.pop(dialogContext);
-                  _updateStatus('dibatalkan', keterangan: reason);
+                  Navigator.pop(dialogContext); // Tutup dialog dulu
+                  _batalkanTugas(reason); // Panggil fungsi pembatalan yang benar
                 }
               },
               style: ElevatedButton.styleFrom(
