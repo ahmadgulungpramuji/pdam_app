@@ -1,18 +1,29 @@
 // lib/models/tugas_model.dart
 
+// --- MODIFIKASI UTAMA: Menambahkan ID dan Firebase UID pada KontakInfo ---
 class KontakInfo {
+  final int? id; // Tambahkan ID, bisa null jika tidak ada (cth: temuan anonim)
   final String nama;
   final String nomorHp;
+  final String? firebaseUid; // Tambahkan Firebase UID, bisa null
 
-  KontakInfo({required this.nama, required this.nomorHp});
+  KontakInfo({
+    this.id,
+    required this.nama,
+    required this.nomorHp,
+    this.firebaseUid,
+  });
 
   factory KontakInfo.fromJson(Map<String, dynamic> json) {
     return KontakInfo(
-      nama: json['nama'] ?? '',
-      nomorHp: json['nomor_hp'] ?? '',
+      id: json['id'] as int?, // Parsing ID
+      nama: json['nama'] ?? 'N/A',
+      nomorHp: json['nomor_hp'] ?? 'N/A',
+      firebaseUid: json['firebase_uid'] as String?, // Parsing Firebase UID
     );
   }
 }
+// --- AKHIR MODIFIKASI ---
 
 abstract class Tugas {
   final String idPenugasanInternal;
@@ -29,7 +40,7 @@ abstract class Tugas {
   final String? fotoBuktiUrl;
   final String? fotoSebelumUrl;
   final String? fotoSesudahUrl;
-  final String? alasanPembatalan; // <--- TETAPKAN DI SINI (untuk Pengaduan & Temuan)
+  final String? alasanPembatalan;
 
   final DateTime tanggalDibuatPenugasan;
   final Map<String, dynamic>? detailTugasLengkap;
@@ -52,7 +63,7 @@ abstract class Tugas {
     this.fotoBuktiUrl,
     this.fotoSebelumUrl,
     this.fotoSesudahUrl,
-    this.alasanPembatalan, // <--- TETAPKAN DI KONSTRUKTOR INI
+    this.alasanPembatalan,
     required this.tanggalDibuatPenugasan,
     this.detailTugasLengkap,
     this.ratingKecepatan,
@@ -94,7 +105,6 @@ abstract class Tugas {
     } else if (tipe == 'temuan_kebocoran') {
       return TemuanTugas.fromJson(json);
     } else if (tipe == 'calon_pelanggan') {
-      // Perhatikan: CalonPelangganTugas tidak akan mem-parsing alasanPembatalan dari sini
       return CalonPelangganTugas.fromJson(json);
     } else {
       throw Exception('Tipe tugas tidak dikenal: $tipe');
@@ -103,8 +113,8 @@ abstract class Tugas {
 }
 
 class CalonPelangganTugas extends Tugas {
-  final KontakInfo pelanggan; // Menggunakan kembali KontakInfo untuk data calon
-  final String jenisTugasInternal; // 'survey' atau 'pemasangan'
+  final KontakInfo pelanggan;
+  final String jenisTugasInternal;
 
   CalonPelangganTugas({
     required super.idPenugasanInternal,
@@ -118,17 +128,15 @@ class CalonPelangganTugas extends Tugas {
     required String kategori,
     required this.pelanggan,
     super.detailTugasLengkap,
-    // super.alasanPembatalan, // <--- HAPUS BARIS INI
   }) : jenisTugasInternal = kategori,
        super(
          tipeTugas: 'calon_pelanggan',
-         lokasiMaps: '', // Tidak ada maps
+         lokasiMaps: '',
          fotoBuktiUrl: detailTugasLengkap?['foto_ktp_url'],
          fotoRumahUrl: detailTugasLengkap?['foto_rumah_url'],
          fotoSebelumUrl: detailTugasLengkap?['foto_survey_url'],
          fotoSesudahUrl: detailTugasLengkap?['foto_pemasangan_url'],
-         alasanPembatalan:
-             null, // <--- SET SECARA EKSPLISIT MENJADI NULL ATAU HAPUS JIKA TIDAK PERLU
+         alasanPembatalan: null,
        );
 
   factory CalonPelangganTugas.fromJson(Map<String, dynamic> json) {
@@ -146,9 +154,11 @@ class CalonPelangganTugas extends Tugas {
           DateTime.tryParse(json['tanggal_dibuat_penugasan'] ?? '') ??
           DateTime.now(),
       kategori: json['kategori'] ?? 'Pendaftaran',
-      pelanggan: KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>),
+      // Menggunakan info_kontak_pelapor agar konsisten
+      pelanggan: KontakInfo.fromJson(
+        json['info_kontak_pelapor'] as Map<String, dynamic>,
+      ),
       detailTugasLengkap: detailLengkap,
-      // alasanPembatalan: detailLengkap?['alasan_pembatalan'] as String?, // <--- HAPUS BARIS INI
     );
   }
 
@@ -177,7 +187,7 @@ class PengaduanTugas extends Tugas {
     super.fotoBuktiUrl,
     super.fotoSebelumUrl,
     super.fotoSesudahUrl,
-    super.alasanPembatalan, // <--- TETAPKAN DI SINI
+    super.alasanPembatalan,
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelanggan,
@@ -206,12 +216,12 @@ class PengaduanTugas extends Tugas {
           DateTime.now(),
       detailTugasLengkap: detailLengkap,
       pelanggan:
-          json['pelanggan'] != null
-              ? KontakInfo.fromJson(json['pelanggan'] as Map<String, dynamic>)
+          json['info_kontak_pelapor'] != null
+              ? KontakInfo.fromJson(
+                json['info_kontak_pelapor'] as Map<String, dynamic>,
+              )
               : null,
-      alasanPembatalan:
-          detailLengkap?['alasan_pembatalan']
-              as String?, // <--- TETAPKAN DI SINI
+      alasanPembatalan: detailLengkap?['alasan_pembatalan'] as String?,
     );
   }
 
@@ -240,7 +250,7 @@ class TemuanTugas extends Tugas {
     super.fotoBuktiUrl,
     super.fotoSebelumUrl,
     super.fotoSesudahUrl,
-    super.alasanPembatalan, // <--- TETAPKAN DI SINI
+    super.alasanPembatalan,
     required super.tanggalDibuatPenugasan,
     super.detailTugasLengkap,
     this.pelaporTemuan,
@@ -265,15 +275,14 @@ class TemuanTugas extends Tugas {
           DateTime.tryParse(json['tanggal_dibuat_penugasan'] ?? '') ??
           DateTime.now(),
       detailTugasLengkap: detailLengkap,
+      // Menggunakan info_kontak_pelapor agar konsisten
       pelaporTemuan:
-          json['pelapor_temuan'] != null
+          json['info_kontak_pelapor'] != null
               ? KontakInfo.fromJson(
-                json['pelapor_temuan'] as Map<String, dynamic>,
+                json['info_kontak_pelapor'] as Map<String, dynamic>,
               )
               : null,
-      alasanPembatalan:
-          detailLengkap?['alasan_pembatalan']
-              as String?, // <--- TETAPKAN DI SINI
+      alasanPembatalan: detailLengkap?['alasan_pembatalan'] as String?,
     );
   }
 

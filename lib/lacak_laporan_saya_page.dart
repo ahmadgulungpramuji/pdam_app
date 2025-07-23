@@ -1,5 +1,6 @@
 // lib/lacak_laporan_saya_page.dart
 // ignore_for_file: unused_element
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,8 +11,8 @@ import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_simple_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import 'package:pdam_app/pages/shared/reusable_chat_page.dart'; // <-- Diperlukan untuk halaman chat
-import 'package:pdam_app/services/chat_service.dart'; // <-- Diperlukan untuk layanan chat
+import 'package:pdam_app/pages/shared/reusable_chat_page.dart';
+import 'package:pdam_app/services/chat_service.dart';
 
 class LacakLaporanSayaPage extends StatefulWidget {
   const LacakLaporanSayaPage({super.key});
@@ -34,15 +35,13 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
   final ChatService _chatService = ChatService();
   Map<String, dynamic>? _currentUserData;
 
-  int? _targetPengaduanId; // Variabel untuk menyimpan ID dari notifikasi
+  int? _targetPengaduanId;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Ambil argumen saat widget pertama kali di-build
     final arguments =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (arguments != null && arguments.containsKey('pengaduan_id')) {
-      // Cek hanya jika belum pernah di-set, untuk menghindari loop
       if (_targetPengaduanId == null) {
         setState(() {
           _targetPengaduanId = arguments['pengaduan_id'];
@@ -104,20 +103,16 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
         if (_targetPengaduanId != null) {
           final targetLaporan = _laporanList.firstWhere(
             (l) => l.id == _targetPengaduanId,
-            orElse:
-                () =>
-                    Pengaduan.fallback(), // Gunakan fallback untuk menghindari error
+            orElse: () => Pengaduan.fallback(),
           );
 
           if (targetLaporan.id != 0) {
-            // Gunakan post-frame callback untuk memastikan halaman sudah ter-render
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 _showDetailAndRatingSheet(targetLaporan);
               }
             });
           }
-          // Reset target ID agar tidak terbuka lagi saat refresh manual
           _targetPengaduanId = null;
         }
       }
@@ -304,8 +299,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                             ),
                             const Divider(height: 32, thickness: 1.5),
                             _buildContactButtons(laporan),
-
-                            // Blok baru untuk status 'menunggu_pelanggan'
                             if (laporan.status.toLowerCase() ==
                                 'menunggu_pelanggan') ...[
                               const SizedBox(height: 16),
@@ -475,17 +468,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                                 ),
                               ),
                             ],
-
-                            // Blok foto sesudah pengerjaan dihapus sesuai permintaan
-                            /*
-                            // Menggunakan fotoSesudah dari model Anda
-                            if (laporan.status.toLowerCase() == 'selesai' &&
-                                laporan.fotoSesudah != null &&
-                                laporan.fotoSesudah!.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              _buildFotoHasil(laporan.fotoSesudah!),
-                            ],
-                            */
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32, thickness: 1),
                               Text(
@@ -631,19 +613,29 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
+  // --- MODIFIKASI UTAMA DI SINI ---
   Widget _buildContactButtons(Pengaduan laporan) {
     if (_currentUserData == null) return const SizedBox.shrink();
 
-    // Logika untuk menemukan petugas pelapor utama
+    // Mencari petugas pelapor di dalam daftar petugas yang ditugaskan
     final petugasPelapor =
         (laporan.petugasDitugaskan != null && laporan.idPetugasPelapor != null)
             ? laporan.petugasDitugaskan!.firstWhere(
               (p) => p.id == laporan.idPetugasPelapor,
-              orElse: () => PetugasSimple(id: 0, nama: ''), // Fallback
+              orElse: () => PetugasSimple(id: 0, nama: ''),
             )
             : null;
+
     final bool hasPetugasPelapor =
         petugasPelapor != null && petugasPelapor.id != 0;
+
+    // Menentukan apakah status laporan aktif untuk chat
+    final List<String> statusAktifUntukChat = [
+      'diterima',
+      'dalam_perjalanan',
+      'diproses',
+    ];
+    final bool isStatusAktif = statusAktifUntukChat.contains(laporan.status);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,7 +647,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
-        // Tombol Chat Admin
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -701,8 +692,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
         ),
         const SizedBox(height: 8),
 
-        // Tombol Chat Petugas (Hanya muncul jika ada petugas pelapor)
-        if (hasPetugasPelapor)
+        // Tombol Chat Petugas (HANYA MUNCUL JIKA ADA PETUGAS & STATUS AKTIF)
+        if (hasPetugasPelapor && isStatusAktif)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -710,13 +701,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
               label: Text('Chat dengan Petugas ${petugasPelapor.nama}'),
               onPressed: () async {
                 try {
-                  // 1. Dapatkan info chat petugas dari API
+                  setState(() => _isDialogRatingLoading = true);
                   final petugasInfo = await _apiService.getChatInfoForPelanggan(
                     'pengaduan',
                     laporan.id,
                   );
 
-                  // 2. Buat atau dapatkan thread chat di Firestore
                   final threadId = await _chatService
                       .getOrCreateTugasChatThread(
                         tipeTugas: 'pengaduan',
@@ -725,9 +715,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                         otherUser: petugasInfo,
                       );
 
-                  // 3. Navigasi ke halaman chat
                   if (mounted) {
-                    Navigator.pop(context); // Tutup bottom sheet
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -745,6 +734,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Gagal memulai chat petugas: $e")),
                     );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _isDialogRatingLoading = false);
                   }
                 }
               },
@@ -861,7 +854,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     );
   }
 
-  // Method _getStatusMeta diperbarui
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -889,7 +881,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
     }
   }
 
-  // Method _buildStatusBadge diperbarui
   Widget _buildStatusBadge(String status) {
     final meta = _getStatusMeta(status);
     return Container(
@@ -904,9 +895,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage> {
           Icon(meta.icon, color: meta.color, size: 16),
           const SizedBox(width: 6),
           Text(
-            status
-                .replaceAll('_', ' ')
-                .toUpperCase(), // Mengganti '_' dengan spasi
+            status.replaceAll('_', ' ').toUpperCase(),
             style: TextStyle(
               color: meta.color,
               fontWeight: FontWeight.bold,

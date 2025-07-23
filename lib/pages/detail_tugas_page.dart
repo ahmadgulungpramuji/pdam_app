@@ -1,7 +1,6 @@
-// lib/pages/detail_tugas_page.dart
+// lib/pages/petugas/detail_tugas_page.dart
 
-// ignore: unused_import
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
@@ -11,6 +10,9 @@ import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:pdam_app/services/chat_service.dart';
+import 'package:pdam_app/pages/shared/reusable_chat_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DetailTugasPage extends StatefulWidget {
   final Tugas tugas;
@@ -29,12 +31,27 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   final DateFormat _dateFormatter = DateFormat('EEEE, dd MMMM', 'id_ID');
   final DateFormat _timeFormatter = DateFormat('HH:mm', 'id_ID');
 
+  final ChatService _chatService = ChatService();
+  Map<String, dynamic>? _currentUserData;
+
   @override
   void initState() {
     super.initState();
     _tugasSaatIni = widget.tugas;
+    _loadCurrentUser();
   }
 
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('user_data');
+    if (jsonString != null && mounted) {
+      setState(() {
+        _currentUserData = jsonDecode(jsonString);
+      });
+    }
+  }
+
+  // ... (semua fungsi lain seperti _setLoading, _showSnackbar, _updateStatus, dll. tetap sama persis)
   void _setLoading(bool loading) {
     if (mounted) setState(() => _isLoading = loading);
   }
@@ -139,6 +156,128 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     }
   }
 
+  // Widget _buildKontakRow yang lama sudah dihapus dan digantikan _buildKontakSection
+
+  // --- WIDGET BARU YANG MENGGANTIKAN _buildKontakRow ---
+  Widget _buildKontakSection(KontakInfo kontak) {
+    // Logika untuk menentukan apakah tombol chat harus ditampilkan
+    final bool canChat =
+        _tugasSaatIni.isPetugasPelapor &&
+        _tugasSaatIni.tipeTugas == 'pengaduan' &&
+        _currentUserData != null &&
+        (kontak.firebaseUid != null && kontak.firebaseUid!.isNotEmpty);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Ionicons.person_outline, size: 20, color: Colors.grey[600]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: GoogleFonts.lato(
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                    children: [
+                      TextSpan(
+                        text:
+                            '${_tugasSaatIni is PengaduanTugas ? 'Pelanggan' : 'Pelapor'}: ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(text: '${kontak.nama} (${kontak.nomorHp})'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Ionicons.call_outline, size: 18),
+                label: const Text('Telepon'),
+                onPressed: () {
+                  final Uri phoneUri = Uri(scheme: 'tel', path: kontak.nomorHp);
+                  _launchURL(phoneUri.toString());
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(
+                  Ionicons.chatbubble_ellipses_outline,
+                  size: 18,
+                ),
+                label: const Text('Chat'),
+                onPressed:
+                    !canChat || _isLoading
+                        ? null
+                        : () async {
+                          _setLoading(true);
+                          try {
+                            final otherUser = {
+                              'id': kontak.id,
+                              'nama': kontak.nama,
+                              'firebase_uid': kontak.firebaseUid,
+                            };
+
+                            final threadId = await _chatService
+                                .getOrCreateTugasChatThread(
+                                  tipeTugas: _tugasSaatIni.tipeTugas,
+                                  idTugas: _tugasSaatIni.idTugas,
+                                  currentUser: _currentUserData!,
+                                  otherUser: otherUser,
+                                );
+
+                            if (mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => ReusableChatPage(
+                                        threadId: threadId,
+                                        chatTitle:
+                                            "Chat Laporan #${_tugasSaatIni.idTugas}",
+                                        currentUser: _currentUserData!,
+                                      ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            _showSnackbar("Gagal memulai chat: $e");
+                          } finally {
+                            _setLoading(false);
+                          }
+                        },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  disabledBackgroundColor: Colors.grey.shade300,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,10 +289,9 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
       ),
-      // --- MODIFIKASI: Mematikan Fitur Refresh Manual ---
       body: NotificationListener<OverscrollIndicatorNotification>(
         onNotification: (OverscrollIndicatorNotification notification) {
-          notification.disallowIndicator(); // Mencegah indikator refresh muncul
+          notification.disallowIndicator();
           return true;
         },
         child: Stack(
@@ -175,6 +313,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                     delay: const Duration(milliseconds: 200),
                     child: _buildFotoProgresSection(),
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -188,7 +327,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           ],
         ),
       ),
-      // --- AKHIR MODIFIKASI ---
     );
   }
 
@@ -240,7 +378,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               isMultiline: true,
             ),
             if (_tugasSaatIni.infoKontakPelapor != null)
-              _buildKontakRow(_tugasSaatIni.infoKontakPelapor!),
+              _buildKontakSection(_tugasSaatIni.infoKontakPelapor!),
             const SizedBox(height: 12),
             _buildStatusRow(),
             if (_tugasSaatIni.status == 'dibatalkan' &&
@@ -282,6 +420,9 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
+  // Sisa file (semua widget helper lainnya) sama seperti sebelumnya...
+  // Contoh: _buildActionSection, _showCancelDialog, _buildFotoProgresSection, dll.
+  // ...
   Future<void> _showSuccessAndNavigateHome() async {
     if (!mounted) return;
 
@@ -338,9 +479,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             color: Colors.green[600],
           ),
         );
-        actionButtons.add(
-          const SizedBox(height: 8),
-        );
+        actionButtons.add(const SizedBox(height: 8));
         actionButtons.add(
           _buildActionButton(
             label: 'Batalkan Laporan',
@@ -468,10 +607,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   );
                 } else {
                   Navigator.pop(dialogContext);
-                  _updateStatus(
-                    'dibatalkan',
-                    keterangan: reason,
-                  );
+                  _updateStatus('dibatalkan', keterangan: reason);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -526,7 +662,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // WIDGET HELPER
   Widget _buildInfoRow(
     IconData icon,
     String label,
@@ -553,20 +688,21 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   ),
                   isLink
                       ? WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: InkWell(
-                            onTap: displayValue == 'Data tidak tersedia'
-                                ? null
-                                : () => _launchURL(displayValue),
-                            child: Text(
-                              displayValue,
-                              style: TextStyle(
-                                color: Colors.blue.shade800,
-                                decoration: TextDecoration.underline,
-                              ),
+                        alignment: PlaceholderAlignment.middle,
+                        child: InkWell(
+                          onTap:
+                              displayValue == 'Data tidak tersedia'
+                                  ? null
+                                  : () => _launchURL(displayValue),
+                          child: Text(
+                            displayValue,
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
-                        )
+                        ),
+                      )
                       : TextSpan(text: displayValue),
                 ],
               ),
@@ -574,14 +710,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildKontakRow(KontakInfo kontak) {
-    return _buildInfoRow(
-      Ionicons.person_outline,
-      _tugasSaatIni is PengaduanTugas ? 'Pelanggan:' : 'Pelapor:',
-      '${kontak.nama} (${kontak.nomorHp})',
     );
   }
 
@@ -630,14 +758,16 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           const SizedBox(height: 8),
           Center(
             child: GestureDetector(
-              onTap: () => showDialog(
-                context: context,
-                builder: (_) => Dialog(
-                  child: InteractiveViewer(
-                    child: Image.network(imageUrl),
+              onTap:
+                  () => showDialog(
+                    context: context,
+                    builder:
+                        (_) => Dialog(
+                          child: InteractiveViewer(
+                            child: Image.network(imageUrl),
+                          ),
+                        ),
                   ),
-                ),
-              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
@@ -645,23 +775,26 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   height: 220,
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  loadingBuilder: (context, child, progress) => progress == null
-                      ? child
-                      : Container(
-                          height: 220,
-                          alignment: Alignment.center,
-                          child: const CircularProgressIndicator(),
+                  loadingBuilder:
+                      (context, child, progress) =>
+                          progress == null
+                              ? child
+                              : Container(
+                                height: 220,
+                                alignment: Alignment.center,
+                                child: const CircularProgressIndicator(),
+                              ),
+                  errorBuilder:
+                      (context, error, stack) => Container(
+                        height: 180,
+                        alignment: Alignment.center,
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Ionicons.warning_outline,
+                          color: Colors.grey[400],
+                          size: 40,
                         ),
-                  errorBuilder: (context, error, stack) => Container(
-                    height: 180,
-                    alignment: Alignment.center,
-                    color: Colors.grey[200],
-                    child: Icon(
-                      Ionicons.warning_outline,
-                      color: Colors.grey[400],
-                      size: 40,
-                    ),
-                  ),
+                      ),
                 ),
               ),
             ),
@@ -685,26 +818,28 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: (imageUrl != null && imageUrl.isNotEmpty)
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: 160,
-                      errorBuilder: (c, e, s) => Icon(
-                        Ionicons.image_outline,
-                        size: 50,
-                        color: Colors.grey[400],
+            child:
+                (imageUrl != null && imageUrl.isNotEmpty)
+                    ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 160,
+                        errorBuilder:
+                            (c, e, s) => Icon(
+                              Ionicons.image_outline,
+                              size: 50,
+                              color: Colors.grey[400],
+                            ),
                       ),
+                    )
+                    : Icon(
+                      Ionicons.image_outline,
+                      size: 50,
+                      color: Colors.grey[400],
                     ),
-                  )
-                : Icon(
-                    Ionicons.image_outline,
-                    size: 50,
-                    color: Colors.grey[400],
-                  ),
           ),
         ],
       ),
@@ -784,21 +919,15 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   void _launchURL(String url) async {
-    final Uri targetUri;
-    if (url.startsWith('http')) {
-      targetUri = Uri.parse(url);
-    } else {
-      // Fallback for coordinate-like strings
-      targetUri = Uri.parse('http://www.google.com/maps/search/?api=1&query=$url');
-    }
+    final Uri targetUri = Uri.parse(url);
     try {
       if (await canLaunchUrl(targetUri)) {
         await launchUrl(targetUri, mode: LaunchMode.externalApplication);
       } else {
-        _showSnackbar('Tidak bisa membuka aplikasi peta.');
+        _showSnackbar('Tidak bisa membuka tautan.');
       }
     } catch (e) {
-      _showSnackbar('Error membuka peta: $e');
+      _showSnackbar('Error membuka tautan: $e');
     }
   }
 }
