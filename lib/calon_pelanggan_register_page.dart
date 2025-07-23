@@ -16,8 +16,9 @@ class CalonPelangganRegisterPage extends StatefulWidget {
       _CalonPelangganRegisterPageState();
 }
 
-class _CalonPelangganRegisterPageState
-    extends State<CalonPelangganRegisterPage> with SingleTickerProviderStateMixin { // Tambahkan SingleTickerProviderStateMixin
+class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
+    with SingleTickerProviderStateMixin {
+  // Tambahkan SingleTickerProviderStateMixin
   // --- Keys & Controllers ---
   final _formKey = GlobalKey<FormState>();
   final _apiService = ApiService();
@@ -52,11 +53,13 @@ class _CalonPelangganRegisterPageState
     super.initState();
     _loadInitialData();
 
-    _locationButtonAnimationController = AnimationController( // Inisialisasi controller animasi
+    _locationButtonAnimationController = AnimationController(
+      // Inisialisasi controller animasi
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _scaleAnimationLocation = Tween<double>(begin: 1.0, end: 1.02).animate( // Animasi skala kecil
+    _scaleAnimationLocation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      // Animasi skala kecil
       CurvedAnimation(
         parent: _locationButtonAnimationController,
         curve: Curves.easeOut,
@@ -285,10 +288,13 @@ class _CalonPelangganRegisterPageState
       appBar: AppBar(
         title: Text(
           'Daftar Pelanggan Baru',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white), // Font Poppins
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold, color: Colors.white), // Font Poppins
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary, // Gunakan warna tema
-        iconTheme: const IconThemeData(color: Colors.white), // Warna ikon kembali
+        backgroundColor:
+            Theme.of(context).colorScheme.primary, // Gunakan warna tema
+        iconTheme:
+            const IconThemeData(color: Colors.white), // Warna ikon kembali
         elevation: 0, // Tanpa shadow
       ),
       body: _isLoading
@@ -350,14 +356,16 @@ class _CalonPelangganRegisterPageState
                   _buildImageUploadCard(
                     title: 'Foto KTP',
                     imageFile: _imageFileKtp,
-                    onTap: () => _showImageSourceActionSheet(context, isKtp: true),
+                    onTap: () =>
+                        _showImageSourceActionSheet(context, isKtp: true),
                     placeholder: 'Ketuk untuk unggah foto KTP',
                   ),
                   const SizedBox(height: 24),
                   _buildImageUploadCard(
-                    title: 'Foto Tampak Depan Rumah',
+                    title: 'Foto Tampak Depan lokasi pemasangan',
                     imageFile: _imageFileRumah,
-                    onTap: () => _showImageSourceActionSheet(context, isKtp: false),
+                    onTap: () =>
+                        _showImageSourceActionSheet(context, isKtp: false),
                     placeholder: 'Ketuk untuk unggah foto Rumah',
                   ),
                   const SizedBox(height: 24),
@@ -389,7 +397,8 @@ class _CalonPelangganRegisterPageState
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title,
-        style: GoogleFonts.poppins( // Gunakan Poppins
+        style: GoogleFonts.poppins(
+          // Gunakan Poppins
           fontSize: 20, // Lebih besar
           fontWeight: FontWeight.bold,
           color: Theme.of(context).colorScheme.primary, // Warna tema
@@ -414,8 +423,10 @@ class _CalonPelangganRegisterPageState
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary), // Warna ikon
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), // Sudut membulat
+        prefixIcon: Icon(icon,
+            color: Theme.of(context).colorScheme.primary), // Warna ikon
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12)), // Sudut membulat
         filled: true,
         fillColor: Colors.grey.shade50, // Latar belakang abu-abu muda
       ),
@@ -441,7 +452,8 @@ class _CalonPelangganRegisterPageState
         labelText: _detectedCabangName != null
             ? "Cabang Terdeteksi"
             : 'Cabang Pemasangan',
-        prefixIcon: Icon(Ionicons.business_outline, color: Theme.of(context).colorScheme.primary),
+        prefixIcon: Icon(Ionicons.business_outline,
+            color: Theme.of(context).colorScheme.primary),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -450,7 +462,8 @@ class _CalonPelangganRegisterPageState
           .map(
             (c) => DropdownMenuItem(
               value: c.id,
-              child: Text(c.namaCabang, style: GoogleFonts.poppins()), // Font Poppins
+              child: Text(c.namaCabang,
+                  style: GoogleFonts.poppins()), // Font Poppins
             ),
           )
           .toList(),
@@ -471,9 +484,12 @@ class _CalonPelangganRegisterPageState
           readOnly: true,
           decoration: InputDecoration(
             labelText: 'Lokasi GPS Pemasangan',
-            labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
+            labelStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary),
             hintText: 'Latitude, Longitude akan muncul di sini',
-            prefixIcon: Icon(Ionicons.navigate_circle_outline, color: Theme.of(context).colorScheme.primary),
+            prefixIcon: Icon(Ionicons.navigate_circle_outline,
+                color: Theme.of(context).colorScheme.primary),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: Colors.blue.shade50, // Warna latar belakang berbeda
@@ -484,20 +500,26 @@ class _CalonPelangganRegisterPageState
             }
             return null;
           },
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade900), // Font Poppins
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              color: Colors.blue.shade900), // Font Poppins
         ),
         const SizedBox(height: 10), // Spasi lebih besar
-        ScaleTransition( // Animasi skala pada tombol
+        ScaleTransition(
+          // Animasi skala pada tombol
           scale: _scaleAnimationLocation,
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon( // Ganti TextButton dengan ElevatedButton
-              onPressed: _isLocationLoading ? null : () {
-                _locationButtonAnimationController.forward().then((_) {
-                  _locationButtonAnimationController.reverse();
-                });
-                _getCurrentLocation();
-              },
+            child: ElevatedButton.icon(
+              // Ganti TextButton dengan ElevatedButton
+              onPressed: _isLocationLoading
+                  ? null
+                  : () {
+                      _locationButtonAnimationController.forward().then((_) {
+                        _locationButtonAnimationController.reverse();
+                      });
+                      _getCurrentLocation();
+                    },
               icon: _isLocationLoading
                   ? const SizedBox(
                       width: 20,
@@ -509,13 +531,17 @@ class _CalonPelangganRegisterPageState
                     )
                   : const Icon(Ionicons.locate_outline),
               label: Text(
-                _isLocationLoading ? 'MENCARI LOKASI...' : 'DAPATKAN LOKASI SAAT INI',
-                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold), // Font Poppins
+                _isLocationLoading
+                    ? 'MENCARI LOKASI...'
+                    : 'DAPATKAN LOKASI SAAT INI',
+                style: GoogleFonts.poppins(
+                    fontSize: 16, fontWeight: FontWeight.bold), // Font Poppins
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade700, // Warna tombol
                 foregroundColor: Colors.white, // Warna teks
-                padding: const EdgeInsets.symmetric(vertical: 14), // Padding lebih
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14), // Padding lebih
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12), // Sudut membulat
                 ),
@@ -555,7 +581,9 @@ class _CalonPelangganRegisterPageState
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: imageFile == null ? Colors.red.shade300 : Colors.green.shade400,
+                color: imageFile == null
+                    ? Colors.red.shade300
+                    : Colors.green.shade400,
                 width: 2,
               ),
               boxShadow: [
@@ -579,7 +607,8 @@ class _CalonPelangganRegisterPageState
                         const SizedBox(height: 10),
                         Text(
                           placeholder,
-                          style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                          style:
+                              GoogleFonts.poppins(color: Colors.grey.shade600),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -599,7 +628,8 @@ class _CalonPelangganRegisterPageState
     return ElevatedButton.icon(
       onPressed: _isSubmitting ? null : _submitRegistration,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.secondary, // Warna tombol submit
+        backgroundColor:
+            Theme.of(context).colorScheme.secondary, // Warna tombol submit
         foregroundColor: Theme.of(context).colorScheme.onSecondary,
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(
@@ -670,8 +700,7 @@ class _CalonPelangganRegisterPageState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: GoogleFonts.poppins()), // Font Poppins
-        backgroundColor:
-            backgroundColor ??
+        backgroundColor: backgroundColor ??
             (isError ? Colors.red.shade700 : Colors.green.shade700),
         behavior: SnackBarBehavior.floating,
       ),
@@ -683,14 +712,16 @@ class _CalonPelangganRegisterPageState
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Pendaftaran Berhasil', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        title: Text('Pendaftaran Berhasil',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         content: Text(
           'Terima kasih! Data Anda telah kami terima dan akan segera diproses. Informasi selanjutnya mengenai status pendaftaran akan diberitahukan melalui nomor WhatsApp yang Anda daftarkan.',
           style: GoogleFonts.poppins(),
         ),
         actions: [
           TextButton(
-            child: Text('OK', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            child: Text('OK',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.of(dialogContext).pop();
               Navigator.of(context).pop();

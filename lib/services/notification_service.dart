@@ -8,7 +8,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pdam_app/api_service.dart';
 
-// Handler ini harus berada di luar kelas (top-level function)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -88,12 +87,12 @@ class NotificationService {
   void _showLocalNotification(RemoteMessage message) {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'pdam_app_channel', // ID channel
-          'Notifikasi Penting',
-          channelDescription: 'Channel untuk notifikasi status laporan PDAM',
-          importance: Importance.max,
-          priority: Priority.high,
-        );
+      'pdam_app_channel', // ID channel
+      'Notifikasi Penting',
+      channelDescription: 'Channel untuk notifikasi status laporan PDAM',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
     );

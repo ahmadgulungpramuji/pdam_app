@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io'; // Import ini untuk File
+import 'dart:io';
 import 'package:http/http.dart' as http; //
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_model.dart';
@@ -12,11 +12,11 @@ import 'package:pdam_app/models/cabang_model.dart';
 import 'package:pdam_app/models/tugas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart'; //
 import 'package:pdam_app/models/paginated_response.dart';
-import 'package:dio/dio.dart'; // <-- GANTI http DENGAN dio
+import 'package:dio/dio.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
-  final Dio _dio; // Untuk fungsi-fungsi baru
+  final Dio _dio;
   final String baseUrl = 'http://192.250.1.147:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
@@ -24,16 +24,14 @@ class ApiService {
   final String _witAiApiVersion = '20240514'; //
 
   ApiService()
-    : _dio = Dio(
-        BaseOptions(
-          // Menggunakan `baseUrl` yang sudah didefinisikan di atas
-          baseUrl: 'http://192.250.1.147:8000/api',
-          connectTimeout: const Duration(seconds: 20),
-          receiveTimeout: const Duration(seconds: 20),
-          headers: {'Accept': 'application/json'},
-        ),
-      ) {
-    // Interceptor untuk menambahkan token otentikasi secara otomatis ke setiap request DIO
+      : _dio = Dio(
+          BaseOptions(
+            baseUrl: 'http://192.250.1.147:8000/api',
+            connectTimeout: const Duration(seconds: 20),
+            receiveTimeout: const Duration(seconds: 20),
+            headers: {'Accept': 'application/json'},
+          ),
+        ) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -151,15 +149,13 @@ class ApiService {
   Future<http.Response> getBranchAdminInfo(String token) async {
     final url = Uri.parse('$baseUrl/chat/branch-admin-info');
     try {
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 20));
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
       return response;
     } catch (e) {
       // Mengembalikan response error manual jika terjadi exception jaringan
@@ -320,15 +316,14 @@ class ApiService {
     // Pastikan Anda sudah mengimpor 'package:http/http.dart' as http;
     final response = await http //
         .get(
-          //
-          url, //
-          headers: {
-            //
-            'Content-Type': 'application/json', //
-            if (token != null) 'Authorization': 'Bearer $token', //
-          },
-        )
-        .timeout(const Duration(seconds: 30)); //
+      //
+      url, //
+      headers: {
+        //
+        'Content-Type': 'application/json', //
+        if (token != null) 'Authorization': 'Bearer $token', //
+      },
+    ).timeout(const Duration(seconds: 30)); //
 
     if (response.statusCode == 200) {
       //
@@ -418,9 +413,9 @@ class ApiService {
     try {
       //
       final streamedResponse = await request.send().timeout(
-        //
-        const Duration(seconds: 60), //
-      );
+            //
+            const Duration(seconds: 60), //
+          );
       final response = await http.Response.fromStream(streamedResponse); //
       final responseData = jsonDecode(response.body); //
 
@@ -464,9 +459,9 @@ class ApiService {
     print('ApiService DEBUG: Checking if phone number exists at $url');
 
     try {
-      final response = await http
-          .get(url, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: {
+        'Accept': 'application/json'
+      }).timeout(const Duration(seconds: 15));
 
       // Jika server merespons 200 OK, artinya nomor HP ditemukan (sudah terdaftar).
       if (response.statusCode == 200) {
@@ -893,7 +888,8 @@ class ApiService {
 
   Future<Map<String, dynamic>?> updateUserProfile(
     //
-    Map<String, dynamic> updatedData, { //
+    Map<String, dynamic> updatedData, {
+    //
     File? profileImage, // <--- TAMBAHKAN PARAMETER INI
   }) async {
     print('ApiService DEBUG: Attempting to update user profile.'); //
@@ -939,8 +935,8 @@ class ApiService {
           ),
         );
         final streamedResponse = await request.send().timeout(
-          const Duration(seconds: 60),
-        ); // Tambah timeout
+              const Duration(seconds: 60),
+            ); // Tambah timeout
         response = await http.Response.fromStream(streamedResponse); //
       } else {
         // Jika tidak ada gambar, gunakan PATCH untuk data JSON saja
@@ -1141,7 +1137,7 @@ class ApiService {
           final responseBody = jsonDecode(response.body); //
           errorMessage = //
               responseBody['message'] ?? //
-              "$errorMessage Respons: ${response.body}"; //
+                  "$errorMessage Respons: ${response.body}"; //
         } catch (e) {
           // Biarkan error message default jika body tidak bisa di-parse
         }
@@ -1332,15 +1328,14 @@ class ApiService {
       //
       final response = await http //
           .post(
-            //
-            url, //
-            headers: {
-              //
-              'Accept': 'application/json', //
-              'Authorization': 'Bearer $token', //
-            },
-          )
-          .timeout(const Duration(seconds: 15)); //
+        //
+        url, //
+        headers: {
+          //
+          'Accept': 'application/json', //
+          'Authorization': 'Bearer $token', //
+        },
+      ).timeout(const Duration(seconds: 15)); //
 
       print(
         'ApiService DEBUG: logout - Status Code: ${response.statusCode}',
@@ -1472,7 +1467,8 @@ class ApiService {
 
   Future<http.Response> buatPengaduan(
     //
-    Map<String, String> fields, { //
+    Map<String, String> fields, {
+    //
     File? fotoBukti, //
     File? fotoRumah, //
   }) async {
