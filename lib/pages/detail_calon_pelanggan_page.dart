@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/tugas_model.dart';
+import 'package:pdam_app/services/watermark_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DetailCalonPelangganPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
   late CalonPelangganTugas _currentTugas;
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
+  String _loadingText = '';
 
   @override
   void initState() {
@@ -28,17 +30,20 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     _currentTugas = widget.tugas;
   }
 
-  void _setLoading(bool loading) {
-    if (mounted) setState(() => _isLoading = loading);
+  void _setLoading(bool loading, {String text = ''}) {
+    if (mounted) {
+      setState(() {
+        _isLoading = loading;
+        _loadingText = text;
+      });
+    }
   }
 
-  // Fungsi untuk menampilkan pilihan status
   void _showUpdateStatusDialog() {
     String? nextStatus;
     String title = '';
     bool photoRequired = false;
 
-    // Tentukan status berikutnya yang valid
     switch (_currentTugas.status) {
       case 'menunggu survey':
         nextStatus = 'survey';
@@ -59,7 +64,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         photoRequired = true;
         break;
       default:
-        return; // Tidak ada aksi untuk status lain
+        return;
     }
 
     showDialog(
@@ -86,25 +91,41 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-  // Fungsi untuk menangani update, termasuk ambil foto
   Future<void> _handleStatusUpdate(String newStatus, bool photoRequired) async {
     String? imagePath;
 
     if (photoRequired) {
       final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
+      final XFile? originalImage = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 70,
+        imageQuality: 80,
+        maxWidth: 1080,
       );
-      if (image == null) {
+
+      if (originalImage == null) {
         _showSnackbar('Pengambilan foto dibatalkan.', isError: true);
         return;
       }
-      imagePath = image.path;
+
+      if (newStatus == 'survey selesai') {
+        _setLoading(true, text: 'Menambahkan info lokasi & waktu...');
+        try {
+          final WatermarkService watermarkService = WatermarkService();
+          final XFile watermarkedImage =
+              await watermarkService.addWatermark(originalImage);
+          imagePath = watermarkedImage.path;
+        } catch (e) {
+          _setLoading(false);
+          _showSnackbar("Gagal menambahkan watermark: ${e.toString()}",
+              isError: true);
+          return;
+        }
+      } else {
+        imagePath = originalImage.path;
+      }
     }
 
-    _setLoading(true);
-
+    _setLoading(true, text: 'Mengunggah data...');
     try {
       final result = await _apiService.updateStatusCalonPelanggan(
         idCalon: _currentTugas.idTugas,
@@ -131,7 +152,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     }
   }
 
-  // Fungsi untuk menampilkan dialog pembatalan
   void _showCancelDialog() {
     final TextEditingController reasonController = TextEditingController();
     showDialog(
@@ -174,8 +194,8 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   _showSnackbar('Alasan pembatalan wajib diisi!',
                       isError: true);
                 } else {
-                  Navigator.pop(dialogContext); // Tutup dialog
-                  _handleCancellation(reason); // Panggil fungsi pembatalan
+                  Navigator.pop(dialogContext);
+                  _handleCancellation(reason);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -190,13 +210,12 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-  // Fungsi untuk menangani logika pembatalan ke API
   Future<void> _handleCancellation(String alasan) async {
     _setLoading(true);
     try {
       await _apiService.batalkanPenugasanMandiri(
         idTugas: _currentTugas.idTugas,
-        tipeTugas: 'calon_pelanggan', // Tipe tugas yang benar
+        tipeTugas: 'calon_pelanggan',
         alasan: alasan,
       );
 
@@ -209,11 +228,10 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
             isError: true);
       }
     } finally {
-      if (mounted) _setLoading(false);
+      _setLoading(false);
     }
   }
 
-  // Dialog sukses dan navigasi kembali
   Future<void> _showSuccessAndNavigateHome() async {
     if (!mounted) return;
 
@@ -239,13 +257,57 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               child: Text('OK',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Tutup dialog
-                Navigator.of(context).pop(); // Kembali dari halaman detail
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();
               },
             ),
           ],
         );
       },
+    );
+  }
+
+  void _showPhotoViewer(String? imageUrl, String title) {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) =>
+                    progress == null
+                        ? child
+                        : const Center(child: CircularProgressIndicator()),
+                errorBuilder: (context, error, stack) => const Icon(
+                  Ionicons.warning_outline,
+                  color: Colors.red,
+                  size: 60,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -268,7 +330,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
   Future<void> _launchMaps(String address) async {
     final Uri mapsUrl = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');
+        'http://googleusercontent.com/maps/api/2{Uri.encodeComponent(address)}');
     try {
       if (await canLaunchUrl(mapsUrl)) {
         await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
@@ -306,7 +368,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch, // Agar tombol bisa full-width
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildSectionTitle('Informasi Pemohon'),
                 _buildInfoCard([
@@ -344,11 +406,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   ),
                 ]),
                 const SizedBox(height: 20),
-
-                // -- PERUBAHAN BARU DIMULAI: KUMPULAN TOMBOL AKSI --
                 _buildActionButtons(),
-                // -- PERUBAHAN BARU SELESAI --
-
                 const SizedBox(height: 20),
                 _buildSectionTitle('Galeri Foto'),
                 _buildPhotoGallery(),
@@ -359,12 +417,25 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           if (_isLoading)
             Container(
               color: Colors.black.withOpacity(0.5),
-              child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white)),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    if (_loadingText.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _loadingText,
+                        style: GoogleFonts.poppins(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
         ],
       ),
-      // -- PERUBAHAN: FloatingActionButton DIHAPUS dari sini --
     );
   }
 
@@ -378,7 +449,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     return activeStatus.contains(_currentTugas.status);
   }
 
-  // Widget helpers
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -400,17 +470,14 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-  // -- PERUBAHAN BARU DIMULAI: WIDGET UNTUK KELOMPOK TOMBOL AKSI --
   Widget _buildActionButtons() {
-    // Tombol hanya akan muncul jika statusnya aktif
     if (!_canUpdateStatus()) {
-      return const SizedBox.shrink(); // return widget kosong jika tidak aktif
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Tombol Ubah Status (hanya untuk petugas pelapor)
         if (_currentTugas.isPetugasPelapor)
           ElevatedButton.icon(
             icon: const Icon(Ionicons.sync_outline),
@@ -429,12 +496,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               ),
             ),
           ),
-        
-        // Beri jarak jika kedua tombol muncul
-        if (_currentTugas.isPetugasPelapor)
-          const SizedBox(height: 10),
-
-        // Tombol Pembatalan Tugas (untuk semua petugas yang ditugaskan)
+        if (_currentTugas.isPetugasPelapor) const SizedBox(height: 10),
         ElevatedButton.icon(
           icon: const Icon(Ionicons.close_circle_outline),
           label: const Text('Pembatalan Tugas'),
@@ -455,7 +517,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       ],
     );
   }
-  // -- PERUBAHAN BARU SELESAI --
 
   Widget _buildInfoRow(IconData icon, String label, String value,
       {VoidCallback? onTap}) {
@@ -530,52 +591,77 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       itemBuilder: (context, index) {
         final title = photos.keys.elementAt(index);
         final url = photos.values.elementAt(index);
+        // -- PERUBAHAN: Memanggil versi _buildPhotoItem yang sudah dikoreksi --
         return _buildPhotoItem(title, url);
       },
     );
   }
 
+  // -- KODE YANG DIPERBAIKI: HANYA ADA SATU FUNGSI _buildPhotoItem --
   Widget _buildPhotoItem(String title, String? url) {
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Column(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: Container(
-              color: Colors.grey[200],
-              child: url != null
-                  ? Image.network(
-                      url,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Ionicons.image_outline,
-                        size: 40,
-                        color: Colors.grey,
-                      ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      },
-                    )
-                  : const Center(
-                      child: Icon(
-                        Ionicons.image_outline,
-                        size: 40,
-                        color: Colors.grey,
-                      ),
+          // Gambar
+          Container(
+            color: Colors.grey[200],
+            child: url != null
+                ? Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Ionicons.image_outline,
+                      size: 40,
+                      color: Colors.grey,
                     ),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Icon(
+                      Ionicons.image_outline,
+                      size: 40,
+                      color: Colors.grey,
+                    ),
+                  ),
+          ),
+          // Gradient agar teks terbaca
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+              child: Text(
+                title,
+                style: GoogleFonts.lato(
+                    fontWeight: FontWeight.bold, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              title,
-              style: GoogleFonts.lato(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+          // Widget agar bisa ditekan
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: url != null ? () => _showPhotoViewer(url, title) : null,
+              splashColor: Colors.white.withOpacity(0.2),
             ),
           ),
         ],
