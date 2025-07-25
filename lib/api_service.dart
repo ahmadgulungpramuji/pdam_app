@@ -17,7 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.250.1.147:8000/api'; //
+  final String baseUrl = 'http://localhost:8080/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -26,7 +26,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.250.1.147:8000/api',
+            baseUrl: 'http://localhost:8080/api',
             connectTimeout: const Duration(seconds: 20),
             receiveTimeout: const Duration(seconds: 20),
             headers: {'Accept': 'application/json'},
