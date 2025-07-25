@@ -226,7 +226,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _submitRegistration() async {
-    // --- Validations ---
     if (!(_formKey.currentState?.validate() ?? false)) {
       _showSnackbar('Harap periksa kembali semua data yang wajib diisi.');
       return;
@@ -261,13 +260,16 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         'no_wa': _noWaController.text,
       };
 
-      await _apiService.registerCalonPelanggan(
+      // UBAH BAGIAN INI UNTUK MENANGKAP RESPONSE
+      final responseData = await _apiService.registerCalonPelanggan(
         data: data,
         imagePathKtp: _imageFileKtp!.path,
         imagePathRumah: _imageFileRumah!.path,
       );
 
-      _showSuccessDialog();
+      final trackingCode = responseData['data']?['tracking_code'] as String?;
+
+      _showSuccessDialog(trackingCode); // Kirim tracking code ke dialog
     } catch (e) {
       _showSnackbar(
         'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
@@ -707,16 +709,51 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog(String? trackingCode) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: Text('Pendaftaran Berhasil',
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: Text(
-          'Terima kasih! Data Anda telah kami terima dan akan segera diproses. Informasi selanjutnya mengenai status pendaftaran akan diberitahukan melalui nomor WhatsApp yang Anda daftarkan.',
-          style: GoogleFonts.poppins(),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Terima kasih! Data Anda telah kami terima. Mohon simpan kode pendaftaran ini untuk melacak status pendaftaran Anda:',
+            ),
+            const SizedBox(height: 15),
+            if (trackingCode != null)
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        trackingCode,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Ionicons.copy_outline),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: trackingCode));
+                        _showSnackbar('Kode disalin!', isError: false);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
         actions: [
           TextButton(

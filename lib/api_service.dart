@@ -17,7 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://localhost:8080/api'; //
+  final String baseUrl = 'http://192.250.1.181:8000/api'; //
 
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -26,7 +26,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://localhost:8080/api',
+            baseUrl: 'http://192.250.1.181:8000/api',
             connectTimeout: const Duration(seconds: 20),
             receiveTimeout: const Duration(seconds: 20),
             headers: {'Accept': 'application/json'},
@@ -262,6 +262,35 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> trackCalonPelanggan(String trackingCode) async {
+    final String endpoint = '/track/calon-pelanggan/$trackingCode';
+    final url = Uri.parse('$baseUrl$endpoint');
+
+    print('ApiService DEBUG: trackCalonPelanggan - Memanggil URL: $url');
+
+    try {
+      final response = await http.get(url, headers: {
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 20));
+
+      print(
+          'ApiService DEBUG: trackCalonPelanggan - Status Code: ${response.statusCode}');
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseBody['success'] == true) {
+        return responseBody['data']; // Kembalikan hanya bagian data
+      } else {
+        throw Exception(
+            responseBody['message'] ?? 'Gagal melacak pendaftaran.');
+      }
+    } on TimeoutException {
+      throw Exception('Server tidak merespons. Periksa koneksi internet Anda.');
+    } catch (e) {
+      print('ApiService DEBUG: trackCalonPelanggan - Error: $e');
+      rethrow;
+    }
+  }
+
   Future<List<dynamic>> getNotifikasiSaya() async {
     try {
       // Menggunakan Dio untuk request yang sudah terotentikasi secara otomatis
@@ -380,76 +409,55 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> registerCalonPelanggan({
-    //
-    required Map<String, String> data, //
-    required String imagePathKtp, // Diubah namanya agar lebih jelas
-    required String imagePathRumah, // TAMBAHKAN INI, nullable
+    required Map<String, String> data,
+    required String imagePathKtp,
+    required String imagePathRumah,
   }) async {
-    // Endpoint ini sudah ada di api.php Anda: Route::post('/calon-pelanggan/daftar', ...);
-    final url = Uri.parse('$baseUrl/calon-pelanggan/daftar'); //
-    var request = http.MultipartRequest(
-      'POST',
-      url,
-    ); // DIUBAH: Registrasi seharusnya POST (membuat data baru)
+    final url = Uri.parse('$baseUrl/calon-pelanggan/daftar');
+    var request = http.MultipartRequest('POST', url);
 
-    // Tambahkan header
-    request.headers['Accept'] = 'application/json'; //
-    request.fields.addAll(data); //
+    request.headers['Accept'] = 'application/json';
+    request.fields.addAll(data);
 
-    // Tambahkan file gambar KTP
     request.files.add(
-      //
-      await http.MultipartFile.fromPath(
-        //
-        'foto_ktp', // 'foto_ktp' harus cocok dengan nama field di backend Laravel
-        imagePathKtp, //
-      ),
+      await http.MultipartFile.fromPath('foto_ktp', imagePathKtp),
     );
     request.files.add(
-      //
-      await http.MultipartFile.fromPath('foto_rumah', imagePathRumah), //
+      await http.MultipartFile.fromPath('foto_rumah', imagePathRumah),
     );
 
     try {
-      //
       final streamedResponse = await request.send().timeout(
-            //
-            const Duration(seconds: 60), //
+            const Duration(seconds: 60),
           );
-      final response = await http.Response.fromStream(streamedResponse); //
-      final responseData = jsonDecode(response.body); //
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        //
-        // 201 Created
-        return responseData; //
+        return responseData;
       } else if (response.statusCode == 422) {
-        //
-        // Validation Error
-        final errors = responseData['errors']; //
-        // Menggabungkan pesan error menjadi satu string
-        String errorMessage = "Data tidak valid:\n"; //
+        // --- PERUBAHAN DI SINI ---
+        final errors = responseData['errors'];
+        String errorMessage = "Data tidak valid:\n";
         if (errors is Map) {
-          //
-          errors.forEach((key, value) {
-            //
-            if (value is List) {
-              //
-              errorMessage += "- ${value.join(', ')}\n"; //
-            }
-          });
+          // Ambil pesan error pertama yang ditemukan untuk ditampilkan
+          var firstError = errors.entries.first;
+          if (firstError.value is List &&
+              (firstError.value as List).isNotEmpty) {
+            errorMessage = (firstError.value as List).first;
+          }
         }
-        throw Exception(errorMessage); //
+        // Lempar exception dengan pesan yang lebih spesifik
+        throw Exception(errorMessage);
+        // --- AKHIR PERUBAHAN ---
       } else {
         throw Exception(
-          //
-          'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}', //
+          'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}',
         );
       }
     } catch (e) {
-      //
-      print('ApiService Error registerCalonPelanggan: $e'); //
-      rethrow; //
+      // Cukup lempar ulang error yang sudah kita format
+      rethrow;
     }
   }
 

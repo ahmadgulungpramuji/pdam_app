@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
+import 'package:pdam_app/detail_calon_pelanggan_page.dart';
 import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -73,17 +74,42 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _trackReportFromLogin() async {
-    final code = _trackCodeController.text.trim();
+    final code =
+        _trackCodeController.text.trim().toUpperCase(); // Gunakan uppercase
     if (code.isEmpty) {
       _showSnackbar('Masukkan kode tracking terlebih dahulu.');
       return;
     }
     setState(() => _isTrackingReport = true);
+
     try {
-      final TemuanKebocoran temuan = await _apiService.trackReport(code);
-      if (!mounted) return;
-      _trackCodeController.clear();
-      Navigator.pushNamed(context, '/detail_temuan_page', arguments: temuan);
+      // LOGIKA PENCARIAN TERPADU
+      if (code.startsWith('TK-')) {
+        // Lacak Temuan Kebocoran
+        final TemuanKebocoran temuan = await _apiService.trackReport(code);
+        if (!mounted) return;
+        _trackCodeController.clear();
+        // Arahkan ke halaman detail temuan
+        Navigator.pushNamed(context, '/detail_temuan_page', arguments: temuan);
+      } else if (code.startsWith('CP-')) {
+        // Lacak Calon Pelanggan
+        final Map<String, dynamic> dataPendaftaran =
+            await _apiService.trackCalonPelanggan(code);
+        if (!mounted) return;
+        _trackCodeController.clear();
+        // Arahkan ke halaman detail pendaftaran BARU
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                DetailCalonPelangganPage(data: dataPendaftaran),
+          ),
+        );
+      } else {
+        // Kode tidak dikenali
+        throw Exception(
+            'Format kode tracking tidak valid. Pastikan kode diawali "TK-" atau "CP-".');
+      }
     } catch (e) {
       if (!mounted) return;
       String errorMessage = e.toString().replaceFirst("Exception: ", "");
@@ -278,16 +304,14 @@ class _LoginPageState extends State<LoginPage> {
                       : Ionicons.eye_off_outline,
                   color: Colors.blue.shade700,
                 ),
-                onPressed:
-                    () => setState(() => _passwordVisible = !_passwordVisible),
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
             obscureText: !_passwordVisible,
-            validator:
-                (val) =>
-                    val == null || val.isEmpty
-                        ? 'Password tidak boleh kosong'
-                        : null,
+            validator: (val) => val == null || val.isEmpty
+                ? 'Password tidak boleh kosong'
+                : null,
           ),
           const SizedBox(height: 28),
           SizedBox(
@@ -303,23 +327,22 @@ class _LoginPageState extends State<LoginPage> {
                 elevation: 2,
               ),
               onPressed: _isLoading || _isTrackingReport ? null : _login,
-              child:
-                  _isLoading
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                      : const Text(
-                        'LOGIN',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
                       ),
+                    )
+                  : const Text(
+                      'LOGIN',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 24),
@@ -335,17 +358,16 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed:
-                    _isLoading
-                        ? null
-                        : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterPage(),
-                            ),
-                          );
-                        },
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterPage(),
+                          ),
+                        );
+                      },
                 child: const Text(
                   'Daftar di sini',
                   style: TextStyle(
@@ -363,18 +385,17 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed:
-                  _isLoading || _isTrackingReport
-                      ? null
-                      : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const CalonPelangganRegisterPage(),
-                          ),
-                        );
-                      },
+              onPressed: _isLoading || _isTrackingReport
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const CalonPelangganRegisterPage(),
+                        ),
+                      );
+                    },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.green.shade700,
                 side: BorderSide(color: Colors.green.shade700, width: 1.5),
@@ -419,29 +440,27 @@ class _LoginPageState extends State<LoginPage> {
               ),
               elevation: 2,
             ),
-            onPressed:
-                (_trackCodeController.text.trim().isEmpty ||
-                        _isTrackingReport ||
-                        _isLoading)
-                    ? null
-                    : _trackReportFromLogin,
-            child:
-                _isTrackingReport
-                    ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                    : const Text(
-                      "LACAK LAPORAN",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+            onPressed: (_trackCodeController.text.trim().isEmpty ||
+                    _isTrackingReport ||
+                    _isLoading)
+                ? null
+                : _trackReportFromLogin,
+            child: _isTrackingReport
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
                     ),
+                  )
+                : const Text(
+                    "LACAK LAPORAN",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -450,10 +469,9 @@ class _LoginPageState extends State<LoginPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Ionicons.create_outline, size: 20),
             label: const Text("BUAT LAPORAN BARU"),
-            onPressed:
-                _isLoading || _isTrackingReport
-                    ? null
-                    : () => Navigator.push(
+            onPressed: _isLoading || _isTrackingReport
+                ? null
+                : () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TemuanKebocoranPage(),
@@ -526,10 +544,9 @@ class _LoginPageState extends State<LoginPage> {
           height: 10.0,
           width: _currentPage == index ? 25.0 : 10.0,
           decoration: BoxDecoration(
-            color:
-                _currentPage == index
-                    ? const Color(0xFF005A9C)
-                    : Colors.grey.shade400,
+            color: _currentPage == index
+                ? const Color(0xFF005A9C)
+                : Colors.grey.shade400,
             borderRadius: BorderRadius.circular(12),
           ),
         );
