@@ -212,11 +212,32 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
   Future<void> _handleCancellation(String alasan) async {
     _setLoading(true);
+
+    // --- PERUBAHAN LOGIKA DI SINI ---
+    // Tentukan 'jenis_tugas_spesifik' berdasarkan status saat ini,
+    // bukan dari 'kategoriDisplay'.
+    String? jenisTugasSpesifik;
+    if (_currentTugas.status == 'menunggu survey') {
+      jenisTugasSpesifik = 'survey';
+    } else if (_currentTugas.status == 'menunggu jadwal pemasangan') {
+      jenisTugasSpesifik = 'pemasangan';
+    } else {
+      // Jika status tidak sesuai, hentikan proses dan beri tahu pengguna.
+      _setLoading(false);
+      _showSnackbar('Tugas ini tidak dapat dibatalkan pada status saat ini.',
+          isError: true);
+      return;
+    }
+    // --- AKHIR PERUBAHAN LOGIKA ---
+
     try {
+      // Panggil ApiService dengan parameter yang sudah benar
       await _apiService.batalkanPenugasanMandiri(
         idTugas: _currentTugas.idTugas,
         tipeTugas: 'calon_pelanggan',
         alasan: alasan,
+        jenisTugasSpesifik:
+            jenisTugasSpesifik, // <-- GUNAKAN VARIABEL YANG BENAR
       );
 
       if (mounted) {
@@ -250,8 +271,8 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
             ],
           ),
-          content:
-              Text('Tugas telah berhasil dibatalkan.', style: GoogleFonts.lato()),
+          content: Text('Tugas telah berhasil dibatalkan.',
+              style: GoogleFonts.lato()),
           actions: <Widget>[
             TextButton(
               child: Text('OK',
@@ -294,10 +315,9 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.contain,
-                loadingBuilder: (context, child, progress) =>
-                    progress == null
-                        ? child
-                        : const Center(child: CircularProgressIndicator()),
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const Center(child: CircularProgressIndicator()),
                 errorBuilder: (context, error, stack) => const Icon(
                   Ionicons.warning_outline,
                   color: Colors.red,
@@ -471,14 +491,16 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
   }
 
   Widget _buildActionButtons() {
-    if (!_canUpdateStatus()) {
-      return const SizedBox.shrink();
-    }
+    final bool canUpdate = _currentTugas.isPetugasPelapor && _canUpdateStatus();
+    final bool canCancel = _currentTugas.status == 'menunggu survey' ||
+        _currentTugas.status == 'menunggu jadwal pemasangan';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_currentTugas.isPetugasPelapor)
+        // Tombol "Ubah Status" hanya muncul untuk Pelapor (Ketua Tim)
+        // dan jika statusnya memang bisa diubah.
+        if (canUpdate)
           ElevatedButton.icon(
             icon: const Icon(Ionicons.sync_outline),
             label: const Text('Ubah Status'),
@@ -496,24 +518,30 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               ),
             ),
           ),
-        if (_currentTugas.isPetugasPelapor) const SizedBox(height: 10),
-        ElevatedButton.icon(
-          icon: const Icon(Ionicons.close_circle_outline),
-          label: const Text('Pembatalan Tugas'),
-          onPressed: _isLoading ? null : _showCancelDialog,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red[700],
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            textStyle: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+
+        // Beri jarak jika tombol "Ubah Status" muncul
+        if (canUpdate) const SizedBox(height: 10),
+
+        // Tombol "Pembatalan Tugas" hanya muncul untuk SEMUA petugas
+        // jika statusnya masih dalam tahap menunggu (belum dikerjakan).
+        if (canCancel)
+          ElevatedButton.icon(
+            icon: const Icon(Ionicons.close_circle_outline),
+            label: const Text('Pembatalan Tugas'),
+            onPressed: _isLoading ? null : _showCancelDialog,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              textStyle: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
       ],
     );
   }

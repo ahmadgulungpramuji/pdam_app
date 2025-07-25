@@ -386,11 +386,21 @@ class ApiService {
     required int idTugas,
     required String tipeTugas,
     required String alasan,
+    String? jenisTugasSpesifik, // Parameter sekarang opsional
   }) async {
     final token = await getToken();
     final url = Uri.parse(
       '$baseUrl/tugas/$tipeTugas/$idTugas/batalkan-mandiri',
     );
+
+    // Buat body request
+    final Map<String, dynamic> body = {
+      'alasan_pembatalan': alasan,
+    };
+    // Hanya tambahkan 'jenis_tugas_spesifik' jika nilainya ada
+    if (jenisTugasSpesifik != null) {
+      body['jenis_tugas_spesifik'] = jenisTugasSpesifik;
+    }
 
     final response = await http.post(
       url,
@@ -399,7 +409,7 @@ class ApiService {
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({'alasan_pembatalan': alasan}),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode != 200) {

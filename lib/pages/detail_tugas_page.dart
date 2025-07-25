@@ -24,6 +24,7 @@ class DetailTugasPage extends StatefulWidget {
 
 class _DetailTugasPageState extends State<DetailTugasPage> {
   late Tugas _tugasSaatIni;
+  late Tugas _currentTugas;
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
@@ -39,6 +40,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     super.initState();
     _tugasSaatIni = widget.tugas;
     _loadCurrentUser();
+    _currentTugas = widget.tugas;
   }
 
   Future<void> _loadCurrentUser() async {
@@ -161,8 +163,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   // --- WIDGET BARU YANG MENGGANTIKAN _buildKontakRow ---
   Widget _buildKontakSection(KontakInfo kontak) {
     // Logika untuk menentukan apakah tombol chat harus ditampilkan
-    final bool canChat =
-        _tugasSaatIni.isPetugasPelapor &&
+    final bool canChat = _tugasSaatIni.isPetugasPelapor &&
         _tugasSaatIni.tipeTugas == 'pengaduan' &&
         _currentUserData != null &&
         (kontak.firebaseUid != null && kontak.firebaseUid!.isNotEmpty);
@@ -223,46 +224,44 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   size: 18,
                 ),
                 label: const Text('Chat'),
-                onPressed:
-                    !canChat || _isLoading
-                        ? null
-                        : () async {
-                          _setLoading(true);
-                          try {
-                            final otherUser = {
-                              'id': kontak.id,
-                              'nama': kontak.nama,
-                              'firebase_uid': kontak.firebaseUid,
-                            };
+                onPressed: !canChat || _isLoading
+                    ? null
+                    : () async {
+                        _setLoading(true);
+                        try {
+                          final otherUser = {
+                            'id': kontak.id,
+                            'nama': kontak.nama,
+                            'firebase_uid': kontak.firebaseUid,
+                          };
 
-                            final threadId = await _chatService
-                                .getOrCreateTugasChatThread(
-                                  tipeTugas: _tugasSaatIni.tipeTugas,
-                                  idTugas: _tugasSaatIni.idTugas,
+                          final threadId =
+                              await _chatService.getOrCreateTugasChatThread(
+                            tipeTugas: _tugasSaatIni.tipeTugas,
+                            idTugas: _tugasSaatIni.idTugas,
+                            currentUser: _currentUserData!,
+                            otherUser: otherUser,
+                          );
+
+                          if (mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ReusableChatPage(
+                                  threadId: threadId,
+                                  chatTitle:
+                                      "Chat Laporan #${_tugasSaatIni.idTugas}",
                                   currentUser: _currentUserData!,
-                                  otherUser: otherUser,
-                                );
-
-                            if (mounted) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => ReusableChatPage(
-                                        threadId: threadId,
-                                        chatTitle:
-                                            "Chat Laporan #${_tugasSaatIni.idTugas}",
-                                        currentUser: _currentUserData!,
-                                      ),
                                 ),
-                              );
-                            }
-                          } catch (e) {
-                            _showSnackbar("Gagal memulai chat: $e");
-                          } finally {
-                            _setLoading(false);
+                              ),
+                            );
                           }
-                        },
+                        } catch (e) {
+                          _showSnackbar("Gagal memulai chat: $e");
+                        } finally {
+                          _setLoading(false);
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[600],
                   foregroundColor: Colors.white,
@@ -319,7 +318,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             ),
             if (_isLoading)
               Container(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black
+                    .withAlpha(128), // 128 adalah 50% dari 255 (alpha penuh)
                 child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
@@ -469,18 +469,17 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     _setLoading(true);
     try {
       await _apiService.batalkanPenugasanMandiri(
-        idTugas: _tugasSaatIni.idTugas,
-        tipeTugas: _tugasSaatIni.tipeTugas,
+        idTugas: _currentTugas.idTugas,
+        tipeTugas: _currentTugas.tipeTugas,
         alasan: alasan,
       );
 
       // Jika berhasil, tampilkan dialog sukses dan kembali ke halaman utama
       if (mounted) {
         // Hapus panggilannya di sini, karena akan dipanggil di dalam _showSuccessAndNavigateHome
-        // Navigator.of(context).pop(); 
+        // Navigator.of(context).pop();
         await _showSuccessAndNavigateHome();
       }
-
     } catch (e) {
       if (mounted) {
         _showSnackbar('Gagal membatalkan tugas: $e');
@@ -635,7 +634,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   );
                 } else {
                   Navigator.pop(dialogContext); // Tutup dialog dulu
-                  _batalkanTugas(reason); // Panggil fungsi pembatalan yang benar
+                  _batalkanTugas(
+                      reason); // Panggil fungsi pembatalan yang benar
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -716,21 +716,20 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   ),
                   isLink
                       ? WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: InkWell(
-                          onTap:
-                              displayValue == 'Data tidak tersedia'
-                                  ? null
-                                  : () => _launchURL(displayValue),
-                          child: Text(
-                            displayValue,
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              decoration: TextDecoration.underline,
+                          alignment: PlaceholderAlignment.middle,
+                          child: InkWell(
+                            onTap: displayValue == 'Data tidak tersedia'
+                                ? null
+                                : () => _launchURL(displayValue),
+                            child: Text(
+                              displayValue,
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
-                        ),
-                      )
+                        )
                       : TextSpan(text: displayValue),
                 ],
               ),
@@ -786,16 +785,14 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           const SizedBox(height: 8),
           Center(
             child: GestureDetector(
-              onTap:
-                  () => showDialog(
-                    context: context,
-                    builder:
-                        (_) => Dialog(
-                          child: InteractiveViewer(
-                            child: Image.network(imageUrl),
-                          ),
-                        ),
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  child: InteractiveViewer(
+                    child: Image.network(imageUrl),
                   ),
+                ),
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
@@ -803,26 +800,24 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                   height: 220,
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  loadingBuilder:
-                      (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : Container(
-                                height: 220,
-                                alignment: Alignment.center,
-                                child: const CircularProgressIndicator(),
-                              ),
-                  errorBuilder:
-                      (context, error, stack) => Container(
-                        height: 180,
-                        alignment: Alignment.center,
-                        color: Colors.grey[200],
-                        child: Icon(
-                          Ionicons.warning_outline,
-                          color: Colors.grey[400],
-                          size: 40,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          height: 220,
+                          alignment: Alignment.center,
+                          child:
+                              const Center(child: CircularProgressIndicator()),
                         ),
-                      ),
+                  errorBuilder: (context, error, stack) => Container(
+                    height: 180,
+                    alignment: Alignment.center,
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Ionicons.warning_outline,
+                      color: Colors.grey[400],
+                      size: 40,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -846,28 +841,26 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child:
-                (imageUrl != null && imageUrl.isNotEmpty)
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: 160,
-                        errorBuilder:
-                            (c, e, s) => Icon(
-                              Ionicons.image_outline,
-                              size: 50,
-                              color: Colors.grey[400],
-                            ),
+            child: (imageUrl != null && imageUrl.isNotEmpty)
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 160,
+                      errorBuilder: (c, e, s) => Icon(
+                        Ionicons.image_outline,
+                        size: 50,
+                        color: Colors.grey[400],
                       ),
-                    )
-                    : Icon(
-                      Ionicons.image_outline,
-                      size: 50,
-                      color: Colors.grey[400],
                     ),
+                  )
+                : Icon(
+                    Ionicons.image_outline,
+                    size: 50,
+                    color: Colors.grey[400],
+                  ),
           ),
         ],
       ),
