@@ -1804,6 +1804,12 @@ class ApiService {
       }
       endpointPath = '/rating/temuan-kebocoran'; //
       body['tracking_code'] = trackingCode; //
+    } else if (tipeLaporan == 'calon_pelanggan') {
+      if (trackingCode == null) {
+        throw ArgumentError("tracking_code wajib untuk tipe calon_pelanggan.");
+      }
+      endpointPath = '/rating/calon-pelanggan'; // Endpoint baru
+      body['tracking_code'] = trackingCode;
     } else {
       throw ArgumentError("tipe_laporan tidak valid."); //
     }
