@@ -9,6 +9,7 @@ class Pengaduan {
   final double? latitude;
   final double? longitude;
   final String kategori;
+  final String? kategoriLainnya; 
   final String lokasiMaps;
   final String deskripsiLokasi;
   final String deskripsi;
@@ -50,6 +51,7 @@ class Pengaduan {
     this.latitude,
     this.longitude,
     required this.kategori,
+    this.kategoriLainnya,
     required this.lokasiMaps,
     required this.deskripsiLokasi,
     required this.deskripsi,
@@ -78,6 +80,7 @@ class Pengaduan {
       latitude: _tryParseDouble(json['latitude']),
       longitude: _tryParseDouble(json['longitude']),
       kategori: json['kategori'] as String? ?? 'N/A',
+      kategoriLainnya: json['kategori_lainnya'] as String?,
       lokasiMaps: json['lokasi_maps'] as String? ?? 'N/A',
       deskripsiLokasi: json['deskripsi_lokasi'] as String? ?? 'N/A',
       deskripsi: json['deskripsi'] as String? ?? 'N/A',
@@ -165,6 +168,9 @@ class Pengaduan {
   }
 
   String get friendlyKategori {
+    if (kategori == 'lain_lain' && kategoriLainnya != null && kategoriLainnya!.isNotEmpty) {
+      return 'Lain-lain: $kategoriLainnya';
+    } 
     switch (kategori) {
       case 'air_tidak_mengalir':
         return 'Air Tidak Mengalir';
@@ -178,6 +184,8 @@ class Pengaduan {
         return 'Water Meter Tidak Sesuai';
       case 'tagihan_membengkak':
         return 'Tagihan Membengkak';
+        case 'lain_lain': // Fallback jika kategori_lainnya kosong
+        return 'Lain-lain';
       default:
         return kategori.replaceAll('_', ' ').toUpperCase();
     }

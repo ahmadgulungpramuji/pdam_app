@@ -31,6 +31,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   final _deskripsiLokasiManualController = TextEditingController();
   final ApiService _apiService = ApiService();
 
+  // --- PERBAIKAN: Menambahkan controller untuk kategori lainnya ---
+  final _kategoriLainnyaController = TextEditingController();
+
   // --- State Variables ---
   int _currentPage = 0;
   bool _isLoading = true;
@@ -46,12 +49,14 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   File? _fotoBuktiFile;
   File? _fotoRumahFile;
 
+  // --- PERBAIKAN: Menambahkan opsi 'Lain-lain...' ke dalam daftar ---
   final List<Map<String, String>> _jenisLaporanOptions = [
     {'value': 'air_tidak_mengalir', 'label': 'Air Tidak Mengalir'},
     {'value': 'air_keruh', 'label': 'Air Keruh'},
     {'value': 'water_meter_rusak', 'label': 'Meteran Rusak'},
     {'value': 'angka_meter_tidak_sesuai', 'label': 'Angka Meter Tidak Sesuai'},
     {'value': 'tagihan_membengkak', 'label': 'Tagihan Membengkak'},
+    {'value': 'lain_lain', 'label': 'Lain-lain...'}, // <-- DITAMBAHKAN
   ];
 
   @override
@@ -65,6 +70,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     _pageController.dispose();
     _deskripsiController.dispose();
     _deskripsiLokasiManualController.dispose();
+    _kategoriLainnyaController.dispose(); // <-- PERBAIKAN: Hapus controller
     super.dispose();
   }
 
@@ -135,7 +141,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
   }
 
-  // Ganti fungsi lama Anda dengan yang baru ini
   Future<void> _getCurrentLocationAndAddress() async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,7 +153,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
 
     try {
-      // --- LANGKAH 1: Mendapatkan Koordinat GPS (Bagian Paling Penting) ---
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _showSnackbar('Layanan lokasi dinonaktifkan.');
@@ -170,13 +174,10 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         timeLimit: const Duration(seconds: 15),
       );
 
-      // Langsung simpan posisi setelah berhasil didapat
       setState(() {
         _currentPosition = position;
       });
 
-      // --- LANGKAH 2: Mencoba Mendapatkan Nama Alamat (Bagian Opsional) ---
-      // Dibungkus dalam try-catch terpisah untuk mengisolasi kegagalan
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(
           position.latitude,
@@ -210,8 +211,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           });
         }
       } catch (e) {
-        // Jika GAGAL mendapatkan nama alamat, JANGAN HENTIKAN APLIKASI.
-        // Cukup tampilkan pesan dan gunakan koordinat sebagai fallback.
         _showSnackbar('Gagal mendapatkan nama alamat. Menggunakan koordinat.');
         setState(() {
           _deskripsiLokasiManualController.text =
@@ -219,7 +218,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         });
       }
     } catch (e) {
-      // Catch ini hanya untuk kegagalan di LANGKAH 1 (mendapatkan koordinat)
       _showSnackbar('Gagal mendapatkan koordinat GPS: ${e.toString()}');
     }
   }
@@ -232,10 +230,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     final lat = _currentPosition!.latitude;
     final lng = _currentPosition!.longitude;
 
-    // --- PERBAIKAN UTAMA: Menggunakan URL yang benar untuk membuka peta ---
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-    );
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng?q=$lat,$lng');
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -291,54 +286,70 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       setState(() {
         if (type == 'bukti') {
           _fotoBuktiFile = File(pickedFile.path);
-        } else if (type == 'rumah')
+        } else if (type == 'rumah') {
           _fotoRumahFile = File(pickedFile.path);
+        }
       });
     }
   }
 
-  Future<void> _submitLaporan() async {
-    if (_loggedInPelangganId == null ||
-        _selectedPdamIdNumber == null ||
-        _selectedCabangId == null ||
-        _currentPosition == null) {
-      _showSnackbar('Data esensial tidak lengkap. Mohon periksa kembali.');
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    try {
-      Map<String, String> dataLaporan = {
-        'id_pelanggan': _loggedInPelangganId!,
-        'id_pdam': _selectedPdamIdNumber!,
-        'id_cabang': _selectedCabangId.toString(),
-        'kategori': _selectedJenisLaporan!,
-        'lokasi_maps':
-            '${_currentPosition!.latitude}, ${_currentPosition!.longitude}',
-        'deskripsi_lokasi': _deskripsiLokasiManualController.text,
-        'deskripsi': _deskripsiController.text,
-      };
+ // Ganti seluruh fungsi _submitLaporan Anda dengan yang ini
 
-      final response = await _apiService.buatPengaduan(
-        dataLaporan,
-        fotoBukti: _fotoBuktiFile,
-        fotoRumah: _fotoRumahFile,
-      );
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        _showSnackbar('Laporan berhasil dikirim!', isError: false);
-        Navigator.of(context).pop();
-      } else {
-        final responseData = jsonDecode(response.body);
-        _showSnackbar(
-          'Gagal mengirim laporan: ${responseData['message'] ?? 'Error tidak diketahui'}',
-        );
-      }
-    } catch (e) {
-      _showSnackbar('Terjadi kesalahan: $e');
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
+Future<void> _submitLaporan() async {
+  // Pengecekan data utama tetap diperlukan
+  if (_loggedInPelangganId == null ||
+      _selectedPdamIdNumber == null ||
+      _selectedCabangId == null ||
+      _currentPosition == null ||
+      _selectedJenisLaporan == null) {
+    _showSnackbar('Data esensial tidak lengkap. Mohon periksa kembali.');
+    return;
   }
+
+  // BLOK VALIDASI FORM STATE YANG MENYEBABKAN ERROR SUDAH DIHAPUS DARI SINI
+
+  setState(() => _isSubmitting = true);
+  try {
+    Map<String, String> dataLaporan = {
+      'id_pelanggan': _loggedInPelangganId!,
+      'id_pdam': _selectedPdamIdNumber!,
+      'id_cabang': _selectedCabangId.toString(),
+      'kategori': _selectedJenisLaporan!,
+      'latitude': _currentPosition!.latitude.toString(),
+      'longitude': _currentPosition!.longitude.toString(),
+      'lokasi_maps':
+          'http://googleusercontent.com/maps.google.com/10${_currentPosition!.latitude},${_currentPosition!.longitude}',
+      'deskripsi_lokasi': _deskripsiLokasiManualController.text,
+      'deskripsi': _deskripsiController.text,
+    };
+
+    if (_selectedJenisLaporan == 'lain_lain') {
+      dataLaporan['kategori_lainnya'] = _kategoriLainnyaController.text;
+    }
+
+    // Bagian ini memanggil ApiService Anda untuk mengirim data
+    final response = await _apiService.buatPengaduan(
+      dataLaporan,
+      fotoBukti: _fotoBuktiFile,
+      fotoRumah: _fotoRumahFile,
+    );
+
+    // Sisa dari kode tetap sama
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      _showSnackbar('Laporan berhasil dikirim!', isError: false);
+      Navigator.of(context).pop();
+    } else {
+      final responseData = jsonDecode(response.body);
+      _showSnackbar(
+        'Gagal mengirim laporan: ${responseData['message'] ?? 'Error tidak diketahui'}',
+      );
+    }
+  } catch (e) {
+    _showSnackbar('Terjadi kesalahan: $e');
+  } finally {
+    if (mounted) setState(() => _isSubmitting = false);
+  }
+}
 
   // --- UI Helpers ---
   final ImagePicker _picker = ImagePicker();
@@ -369,28 +380,26 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         elevation: 0,
         centerTitle: true,
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                children: [
-                  _buildProgressBar(),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged:
-                          (page) => setState(() => _currentPage = page),
-                      children: [
-                        _buildStep1_InfoDasar(),
-                        _buildStep2_Lokasi(),
-                        _buildStep3_DeskripsiFoto(),
-                        _buildStep4_Konfirmasi(),
-                      ],
-                    ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                _buildProgressBar(),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged: (page) => setState(() => _currentPage = page),
+                    children: [
+                      _buildStep1_InfoDasar(),
+                      _buildStep2_Lokasi(),
+                      _buildStep3_DeskripsiFoto(),
+                      _buildStep4_Konfirmasi(),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -467,13 +476,12 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'Pilih Nomor PDAM'),
-          items:
-              _pdamIdNumbersList
-                  .map(
-                    (pdamNum) =>
-                        DropdownMenuItem(value: pdamNum, child: Text(pdamNum)),
-                  )
-                  .toList(),
+          items: _pdamIdNumbersList
+              .map(
+                (pdamNum) =>
+                    DropdownMenuItem(value: pdamNum, child: Text(pdamNum)),
+              )
+              .toList(),
           value: _selectedPdamIdNumber,
           onChanged: _onPdamNumberChanged,
           validator: (value) => value == null ? 'Pilih Nomor PDAM' : null,
@@ -481,19 +489,38 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'Jenis Laporan'),
-          items:
-              _jenisLaporanOptions
-                  .map(
-                    (opt) => DropdownMenuItem(
-                      value: opt['value'],
-                      child: Text(opt['label']!),
-                    ),
-                  )
-                  .toList(),
+          items: _jenisLaporanOptions
+              .map(
+                (opt) => DropdownMenuItem(
+                  value: opt['value'],
+                  child: Text(opt['label']!),
+                ),
+              )
+              .toList(),
           value: _selectedJenisLaporan,
           onChanged: (value) => setState(() => _selectedJenisLaporan = value),
           validator: (value) => value == null ? 'Pilih Jenis Laporan' : null,
         ),
+
+        // --- PERBAIKAN: Widget baru yang muncul saat "Lain-lain" dipilih ---
+        if (_selectedJenisLaporan == 'lain_lain')
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: TextFormField(
+              controller: _kategoriLainnyaController,
+              decoration: const InputDecoration(
+                labelText: 'Sebutkan Jenis Laporan Anda',
+                hintText: 'Contoh: Pipa bocor di depan rumah',
+              ),
+              validator: (value) {
+                if (_selectedJenisLaporan == 'lain_lain' &&
+                    (value == null || value.trim().isEmpty)) {
+                  return 'Wajib diisi jika memilih Lain-lain';
+                }
+                return null;
+              },
+            ),
+          ),
       ],
     );
   }
@@ -503,7 +530,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     if (_currentPosition != null) {
       final lat = _currentPosition!.latitude;
       final lng = _currentPosition!.longitude;
-      // Menggunakan API Key yang Anda berikan
       const apiKey = 'aWxXDWpJ8Zo4ZasFgJ1VkKwFjdqBz6KB';
       staticMapUrl =
           'https://www.mapquestapi.com/staticmap/v5/map?key=$apiKey&center=$lat,$lng&zoom=15&size=600,300&markers=red-1,$lat,$lng';
@@ -526,29 +552,28 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             border: Border.all(color: Colors.grey.shade300),
             color: Colors.grey.shade200,
           ),
-          child:
-              _currentPosition != null
-                  ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      staticMapUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) {
-                        return progress == null
-                            ? child
-                            : const Center(child: CircularProgressIndicator());
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Text(
-                            'Gagal memuat peta',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                  : const Center(child: Text('Mencari lokasi...')),
+          child: _currentPosition != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    staticMapUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      return progress == null
+                          ? child
+                          : const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Text(
+                          'Gagal memuat peta',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : const Center(child: Text('Mencari lokasi...')),
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -557,11 +582,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             labelText: 'Deskripsi Detail Lokasi (bisa diedit)',
           ),
           maxLines: 3,
-          validator:
-              (value) =>
-                  value == null || value.isEmpty
-                      ? 'Deskripsi lokasi wajib diisi'
-                      : null,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Deskripsi lokasi wajib diisi' : null,
         ),
         const SizedBox(height: 8),
         Row(
@@ -594,20 +616,16 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             labelText: 'Deskripsi Lengkap Laporan',
           ),
           maxLines: 5,
-          validator:
-              (value) =>
-                  value == null || value.isEmpty
-                      ? 'Deskripsi wajib diisi'
-                      : null,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Deskripsi wajib diisi' : null,
         ),
         const SizedBox(height: 24),
         _buildPhotoPickerButton(
           label: 'Unggah Foto Bukti',
           file: _fotoBuktiFile,
-          onPressed:
-              () => _showImageSourceActionSheet(
-                (source) => _pickImage(source, 'bukti'),
-              ),
+          onPressed: () => _showImageSourceActionSheet(
+            (source) => _pickImage(source, 'bukti'),
+          ),
         ),
         if (_fotoBuktiFile != null) ...[
           const SizedBox(height: 8),
@@ -623,10 +641,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         _buildPhotoPickerButton(
           label: 'Unggah Foto Rumah (Tampak Depan)',
           file: _fotoRumahFile,
-          onPressed:
-              () => _showImageSourceActionSheet(
-                (source) => _pickImage(source, 'rumah'),
-              ),
+          onPressed: () => _showImageSourceActionSheet(
+            (source) => _pickImage(source, 'rumah'),
+          ),
         ),
         if (_fotoRumahFile != null) ...[
           const SizedBox(height: 8),
@@ -665,10 +682,13 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           _buildConfirmationTile(
             Ionicons.list_outline,
             'Jenis Laporan',
-            _jenisLaporanOptions.firstWhere(
-              (e) => e['value'] == _selectedJenisLaporan,
-              orElse: () => {'label': '-'},
-            )['label']!,
+            // --- PERBAIKAN: Logika untuk menampilkan kategori lainnya ---
+            _selectedJenisLaporan == 'lain_lain'
+                ? 'Lain-lain: ${_kategoriLainnyaController.text}'
+                : _jenisLaporanOptions.firstWhere(
+                    (e) => e['value'] == _selectedJenisLaporan,
+                    orElse: () => {'label': '-'},
+                  )['label']!,
           ),
           _buildConfirmationTile(
             Ionicons.location_outline,
@@ -703,10 +723,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              child:
-                  _isSubmitting
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('KIRIM LAPORAN'),
+              child: _isSubmitting
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('KIRIM LAPORAN'),
             ),
           ),
         ],
@@ -756,30 +775,29 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   void _showImageSourceActionSheet(Function(ImageSource) onSelected) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (context) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Ionicons.camera_outline),
-                  title: const Text('Kamera'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    onSelected(ImageSource.camera);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Ionicons.image_outline),
-                  title: const Text('Galeri'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    onSelected(ImageSource.gallery);
-                  },
-                ),
-              ],
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Ionicons.camera_outline),
+              title: const Text('Kamera'),
+              onTap: () {
+                Navigator.pop(context);
+                onSelected(ImageSource.camera);
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Ionicons.image_outline),
+              title: const Text('Galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                onSelected(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -15,7 +15,7 @@ class PengaduanFormPage extends StatefulWidget {
 
 class _PengaduanFormPageState extends State<PengaduanFormPage> {
   final _formKey = GlobalKey<FormState>();
-  String selectedKategori = "air tidak mengalir";
+  String selectedKategori = "air_tidak_mengalir"; // Nilai default
   String? selectedIdPdam;
   TextEditingController lokasiController = TextEditingController();
   TextEditingController deskripsiController = TextEditingController();
@@ -24,6 +24,19 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
   double? _longitude;
   List<String> idPdamList = [];
   String? idCabang;
+
+  // --- KODE BARU UNTUK KATEGORI LAINNYA ---
+  final TextEditingController kategoriLainnyaController = TextEditingController();
+
+  final Map<String, String> daftarKategori = {
+    'air_tidak_mengalir': 'Air Tidak Mengalir',
+    'air_keruh': 'Air Keruh',
+    'water_meter_rusak': 'Water Meter Rusak',
+    'angka_meter_tidak_sesuai': 'Angka Meter Tidak Sesuai',
+    'tagihan_membengkak': 'Tagihan Membengkak',
+    'lain_lain': 'Lain-lain...',
+  };
+  // --- AKHIR KODE BARU ---
 
   @override
   void initState() {
@@ -34,6 +47,7 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
 
   Future<void> _fetchIdPdamList() async {
     try {
+      // Ganti dengan URL API Anda yang benar
       final response = await http.get(
         Uri.parse('http://10.0.164.160:8000/api/id-pdam/1'),
         headers: {'Accept': 'application/json'},
@@ -41,18 +55,20 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          idPdamList = List<String>.from(
-            data['data'].map((item) => item['nomor']),
-          );
-        });
+        if (mounted) {
+          setState(() {
+            idPdamList = List<String>.from(
+              data['data'].map((item) => item['nomor']),
+            );
+          });
+        }
       } else {
         throw Exception('Gagal memuat ID PDAM');
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
@@ -61,74 +77,79 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
     final token = prefs.getString('token');
 
     if (token == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Token tidak ditemukan")));
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Token tidak ditemukan")));
+      }
       return;
     }
 
-    final response = await http.get(
-      Uri.parse('http://10.0.168.221:8000/api/cabang-by-id-pdam/$idPdam'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() {
-        idCabang = data['id_cabang'];
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Gagal mengambil data cabang")),
+    try {
+      // Ganti dengan URL API Anda yang benar
+      final response = await http.get(
+        Uri.parse('http://10.0.168.221:8000/api/cabang-by-id-pdam/$idPdam'),
+        headers: {'Authorization': 'Bearer $token'},
       );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            idCabang = data['id_cabang'].toString();
+          });
+        }
+      } else {
+        throw Exception('Gagal mengambil data cabang');
+      }
+    } catch (e) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Layanan lokasi tidak aktif')),
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Izin lokasi ditolak')));
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Layanan lokasi tidak aktif')),
+        );
         return;
       }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Izin lokasi ditolak')));
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Akses lokasi ditolak permanen. Aktifkan di pengaturan.')),
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+      if (mounted) {
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mendapatkan lokasi: $e')));
+      }
     }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Akses lokasi ditolak permanen. Aktifkan di pengaturan.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    setState(() {
-      _latitude = position.latitude;
-      _longitude = position.longitude;
-    });
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-    );
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
       setState(() {
         _fotoBukti = File(pickedFile.path);
@@ -140,9 +161,7 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_latitude == null || _longitude == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Lokasi belum tersedia.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lokasi belum tersedia.")));
       return;
     }
 
@@ -152,14 +171,20 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
       );
       return;
     }
-
+    
+    // Pastikan idCabang sudah didapatkan
     await _fetchCabangByIdPdam(selectedIdPdam!);
+    if (idCabang == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Gagal mendapatkan info cabang, tidak bisa mengirim.")));
+        return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final idPelanggan = prefs.getString('id_pelanggan');
 
-    if (token == null || idPelanggan == null || idCabang == null) {
+    if (token == null || idPelanggan == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Data pengguna tidak lengkap")),
       );
@@ -172,43 +197,61 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final uri = Uri.parse('http://10.0.168.221:8000/api/pengaduans');
-    final request =
-        http.MultipartRequest('POST', uri)
-          ..headers['Authorization'] = 'Bearer $token'
-          ..fields['kategori'] = selectedKategori
-          ..fields['deskripsi_lokasi'] = lokasiController.text
-          ..fields['deskripsi'] = deskripsiController.text
-          ..fields['lokasi_maps'] =
-              'https://www.google.com/maps/search/?api=1&query=$_latitude,$_longitude'
-          ..fields['latitude'] = _latitude.toString()
-          ..fields['longitude'] = _longitude.toString()
-          ..fields['status'] = 'pending'
-          ..fields['id_pelanggan'] = idPelanggan
-          ..fields['id_pdam'] = selectedIdPdam!
-          ..fields['id_cabang'] = idCabang!
-          ..fields['tanggal_pengaduan'] = DateTime.now().toIso8601String();
+    try {
+      // Ganti dengan URL API Anda yang benar
+      final uri = Uri.parse('http://10.0.168.221:8000/api/pengaduans');
+      final request = http.MultipartRequest('POST', uri)
+            ..headers['Authorization'] = 'Bearer $token'
+            ..headers['Accept'] = 'application/json'
+            ..fields['kategori'] = selectedKategori
+            ..fields['deskripsi_lokasi'] = lokasiController.text
+            ..fields['deskripsi'] = deskripsiController.text
+            ..fields['lokasi_maps'] = 'http://maps.google.com/maps?q=$_latitude,$_longitude'
+            ..fields['latitude'] = _latitude.toString()
+            ..fields['longitude'] = _longitude.toString()
+            ..fields['id_pelanggan'] = idPelanggan
+            ..fields['id_pdam'] = selectedIdPdam!
+            ..fields['id_cabang'] = idCabang!;
 
-    if (_fotoBukti != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath('foto_bukti', _fotoBukti!.path),
-      );
-    }
+      // --- KODE BARU UNTUK MENGIRIM KATEGORI LAINNYA ---
+      if (selectedKategori == 'lain_lain') {
+        request.fields['kategori_lainnya'] = kategoriLainnyaController.text;
+      }
+      // --- AKHIR KODE BARU ---
 
-    final response = await request.send();
-    Navigator.pop(context);
+      if (_fotoBukti != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('foto_bukti', _fotoBukti!.path),
+        );
+      }
 
-    if (response.statusCode == 201) {
-      lokasiController.clear();
-      deskripsiController.clear();
-      setState(() {
-        _fotoBukti = null;
-        selectedKategori = "air tidak mengalir";
-      });
-      Navigator.pushNamed(context, '/lacak-status');
-    } else {
+      final response = await request.send();
+      Navigator.pop(context); // Tutup dialog loading
+
+      if (response.statusCode == 201) {
+        lokasiController.clear();
+        deskripsiController.clear();
+        kategoriLainnyaController.clear(); // Bersihkan juga controller ini
+        if (mounted) {
+            setState(() {
+                _fotoBukti = null;
+                selectedKategori = "air_tidak_mengalir";
+                selectedIdPdam = null;
+            });
+            // Ganti dengan navigasi yang sesuai, misalnya kembali atau ke halaman sukses
+            Navigator.pushNamed(context, '/lacak-status');
+        }
+      } else {
+        final respStr = await response.stream.bytesToString();
+        throw Exception('Gagal mengirim pengaduan. Status: ${response.statusCode}, Body: $respStr');
+      }
+    } catch (e) {
+      // Pastikan dialog ditutup jika ada error sebelum navigasi
+      if(Navigator.canPop(context)) {
+          Navigator.pop(context);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Gagal mengirim pengaduan.")),
+        SnackBar(content: Text("Error: $e")),
       );
     }
   }
@@ -226,53 +269,95 @@ class _PengaduanFormPageState extends State<PengaduanFormPage> {
               DropdownButtonFormField<String>(
                 value: selectedIdPdam,
                 decoration: const InputDecoration(labelText: "Pilih ID PDAM"),
-                items:
-                    idPdamList
-                        .map(
-                          (idPdam) => DropdownMenuItem(
+                items: idPdamList.map((idPdam) => DropdownMenuItem(
                             value: idPdam,
                             child: Text(idPdam),
-                          ),
-                        )
-                        .toList(),
+                          )).toList(),
                 onChanged: (value) => setState(() => selectedIdPdam = value),
-                validator:
-                    (value) => value == null ? 'ID PDAM harus dipilih' : null,
+                validator: (value) => value == null ? 'ID PDAM harus dipilih' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
+              // --- WIDGET BARU UNTUK MEMILIH JENIS LAPORAN ---
+              DropdownButtonFormField<String>(
+                value: selectedKategori,
+                decoration: const InputDecoration(labelText: "Jenis Laporan"),
+                items: daftarKategori.entries.map((entry) => DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        )).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedKategori = value!;
+                  });
+                },
+                validator: (value) => value == null ? 'Jenis Laporan harus dipilih' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // --- WIDGET BARU YANG MUNCUL JIKA 'LAIN-LAIN' DIPILIH ---
+              if (selectedKategori == 'lain_lain')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: TextFormField(
+                    controller: kategoriLainnyaController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sebutkan Jenis Laporan Anda',
+                      hintText: 'Contoh: Pipa bocor di depan rumah',
+                    ),
+                    validator: (value) {
+                      if (selectedKategori == 'lain_lain' && (value == null || value.isEmpty)) {
+                        return 'Wajib diisi jika memilih Lain-lain';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              // --- AKHIR WIDGET BARU ---
+
               TextFormField(
                 controller: lokasiController,
                 decoration: const InputDecoration(
-                  labelText: 'Deskripsi Lokasi',
+                  labelText: 'Deskripsi Detail Lokasi',
+                  hintText: 'Contoh: Jl. Merdeka No. 5, seberang toko A',
                 ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty ? 'Wajib diisi' : null,
+                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: deskripsiController,
                 decoration: const InputDecoration(
-                  labelText: 'Deskripsi Tambahan',
+                  labelText: 'Deskripsi Tambahan Pengaduan',
+                  hintText: 'Contoh: Air tidak mengalir sejak pagi hari',
                 ),
                 maxLines: 3,
+                 validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
               Row(
                 children: [
                   ElevatedButton.icon(
                     onPressed: _pickImage,
                     icon: const Icon(Icons.camera_alt),
-                    label: const Text("Ambil Foto"),
+                    label: const Text("Ambil Foto Bukti"),
                   ),
                   const SizedBox(width: 10),
-                  _fotoBukti != null
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : const Icon(Icons.cancel, color: Colors.red),
+                  if (_fotoBukti != null)
+                    Icon(Icons.check_circle, color: Colors.green[600])
+                  else
+                    const SizedBox.shrink(),
                 ],
               ),
               const SizedBox(height: 24),
+
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _submitForm,
                 child: const Text("Kirim Pengaduan"),
               ),
