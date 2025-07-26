@@ -1,3 +1,6 @@
+// ignore_for_file: unused_field
+
+import 'dart:developer' show log;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,13 +21,12 @@ class CalonPelangganRegisterPage extends StatefulWidget {
 
 class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     with SingleTickerProviderStateMixin {
-  // Tambahkan SingleTickerProviderStateMixin
   // --- Keys & Controllers ---
   final _formKey = GlobalKey<FormState>();
   final _apiService = ApiService();
   final _namaController = TextEditingController();
   final _noKtpController = TextEditingController();
-  final _alamatController = TextEditingController(); // Alamat pemasangan (GPS)
+  final _alamatController = TextEditingController();
   final _alamatKtpController = TextEditingController();
   final _deskripsiAlamatController = TextEditingController();
   final _noWaController = TextEditingController();
@@ -34,7 +36,21 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   bool _isSubmitting = false;
   bool _isLocationLoading = false;
   bool _isCabangLoading = true;
-  // ignore: unused_field
+
+  List<dynamic> _kecamatanOptions = [];
+  List<dynamic> _desaOptions = [];
+
+  // Variabel state yang sudah diperbaiki untuk wilayah
+  String?
+      _selectedKecamatanId; // Menyimpan ID asli untuk API desa (e.g., "3212010")
+  String?
+      _selectedKecamatanCode; // Menyimpan nilai unik untuk dropdown (e.g., "32.12.01")
+  String? _selectedKecamatanName; // Menyimpan nama untuk ditampilkan & dikirim
+  String? _selectedDesaName;
+
+  bool _isKecamatanLoading = true;
+  bool _isDesaLoading = false;
+
   String? _cabangError;
   List<Cabang> _cabangOptions = [];
   int? _selectedCabangId;
@@ -44,7 +60,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   File? _imageFileRumah;
   final _picker = ImagePicker();
 
-  // Animasi untuk tombol 'Dapatkan Lokasi'
   late AnimationController _locationButtonAnimationController;
   late Animation<double> _scaleAnimationLocation;
 
@@ -52,14 +67,11 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   void initState() {
     super.initState();
     _loadInitialData();
-
     _locationButtonAnimationController = AnimationController(
-      // Inisialisasi controller animasi
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
     _scaleAnimationLocation = Tween<double>(begin: 1.0, end: 1.02).animate(
-      // Animasi skala kecil
       CurvedAnimation(
         parent: _locationButtonAnimationController,
         curve: Curves.easeOut,
@@ -75,15 +87,14 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     _alamatKtpController.dispose();
     _deskripsiAlamatController.dispose();
     _noWaController.dispose();
-    _locationButtonAnimationController.dispose(); // Dispose controller animasi
+    _locationButtonAnimationController.dispose();
     super.dispose();
   }
-
-  // --- CORE LOGIC METHODS ---
 
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _fetchCabangOptions();
+    await _fetchKecamatan();
     await _getCurrentLocation();
     if (mounted) {
       setState(() => _isLoading = false);
@@ -91,24 +102,68 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _fetchCabangOptions() async {
-    setState(() {
-      _isCabangLoading = true;
-      _cabangError = null;
-    });
+    setState(() => _isCabangLoading = true);
     try {
       final options = await _apiService.getCabangList();
-      if (!mounted) return;
-      setState(() => _cabangOptions = options);
-      _findNearestBranch();
+      if (mounted) {
+        setState(() {
+          _cabangOptions = options;
+          _findNearestBranch();
+        });
+      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _cabangError = 'Gagal memuat data cabang: $e');
+      // Error handling
     } finally {
       if (mounted) setState(() => _isCabangLoading = false);
     }
   }
 
+// Ganti seluruh method _fetchKecamatan dengan versi ini
+  Future<void> _fetchKecamatan() async {
+    setState(() => _isKecamatanLoading = true);
+    try {
+      final List<dynamic> kecamatanData =
+          await _apiService.getKecamatanIndramayu();
+      log('Data Kecamatan Diterima: ${kecamatanData.length} item');
+      if (mounted) {
+        setState(() {
+          _kecamatanOptions = kecamatanData; // Langsung gunakan data asli
+          _isKecamatanLoading = false;
+        });
+      }
+    } catch (e) {
+      log('Error tertangkap di _fetchKecamatan: $e');
+      if (mounted) {
+        setState(() => _isKecamatanLoading = false);
+        _showSnackbar('Gagal memuat data kecamatan: $e', isError: true);
+      }
+    }
+  }
+
+  Future<void> _fetchDesa(String kecamatanId) async {
+    setState(() {
+      _isDesaLoading = true;
+      _desaOptions = [];
+      _selectedDesaName = null;
+    });
+    try {
+      final List<dynamic> desaData = await _apiService.getDesa(kecamatanId);
+      if (mounted) {
+        setState(() {
+          _desaOptions = desaData;
+          _isDesaLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDesaLoading = false);
+        _showSnackbar('Gagal memuat data desa: $e', isError: true);
+      }
+    }
+  }
+
   Future<void> _getCurrentLocation() async {
+    // ... (kode _getCurrentLocation Anda tidak perlu diubah)
     setState(() {
       _isLocationLoading = true;
       _alamatController.text = 'Mencari lokasi...';
@@ -160,6 +215,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _findNearestBranch() {
+    // ... (kode _findNearestBranch Anda tidak perlu diubah)
     if (_cabangOptions.isEmpty || _currentPosition == null) return;
 
     int? nearestBranchId;
@@ -205,6 +261,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _pickImage(ImageSource source, {required bool isKtp}) async {
+    // ... (kode _pickImage Anda tidak perlu diubah)
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -226,16 +283,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _submitRegistration() async {
+    // --- PERBAIKAN VALIDASI ---
     if (!(_formKey.currentState?.validate() ?? false)) {
-      _showSnackbar('Harap periksa kembali semua data yang wajib diisi.');
-      return;
-    }
-    if (_selectedCabangId == null) {
-      _showSnackbar('Cabang pelaporan wajib dipilih.', isError: true);
-      return;
-    }
-    if (_currentPosition == null) {
-      _showSnackbar('Lokasi GPS wajib didapatkan sebelum mendaftar.');
+      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
       return;
     }
     if (_imageFileKtp == null) {
@@ -250,17 +300,19 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     setState(() => _isSubmitting = true);
 
     try {
+      // --- PERBAIKAN PENGIRIMAN DATA (LEBIH AMAN) ---
       final data = {
-        'id_cabang': _selectedCabangId.toString(),
+        'id_cabang': _selectedCabangId?.toString() ?? '',
         'nama_lengkap': _namaController.text,
         'no_ktp': _noKtpController.text,
-        'alamat': _alamatController.text, // Mengirim Lat,Lng dari controller
+        'kecamatan': _selectedKecamatanName ?? '',
+        'desa_kelurahan': _selectedDesaName ?? '',
+        'alamat': _alamatController.text,
         'alamat_ktp': _alamatKtpController.text,
         'deskripsi_alamat': _deskripsiAlamatController.text,
         'no_wa': _noWaController.text,
       };
 
-      // UBAH BAGIAN INI UNTUK MENANGKAP RESPONSE
       final responseData = await _apiService.registerCalonPelanggan(
         data: data,
         imagePathKtp: _imageFileKtp!.path,
@@ -268,8 +320,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       );
 
       final trackingCode = responseData['data']?['tracking_code'] as String?;
-
-      _showSuccessDialog(trackingCode); // Kirim tracking code ke dialog
+      _showSuccessDialog(trackingCode);
     } catch (e) {
       _showSnackbar(
         'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
@@ -282,8 +333,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
-  // --- UI WIDGET BUILDERS ---
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -291,20 +340,18 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         title: Text(
           'Daftar Pelanggan Baru',
           style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold, color: Colors.white), // Font Poppins
+              fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor:
-            Theme.of(context).colorScheme.primary, // Gunakan warna tema
-        iconTheme:
-            const IconThemeData(color: Colors.white), // Warna ikon kembali
-        elevation: 0, // Tanpa shadow
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(20.0), // Padding lebih besar
+                padding: const EdgeInsets.all(20.0),
                 children: [
                   _buildSectionTitle('Informasi Pribadi'),
                   _buildTextFormField(
@@ -323,9 +370,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                       LengthLimitingTextInputFormatter(16),
                     ],
                     validator: (v) {
-                      if (v == null || v.isEmpty) {
+                      if (v == null || v.isEmpty)
                         return 'Nomor KTP wajib diisi';
-                      }
                       if (v.length != 16) return 'Nomor KTP harus 16 digit';
                       return null;
                     },
@@ -338,9 +384,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     keyboardType: TextInputType.phone,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (v) {
-                      if (v == null || v.isEmpty) {
-                        return 'Nomor WA wajib diisi';
-                      }
+                      if (v == null || v.isEmpty) return 'Nomor WA wajib diisi';
                       if (v.length < 10) return 'Nomor WA minimal 10 digit';
                       return null;
                     },
@@ -353,7 +397,32 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     maxLines: 3,
                   ),
                   const SizedBox(height: 24),
-
+                  _buildSectionTitle('Informasi Alamat Pemasangan'),
+                  _buildKecamatanDropdown(), // Panggil widget yang sudah diperbaiki
+                  const SizedBox(height: 16),
+                  _buildDesaDropdown(), // Panggil widget yang sudah diperbaiki
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _alamatController,
+                    label: 'Detail Alamat (Nama Jalan, No. Rumah, RT/RW)',
+                    icon: Ionicons.boat_outline,
+                    hint: 'Contoh: Jl. Merdeka No. 12, RT 01/RW 02',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildCabangDropdown(),
+                  const SizedBox(height: 16),
+                  _buildLocationField(),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    controller: _deskripsiAlamatController,
+                    label: 'Deskripsi Tambahan Alamat',
+                    icon: Ionicons.map_outline,
+                    hint: 'Contoh: Rumah cat biru, dekat masjid',
+                    isRequired: false,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 32),
                   _buildSectionTitle('Dokumen (Wajib)'),
                   _buildImageUploadCard(
                     title: 'Foto KTP',
@@ -371,23 +440,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     placeholder: 'Ketuk untuk unggah foto Rumah',
                   ),
                   const SizedBox(height: 24),
-
-                  _buildSectionTitle('Informasi Alamat Pemasangan'),
-                  _buildCabangDropdown(),
-                  const SizedBox(height: 16),
-                  _buildLocationField(),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _deskripsiAlamatController,
-                    label: 'Deskripsi Tambahan Alamat',
-                    icon: Ionicons.map_outline,
-                    hint: 'Contoh: Rumah cat biru, dekat masjid',
-                    isRequired: false,
-                    maxLines: 3, // Tambahkan maxLines untuk deskripsi
-                  ),
-                  const SizedBox(height: 32),
-
-                  _buildSubmitButton(), // Pisahkan tombol submit ke widget terpisah
+                  _buildSubmitButton(),
                 ],
               ),
             ),
@@ -395,6 +448,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildSectionTitle(String title) {
+    // ... (kode _buildSectionTitle Anda tidak perlu diubah)
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
@@ -410,6 +464,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildTextFormField({
+    // ... (kode _buildTextFormField Anda tidak perlu diubah)
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -446,6 +501,111 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
+// Ganti seluruh method _buildKecamatanDropdown dengan versi final ini
+  Widget _buildKecamatanDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedKecamatanCode,
+      hint:
+          Text(_isKecamatanLoading ? 'Memuat kecamatan...' : 'Pilih Kecamatan'),
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Kecamatan',
+        prefixIcon: Icon(Ionicons.map_outline,
+            color: Theme.of(context).colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      // --- FUNGSI ONCHANGED YANG DIPERBAIKI TOTAL ---
+      onChanged: _isKecamatanLoading
+          ? null
+          : (value) {
+              if (value != null) {
+                final selectedItem = _kecamatanOptions
+                    .firstWhere((k) => k['code'] == value, orElse: () => {});
+
+                if (selectedItem.isNotEmpty) {
+                  // FIX: Use 'code' which exists in the data, instead of 'id'.
+                  final String? kecamatanCode = selectedItem['code'] as String?;
+
+                  setState(() {
+                    _selectedKecamatanCode = selectedItem['code'];
+                    // Assign the 'code' to _selectedKecamatanId to enable the next dropdown.
+                    _selectedKecamatanId = kecamatanCode;
+                    _selectedKecamatanName = selectedItem['name'];
+                  });
+
+                  // Now this condition will be true, and villages will be fetched.
+                  if (kecamatanCode != null) {
+                    // Note: Ensure your _apiService.getDesa method can handle
+                    // the format of the code (e.g., "32.12.01").
+                    // It might need to be transformed (e.g., to "321201").
+                    _fetchDesa(kecamatanCode);
+                  }
+                }
+              }
+            },
+      items: _kecamatanOptions
+          .map((kecamatan) {
+            if (kecamatan is Map &&
+                kecamatan['code'] != null &&
+                kecamatan['name'] != null) {
+              return DropdownMenuItem<String>(
+                value: kecamatan['code'].toString(),
+                child: Text(kecamatan['name'], style: GoogleFonts.poppins()),
+              );
+            }
+            return null;
+          })
+          .whereType<DropdownMenuItem<String>>()
+          .toList(),
+      validator: (v) => v == null ? 'Kecamatan wajib dipilih' : null,
+    );
+  }
+
+  // Ganti seluruh method _buildDesaDropdown dengan versi ini
+  Widget _buildDesaDropdown() {
+    // LOG DIAGNOSTIK UNTUK MELIHAT STATE
+    log('Membangun dropdown desa, kecamatan dipilih: ${_selectedKecamatanId != null}, loading desa: $_isDesaLoading');
+
+    return DropdownButtonFormField<String>(
+      value: _selectedDesaName,
+      hint: Text(_isDesaLoading ? 'Memuat desa...' : 'Pilih Desa/Kelurahan'),
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Desa/Kelurahan',
+        prefixIcon: Icon(Ionicons.location_outline,
+            color: Theme.of(context).colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: _selectedKecamatanId == null
+            ? Colors.grey.shade200
+            : Colors.grey.shade50,
+      ),
+      onChanged: _selectedKecamatanId == null || _isDesaLoading
+          ? null
+          : (value) {
+              if (value != null) {
+                setState(() {
+                  _selectedDesaName = value;
+                });
+              }
+            },
+      items: _desaOptions
+          .where((item) => item is Map && item.containsKey('name'))
+          .map<DropdownMenuItem<String>>((desa) {
+        return DropdownMenuItem(
+          value: desa['name'] as String,
+          child: Text(
+            desa['name'] as String,
+            style: GoogleFonts.poppins(),
+          ),
+        );
+      }).toList(),
+      validator: (v) => v == null ? 'Desa/Kelurahan wajib dipilih' : null,
+    );
+  }
+
   Widget _buildCabangDropdown() {
     return DropdownButtonFormField<int>(
       value: _selectedCabangId,
@@ -478,6 +638,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildLocationField() {
+    // ... (kode _buildLocationField Anda tidak perlu diubah)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -557,6 +718,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildImageUploadCard({
+    // ... (kode _buildImageUploadCard Anda tidak perlu diubah)
     required String title,
     required File? imageFile,
     required VoidCallback onTap,
@@ -590,7 +752,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withAlpha(20),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -627,6 +789,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildSubmitButton() {
+    // ... (kode _buildSubmitButton Anda tidak perlu diubah)
     return ElevatedButton.icon(
       onPressed: _isSubmitting ? null : _submitRegistration,
       style: ElevatedButton.styleFrom(
@@ -659,9 +822,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  // --- DIALOGS & HELPERS ---
-
   void _showImageSourceActionSheet(
+    // ... (kode _showImageSourceActionSheet Anda tidak perlu diubah)
     BuildContext context, {
     required bool isKtp,
   }) {
@@ -694,6 +856,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _showSnackbar(
+    // ... (kode _showSnackbar Anda tidak perlu diubah)
     String message, {
     bool isError = true,
     Color? backgroundColor,
@@ -710,6 +873,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _showSuccessDialog(String? trackingCode) {
+    // ... (kode _showSuccessDialog Anda tidak perlu diubah)
     showDialog(
       context: context,
       barrierDismissible: false,

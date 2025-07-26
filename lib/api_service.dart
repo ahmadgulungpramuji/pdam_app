@@ -17,8 +17,8 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.250.1.181:8000/api'; //
-
+  final String baseUrl = 'http://192.168.0.113:8000/api'; //
+  final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
   final String _witAiApiVersion = '20240514'; //
@@ -26,9 +26,10 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.250.1.181:8000/api',
-            connectTimeout: const Duration(seconds: 20),
-            receiveTimeout: const Duration(seconds: 20),
+            // Pastikan baseUrl ini adalah alamat IP Anda yang benar
+            baseUrl: 'http://192.168.0.113:8000/api',
+            connectTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
           ),
         ) {
@@ -164,6 +165,41 @@ class ApiService {
         500, // Internal Server Error
         headers: {'content-type': 'application/json'},
       );
+    }
+  }
+
+  Future<List<dynamic>> getKecamatanIndramayu() async {
+    // ID Kabupaten Indramayu adalah 3212
+    final String url = '$_wilayahBaseUrl/districts/32.12.json';
+    try {
+      final response = await _dio.get(url);
+      if (response.statusCode == 200) {
+        // FIX: Change this back. The response is a Map with a 'data' key.
+        return response.data['data'] as List<dynamic>;
+      } else {
+        throw Exception('Gagal memuat data kecamatan.');
+      }
+    } catch (e) {
+      log('Error di getKecamatanIndramayu: ${e.toString()}');
+      rethrow;
+    }
+  }
+
+// --- UPDATE METHOD UNTUK MENGAMBIL DESA ---
+  Future<List<dynamic>> getDesa(String kecamatanId) async {
+    // ID Kecamatan contohnya 3212010
+    final String url = '$_wilayahBaseUrl/villages/$kecamatanId.json';
+    try {
+      final response = await _dio.get(url);
+      if (response.statusCode == 200) {
+        // FIX: Change this back as well.
+        return response.data['data'] as List<dynamic>;
+      } else {
+        throw Exception('Gagal memuat data desa.');
+      }
+    } catch (e) {
+      log('Error di getDesa: ${e.toString()}');
+      rethrow;
     }
   }
 
