@@ -20,7 +20,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
   final _apiService = ApiService();
   late Map<String, dynamic> _currentData;
 
-  // State untuk rating
   final _komentarRatingController = TextEditingController();
   double _ratingKecepatan = 0;
   double _ratingPelayanan = 0;
@@ -35,7 +34,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
   }
 
   void _initializeRatingState() {
-    // Inisialisasi state rating dari data yang ada
     setState(() {
       _ratingKecepatan =
           (_currentData['rating_kecepatan'] as num?)?.toDouble() ?? 0;
@@ -69,7 +67,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
             .trackCalonPelanggan(_currentData['tracking_code']);
         if (mounted) {
           setState(() => _currentData = updatedData);
-          _initializeRatingState(); // Re-inisialisasi rating setelah refresh
+          _initializeRatingState();
           _showSnackbar("Data pendaftaran diperbarui.", isError: false);
         }
       }
@@ -101,7 +99,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
       if (mounted) {
         _showSnackbar('Penilaian berhasil dikirim!', isError: false);
-        await _refreshData(); // Muat ulang data untuk menampilkan rating terbaru
+        await _refreshData();
       }
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());
@@ -154,7 +152,17 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   label: 'Cabang Pendaftaran',
                   value: namaCabang),
 
-              // Tampilkan rating yang sudah ada jika sudah di-rate
+              // === WIDGET BARU UNTUK FOTO-FOTO ===
+              _buildPhotoCard(
+                title: '📸 Foto Hasil Survey',
+                imageUrl: _currentData['foto_survey'],
+              ),
+              _buildPhotoCard(
+                title: '🛠️ Foto Hasil Pemasangan',
+                imageUrl: _currentData['foto_pemasangan'],
+              ),
+              // === AKHIR WIDGET BARU ===
+
               if (_currentData['rating_hasil'] != null) ...[
                 const Divider(height: 24, thickness: 1),
                 Text(
@@ -184,8 +192,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                       label: 'Komentar',
                       value: _currentData['komentar_rating']),
               ],
-
-              // Tampilkan form rating jika status 'terpasang'
+              
               if (status.toLowerCase() == 'terpasang') _buildRatingSection(),
 
               const SizedBox(height: 20),
@@ -207,11 +214,101 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
+  // === WIDGET BARU UNTUK MENAMPILKAN KARTU FOTO ===
+  Widget _buildPhotoCard({required String title, String? imageUrl}) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return const SizedBox.shrink(); // Jangan tampilkan apapun jika URL tidak ada
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showImageDialog(context, imageUrl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Image.network(
+              imageUrl,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  height: 200,
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  alignment: Alignment.center,
+                  color: Colors.grey.shade200,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Ionicons.warning_outline, color: Colors.red, size: 40),
+                      SizedBox(height: 8),
+                      Text('Gagal Memuat Gambar'),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text('Ketuk untuk perbesar', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  SizedBox(width: 4),
+                  Icon(Ionicons.expand_outline, color: Colors.grey, size: 16),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // === WIDGET BARU UNTUK MENAMPILKAN GAMBAR DALAM DIALOG ===
+  void _showImageDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: InteractiveViewer(
+            child: Image.network(imageUrl),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatusCard(String status) {
     return Card(
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
+      child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [

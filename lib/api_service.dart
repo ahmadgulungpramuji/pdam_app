@@ -17,7 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.0.113:8000/api'; //
+  final String baseUrl = 'http://192.250.1.174:8000/api'; //
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -27,7 +27,7 @@ class ApiService {
       : _dio = Dio(
           BaseOptions(
             // Pastikan baseUrl ini adalah alamat IP Anda yang benar
-            baseUrl: 'http://192.168.0.113:8000/api',
+            baseUrl: 'http://192.250.1.174:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
