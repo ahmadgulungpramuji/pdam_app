@@ -152,7 +152,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   label: 'Cabang Pendaftaran',
                   value: namaCabang),
 
-              // === WIDGET BARU UNTUK FOTO-FOTO ===
               _buildPhotoCard(
                 title: '📸 Foto Hasil Survey',
                 imageUrl: _currentData['foto_survey'],
@@ -161,7 +160,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                 title: '🛠️ Foto Hasil Pemasangan',
                 imageUrl: _currentData['foto_pemasangan'],
               ),
-              // === AKHIR WIDGET BARU ===
+              
 
               if (_currentData['rating_hasil'] != null) ...[
                 const Divider(height: 24, thickness: 1),

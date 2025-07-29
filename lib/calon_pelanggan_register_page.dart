@@ -1,15 +1,19 @@
 // ignore_for_file: unused_field
 
+import 'dart:async'; // <-- Ditambahkan
 import 'dart:developer' show log;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/cabang_model.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+
+// Enum untuk merepresentasikan semua kemungkinan status validasi KTP
+enum KtpValidationState { initial, invalidLength, checking, valid, taken }
 
 class CalonPelangganRegisterPage extends StatefulWidget {
   const CalonPelangganRegisterPage({super.key});
@@ -34,22 +38,18 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   // --- State Variables ---
   bool _isLoading = true;
   bool _isSubmitting = false;
-  bool _isLocationLoading = false;
-  bool _isCabangLoading = true;
-
   List<dynamic> _kecamatanOptions = [];
   List<dynamic> _desaOptions = [];
 
   // Variabel state yang sudah diperbaiki untuk wilayah
-  String?
-      _selectedKecamatanId; // Menyimpan ID asli untuk API desa (e.g., "3212010")
-  String?
-      _selectedKecamatanCode; // Menyimpan nilai unik untuk dropdown (e.g., "32.12.01")
-  String? _selectedKecamatanName; // Menyimpan nama untuk ditampilkan & dikirim
+  String? _selectedKecamatanId;
+  String? _selectedKecamatanCode;
+  String? _selectedKecamatanName;
   String? _selectedDesaName;
 
   bool _isKecamatanLoading = true;
   bool _isDesaLoading = false;
+  bool _isCabangLoading = true;
 
   String? _cabangError;
   List<Cabang> _cabangOptions = [];
@@ -62,6 +62,12 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
   late AnimationController _locationButtonAnimationController;
   late Animation<double> _scaleAnimationLocation;
+
+ 
+  KtpValidationState _ktpState = KtpValidationState.initial;
+  String? _ktpServerMessage;
+  Timer? _debounce;
+  bool _isLocationLoading = false;
 
   @override
   void initState() {
@@ -81,6 +87,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
   @override
   void dispose() {
+    _debounce?.cancel(); // <-- Ditambahkan untuk mencegah memory leak
     _namaController.dispose();
     _noKtpController.dispose();
     _alamatController.dispose();
@@ -118,7 +125,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
-// Ganti seluruh method _fetchKecamatan dengan versi ini
   Future<void> _fetchKecamatan() async {
     setState(() => _isKecamatanLoading = true);
     try {
@@ -127,7 +133,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       log('Data Kecamatan Diterima: ${kecamatanData.length} item');
       if (mounted) {
         setState(() {
-          _kecamatanOptions = kecamatanData; // Langsung gunakan data asli
+          _kecamatanOptions = kecamatanData;
           _isKecamatanLoading = false;
         });
       }
@@ -163,12 +169,11 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _getCurrentLocation() async {
-    // ... (kode _getCurrentLocation Anda tidak perlu diubah)
-    setState(() {
-      _isLocationLoading = true;
-      _alamatController.text = 'Mencari lokasi...';
-    });
+    // 1. Mulai state loading
+    setState(() => _isLocationLoading = true); 
+
     try {
+      // 2. Dapatkan izin dan koordinat GPS
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) throw Exception('Layanan lokasi tidak aktif.');
 
@@ -187,35 +192,35 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         desiredAccuracy: LocationAccuracy.high,
       );
 
+      // 3. Panggil API untuk mengubah koordinat menjadi alamat
+      final String addressFromGps = await _apiService.getAddressFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      // 4. Update state dengan data baru
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          _alamatController.text =
-              '${position.latitude}, ${position.longitude}';
+          _alamatController.text = addressFromGps; // Isi detail alamat
         });
-        _showSnackbar('Lokasi GPS berhasil didapatkan!', isError: false);
-        _findNearestBranch();
+        _showSnackbar('Lokasi & Alamat berhasil didapatkan!', isError: false);
+        _findNearestBranch(); // Cari cabang terdekat
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _currentPosition = null;
-          _alamatController.text = '';
-        });
-        _showSnackbar(
-          e.toString().replaceFirst("Exception: ", ""),
-          isError: true,
-        );
+        setState(() => _currentPosition = null);
+        _showSnackbar(e.toString().replaceFirst("Exception: ", ""), isError: true);
       }
     } finally {
+      // 5. Selalu hentikan state loading, baik berhasil maupun gagal
       if (mounted) {
         setState(() => _isLocationLoading = false);
       }
     }
   }
 
-  void _findNearestBranch() {
-    // ... (kode _findNearestBranch Anda tidak perlu diubah)
+ void _findNearestBranch() {
     if (_cabangOptions.isEmpty || _currentPosition == null) return;
 
     int? nearestBranchId;
@@ -225,7 +230,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     for (var cabang in _cabangOptions) {
       final String? lokasiMaps = cabang.lokasiMaps;
       if (lokasiMaps != null && lokasiMaps.isNotEmpty) {
-        try {
+        try { // <- Kunci: Blok try-catch ada di dalam loop
           final List<String> latLng = lokasiMaps.split(',');
           if (latLng.length == 2) {
             final double branchLat = double.parse(latLng[0].trim());
@@ -243,7 +248,10 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
               nearestBranchName = cabang.namaCabang;
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          // JIKA ADA ERROR PADA 1 DATA, CETAK LOG & LANJUTKAN KE DATA BERIKUTNYA
+          log('Error parsing lokasi_maps untuk cabang ID ${cabang.id}: $e');
+        }
       }
     }
 
@@ -253,7 +261,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         _detectedCabangName = nearestBranchName;
       });
       _showSnackbar(
-        'Cabang terdekat ($nearestBranchName) otomatis terdeteksi.',
+        'Cabang terdekat ($nearestBranchName) otomatis terpilih.',
         isError: false,
         backgroundColor: Colors.blue.shade700,
       );
@@ -261,7 +269,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _pickImage(ImageSource source, {required bool isKtp}) async {
-    // ... (kode _pickImage Anda tidak perlu diubah)
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -282,8 +289,49 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
+  /// Metode baru untuk menangani logika validasi KTP
+  Future<void> _onKtpChanged(String value) async {
+    if (_ktpServerMessage != null) {
+      setState(() => _ktpServerMessage = null);
+    }
+
+    _debounce?.cancel();
+
+    if (value.isEmpty) {
+      setState(() => _ktpState = KtpValidationState.initial);
+      return;
+    }
+
+    if (value.length < 16) {
+      setState(() => _ktpState = KtpValidationState.invalidLength);
+      return;
+    }
+
+    if (value.length == 16) {
+      setState(() => _ktpState = KtpValidationState.checking);
+      _debounce = Timer(const Duration(milliseconds: 700), () async {
+        try {
+          final isTaken = await _apiService.checkKtpExists(value);
+          if (mounted) {
+            setState(() {
+              _ktpState =
+                  isTaken ? KtpValidationState.taken : KtpValidationState.valid;
+              if (isTaken) _ktpServerMessage = 'No. KTP ini sudah terdaftar.';
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _ktpState = KtpValidationState.taken;
+              _ktpServerMessage = 'Gagal memverifikasi No. KTP.';
+            });
+          }
+        }
+      });
+    }
+  }
+
   Future<void> _submitRegistration() async {
-    // --- PERBAIKAN VALIDASI ---
     if (!(_formKey.currentState?.validate() ?? false)) {
       _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
       return;
@@ -300,7 +348,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     setState(() => _isSubmitting = true);
 
     try {
-      // --- PERBAIKAN PENGIRIMAN DATA (LEBIH AMAN) ---
       final data = {
         'id_cabang': _selectedCabangId?.toString() ?? '',
         'nama_lengkap': _namaController.text,
@@ -360,22 +407,10 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     icon: Ionicons.person_outline,
                   ),
                   const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _noKtpController,
-                    label: 'Nomor KTP (16 digit)',
-                    icon: Ionicons.card_outline,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(16),
-                    ],
-                    validator: (v) {
-                      if (v == null || v.isEmpty)
-                        return 'Nomor KTP wajib diisi';
-                      if (v.length != 16) return 'Nomor KTP harus 16 digit';
-                      return null;
-                    },
-                  ),
+                  
+                  // Pemanggilan widget KTP yang baru
+                  _buildKtpFormField(),
+                  
                   const SizedBox(height: 16),
                   _buildTextFormField(
                     controller: _noWaController,
@@ -398,9 +433,10 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                   ),
                   const SizedBox(height: 24),
                   _buildSectionTitle('Informasi Alamat Pemasangan'),
-                  _buildKecamatanDropdown(), // Panggil widget yang sudah diperbaiki
+                   _buildLocationNote(), 
+                  _buildKecamatanDropdown(),
                   const SizedBox(height: 16),
-                  _buildDesaDropdown(), // Panggil widget yang sudah diperbaiki
+                  _buildDesaDropdown(),
                   const SizedBox(height: 16),
                   _buildTextFormField(
                     controller: _alamatController,
@@ -448,23 +484,20 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildSectionTitle(String title) {
-    // ... (kode _buildSectionTitle Anda tidak perlu diubah)
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title,
         style: GoogleFonts.poppins(
-          // Gunakan Poppins
-          fontSize: 20, // Lebih besar
+          fontSize: 20,
           fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary, // Warna tema
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
   }
 
   Widget _buildTextFormField({
-    // ... (kode _buildTextFormField Anda tidak perlu diubah)
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -481,11 +514,11 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon,
-            color: Theme.of(context).colorScheme.primary), // Warna ikon
+            color: Theme.of(context).colorScheme.primary),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12)), // Sudut membulat
+            borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor: Colors.grey.shade50, // Latar belakang abu-abu muda
+        fillColor: Colors.grey.shade50,
       ),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
@@ -497,11 +530,80 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
             return null;
           },
       maxLines: maxLines,
-      style: GoogleFonts.poppins(), // Font Poppins untuk input
+      style: GoogleFonts.poppins(),
     );
   }
 
-// Ganti seluruh method _buildKecamatanDropdown dengan versi final ini
+  /// Widget baru yang didedikasikan untuk field KTP dengan validasi real-time.
+  Widget _buildKtpFormField() {
+    Widget? suffixIcon;
+    Color inputColor = Colors.black87;
+
+    switch (_ktpState) {
+      case KtpValidationState.invalidLength:
+        suffixIcon = const Icon(Icons.cancel, color: Colors.red);
+        inputColor = Colors.red;
+        break;
+      case KtpValidationState.checking:
+        suffixIcon = const SizedBox(
+            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2));
+        break;
+      case KtpValidationState.valid:
+        suffixIcon = const Icon(Icons.check_circle, color: Colors.green);
+        inputColor = Colors.green.shade800;
+        break;
+      case KtpValidationState.taken:
+        suffixIcon = const Icon(Icons.error, color: Colors.red);
+        inputColor = Colors.red;
+        break;
+      case KtpValidationState.initial:
+        suffixIcon = null;
+        break;
+    }
+
+    return TextFormField(
+      controller: _noKtpController,
+      onChanged: _onKtpChanged,
+      decoration: InputDecoration(
+        labelText: 'Nomor KTP (16 digit)',
+        prefixIcon: Icon(Ionicons.card_outline,
+            color: Theme.of(context).colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        suffixIcon: suffixIcon,
+        helperText: _ktpState == KtpValidationState.checking
+            ? 'Memeriksa ketersediaan...'
+            : _ktpServerMessage,
+        helperStyle: TextStyle(
+            color: _ktpState == KtpValidationState.taken ? Colors.red : Colors.grey),
+      ),
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(16),
+      ],
+      style: GoogleFonts.poppins(
+        color: inputColor,
+        fontWeight: FontWeight.w600,
+      ),
+      validator: (v) {
+        if (v == null || v.isEmpty) return 'Nomor KTP wajib diisi';
+        if (_ktpState == KtpValidationState.invalidLength) {
+          return 'Nomor KTP harus 16 digit';
+        }
+        if (_ktpState == KtpValidationState.taken) {
+          return _ktpServerMessage;
+        }
+        // Pastikan KTP sudah divalidasi dan benar sebelum submit
+        if (_ktpState != KtpValidationState.valid) {
+          return 'Mohon pastikan No. KTP benar dan tersedia.';
+        }
+        return null;
+      },
+    );
+  }
+
   Widget _buildKecamatanDropdown() {
     return DropdownButtonFormField<String>(
       value: _selectedKecamatanCode,
@@ -516,7 +618,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
-      // --- FUNGSI ONCHANGED YANG DIPERBAIKI TOTAL ---
       onChanged: _isKecamatanLoading
           ? null
           : (value) {
@@ -525,21 +626,13 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     .firstWhere((k) => k['code'] == value, orElse: () => {});
 
                 if (selectedItem.isNotEmpty) {
-                  // FIX: Use 'code' which exists in the data, instead of 'id'.
                   final String? kecamatanCode = selectedItem['code'] as String?;
-
                   setState(() {
                     _selectedKecamatanCode = selectedItem['code'];
-                    // Assign the 'code' to _selectedKecamatanId to enable the next dropdown.
                     _selectedKecamatanId = kecamatanCode;
                     _selectedKecamatanName = selectedItem['name'];
                   });
-
-                  // Now this condition will be true, and villages will be fetched.
                   if (kecamatanCode != null) {
-                    // Note: Ensure your _apiService.getDesa method can handle
-                    // the format of the code (e.g., "32.12.01").
-                    // It might need to be transformed (e.g., to "321201").
                     _fetchDesa(kecamatanCode);
                   }
                 }
@@ -563,9 +656,40 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  // Ganti seluruh method _buildDesaDropdown dengan versi ini
+
+    Widget _buildLocationNote() {
+    return Container(
+      padding: const EdgeInsets.all(12.0),
+      margin: const EdgeInsets.only(bottom: 16.0),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade600, width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Ionicons.warning_outline,
+            color: Colors.amber.shade800,
+            size: 28,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'PENTING: Pastikan Anda berada di lokasi rumah yang akan dipasang saat menekan tombol "CARI LOKASI SAYA" untuk akurasi alamat dan penentuan cabang.',
+              style: GoogleFonts.poppins(
+                color: Colors.brown.shade800,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDesaDropdown() {
-    // LOG DIAGNOSTIK UNTUK MELIHAT STATE
     log('Membangun dropdown desa, kecamatan dipilih: ${_selectedKecamatanId != null}, loading desa: $_isDesaLoading');
 
     return DropdownButtonFormField<String>(
@@ -624,8 +748,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
           .map(
             (c) => DropdownMenuItem(
               value: c.id,
-              child: Text(c.namaCabang,
-                  style: GoogleFonts.poppins()), // Font Poppins
+              child: Text(c.namaCabang, style: GoogleFonts.poppins()),
             ),
           )
           .toList(),
@@ -637,79 +760,64 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  Widget _buildLocationField() {
-    // ... (kode _buildLocationField Anda tidak perlu diubah)
+ Widget _buildLocationField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 1. Text Field untuk menampilkan koordinat (BUKAN ALAMAT)
         TextFormField(
-          controller: _alamatController,
+          // Gunakan Key untuk update nilai secara paksa saat _currentPosition berubah
+          key: ValueKey(_currentPosition), 
+          initialValue: _currentPosition != null
+              ? '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
+              : '',
           readOnly: true,
           decoration: InputDecoration(
-            labelText: 'Lokasi GPS Pemasangan',
-            labelStyle: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary),
-            hintText: 'Latitude, Longitude akan muncul di sini',
+            labelText: 'Koordinat GPS Pemasangan',
+            hintText: 'Koordinat akan muncul di sini',
             prefixIcon: Icon(Ionicons.navigate_circle_outline,
                 color: Theme.of(context).colorScheme.primary),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
-            fillColor: Colors.blue.shade50, // Warna latar belakang berbeda
+            fillColor: Colors.blue.shade50,
           ),
           validator: (value) {
-            if (value == null || value.isEmpty || _currentPosition == null) {
-              return 'Lokasi GPS wajib didapatkan';
-            }
+            if (_currentPosition == null) return 'Lokasi GPS wajib didapatkan';
             return null;
           },
           style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              color: Colors.blue.shade900), // Font Poppins
+              fontWeight: FontWeight.bold, color: Colors.blue.shade900),
         ),
-        const SizedBox(height: 10), // Spasi lebih besar
-        ScaleTransition(
-          // Animasi skala pada tombol
-          scale: _scaleAnimationLocation,
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              // Ganti TextButton dengan ElevatedButton
-              onPressed: _isLocationLoading
-                  ? null
-                  : () {
-                      _locationButtonAnimationController.forward().then((_) {
-                        _locationButtonAnimationController.reverse();
-                      });
-                      _getCurrentLocation();
-                    },
-              icon: _isLocationLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Ionicons.locate_outline),
-              label: Text(
-                _isLocationLoading
-                    ? 'MENCARI LOKASI...'
-                    : 'DAPATKAN LOKASI SAAT INI',
-                style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.bold), // Font Poppins
+        const SizedBox(height: 10),
+        // 2. Tombol dinamis
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isLocationLoading ? null : _getCurrentLocation,
+            icon: _isLocationLoading
+                ? Container( // Tampilkan spinner jika loading
+                    width: 20,
+                    height: 20,
+                    margin: const EdgeInsets.only(right: 8),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Ionicons.location_sharp), // Icon normal
+            label: Text(
+              _isLocationLoading ? 'SEDANG MENCARI...' : 'CARI LOKASI SAYA',
+              style: GoogleFonts.poppins(
+                  fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700, // Warna tombol
-                foregroundColor: Colors.white, // Warna teks
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14), // Padding lebih
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12), // Sudut membulat
-                ),
-                elevation: 4, // Efek shadow
-              ),
+              elevation: 4,
             ),
           ),
         ),
@@ -718,7 +826,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildImageUploadCard({
-    // ... (kode _buildImageUploadCard Anda tidak perlu diubah)
     required String title,
     required File? imageFile,
     required VoidCallback onTap,
@@ -789,12 +896,11 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildSubmitButton() {
-    // ... (kode _buildSubmitButton Anda tidak perlu diubah)
     return ElevatedButton.icon(
       onPressed: _isSubmitting ? null : _submitRegistration,
       style: ElevatedButton.styleFrom(
         backgroundColor:
-            Theme.of(context).colorScheme.secondary, // Warna tombol submit
+            Theme.of(context).colorScheme.secondary,
         foregroundColor: Theme.of(context).colorScheme.onSecondary,
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(
@@ -811,7 +917,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                 strokeWidth: 3,
               ),
             )
-          : const Icon(Ionicons.send_outline), // Icon kirim
+          : const Icon(Ionicons.send_outline),
       label: Text(
         _isSubmitting ? 'Mendaftar...' : 'DAFTAR SEKARANG',
         style: GoogleFonts.poppins(
@@ -823,7 +929,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _showImageSourceActionSheet(
-    // ... (kode _showImageSourceActionSheet Anda tidak perlu diubah)
     BuildContext context, {
     required bool isKtp,
   }) {
@@ -856,7 +961,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _showSnackbar(
-    // ... (kode _showSnackbar Anda tidak perlu diubah)
     String message, {
     bool isError = true,
     Color? backgroundColor,
@@ -864,7 +968,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: GoogleFonts.poppins()), // Font Poppins
+        content: Text(message, style: GoogleFonts.poppins()),
         backgroundColor: backgroundColor ??
             (isError ? Colors.red.shade700 : Colors.green.shade700),
         behavior: SnackBarBehavior.floating,
@@ -873,7 +977,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   void _showSuccessDialog(String? trackingCode) {
-    // ... (kode _showSuccessDialog Anda tidak perlu diubah)
     showDialog(
       context: context,
       barrierDismissible: false,

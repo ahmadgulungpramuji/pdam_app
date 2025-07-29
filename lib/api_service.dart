@@ -17,7 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.250.1.174:8000/api'; //
+  final String baseUrl = 'http://192.168.164.196:8000/api'; //
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
   final String _witAiApiUrl = 'https://api.wit.ai/message'; //
@@ -27,7 +27,7 @@ class ApiService {
       : _dio = Dio(
           BaseOptions(
             // Pastikan baseUrl ini adalah alamat IP Anda yang benar
-            baseUrl: 'http://192.250.1.174:8000/api',
+            baseUrl: 'http://192.168.164.196:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -184,6 +184,38 @@ class ApiService {
       rethrow;
     }
   }
+    Future<String> getAddressFromCoordinates(double lat, double lon) async {
+    // URL untuk API Nominatim (OpenStreetMap)
+    final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon');
+    log('Memanggil OpenStreetMap: $url');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'ID.PDAM.App/1.0'}, // Header ini disarankan oleh OSM
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // 'display_name' biasanya berisi alamat lengkap yang kita butuhkan
+        final displayName = data['display_name'] as String?;
+        if (displayName != null) {
+          return displayName;
+        } else {
+          return 'Detail alamat tidak ditemukan dari GPS.';
+        }
+      } else {
+        return 'Gagal mendapatkan alamat (Status: ${response.statusCode})';
+      }
+    } on TimeoutException {
+      return 'Gagal terhubung ke server peta.';
+    } catch (e) {
+      return 'Terjadi kesalahan: ${e.toString()}';
+    }
+  }
+
+
 
 // --- UPDATE METHOD UNTUK MENGAMBIL DESA ---
   Future<List<dynamic>> getDesa(String kecamatanId) async {
@@ -453,6 +485,28 @@ class ApiService {
       throw Exception(errorBody['message'] ?? 'Gagal membatalkan penugasan.');
     }
   }
+
+       Future<bool> checkKtpExists(String noKtp) async {
+    final url = Uri.parse('$baseUrl/check-ktp/$noKtp');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        return responseData['exists'] as bool;
+      } else {
+        throw Exception('Gagal memverifikasi No. KTP ke server.');
+      }
+    } on TimeoutException {
+      throw Exception('Server tidak merespons. Cek koneksi Anda.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
 
   Future<Map<String, dynamic>> registerCalonPelanggan({
     required Map<String, String> data,
@@ -1683,6 +1737,9 @@ class ApiService {
 
     final streamedResponse = await request.send(); //
     final response = await http.Response.fromStream(streamedResponse); //
+    log('==== DEBUG API RESPONSE ====');
+    log(response.body);
+    log('============================');
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       //
