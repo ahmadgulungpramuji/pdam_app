@@ -602,12 +602,10 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
   Widget _buildPhotoGallery() {
     final photos = {
-      'Foto KTP': _currentTugas.detailTugasLengkap['foto_ktp_url'],
-      'Foto Rumah': _currentTugas.fotoRumahUrl, // Ini sudah benar
-      'Foto Hasil Survey':
-          _currentTugas.detailTugasLengkap['foto_survey_url'], // <-- PERUBAHAN
-      'Foto Pemasangan': _currentTugas
-          .detailTugasLengkap['foto_pemasangan_url'], // <-- PERUBAHAN
+      // "Foto KTP" dihilangkan sesuai permintaan.
+      'Foto Rumah': _currentTugas.fotoRumahUrl,
+      'Foto Hasil Survey': _currentTugas.fotoSebelumUrl, // INI PERBAIKANNYA
+      'Foto Pemasangan': _currentTugas.fotoSesudahUrl, // INI PERBAIKANNYA
     };
 
     return GridView.builder(
