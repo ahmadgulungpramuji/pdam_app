@@ -602,9 +602,12 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
   Widget _buildPhotoGallery() {
     final photos = {
-      'Foto Rumah': _currentTugas.fotoRumahUrl,
-      'Foto Hasil Survey': _currentTugas.fotoSebelumUrl,
-      'Foto Pemasangan': _currentTugas.fotoSesudahUrl,
+      'Foto KTP': _currentTugas.detailTugasLengkap['foto_ktp_url'],
+      'Foto Rumah': _currentTugas.fotoRumahUrl, // Ini sudah benar
+      'Foto Hasil Survey':
+          _currentTugas.detailTugasLengkap['foto_survey_url'], // <-- PERUBAHAN
+      'Foto Pemasangan': _currentTugas
+          .detailTugasLengkap['foto_pemasangan_url'], // <-- PERUBAHAN
     };
 
     return GridView.builder(
@@ -619,7 +622,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       itemBuilder: (context, index) {
         final title = photos.keys.elementAt(index);
         final url = photos.values.elementAt(index);
-        // -- PERUBAHAN: Memanggil versi _buildPhotoItem yang sudah dikoreksi --
         return _buildPhotoItem(title, url);
       },
     );
