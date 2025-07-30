@@ -17,17 +17,16 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.164.196:8000/api'; //
+  final String baseUrl = 'http://10.140.2.148:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
-  final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN'; //
-  final String _witAiApiUrl = 'https://api.wit.ai/message'; //
-  final String _witAiApiVersion = '20240514'; //
+  final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
+  final String _witAiApiUrl = 'https://api.wit.ai/message';
+  final String _witAiApiVersion = '20240514';
 
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            // Pastikan baseUrl ini adalah alamat IP Anda yang benar
-            baseUrl: 'http://192.168.164.196:8000/api',
+            baseUrl: 'http://10.140.2.148:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -184,7 +183,8 @@ class ApiService {
       rethrow;
     }
   }
-    Future<String> getAddressFromCoordinates(double lat, double lon) async {
+
+  Future<String> getAddressFromCoordinates(double lat, double lon) async {
     // URL untuk API Nominatim (OpenStreetMap)
     final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon');
@@ -193,7 +193,9 @@ class ApiService {
     try {
       final response = await http.get(
         url,
-        headers: {'User-Agent': 'ID.PDAM.App/1.0'}, // Header ini disarankan oleh OSM
+        headers: {
+          'User-Agent': 'ID.PDAM.App/1.0'
+        }, // Header ini disarankan oleh OSM
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
@@ -214,8 +216,6 @@ class ApiService {
       return 'Terjadi kesalahan: ${e.toString()}';
     }
   }
-
-
 
 // --- UPDATE METHOD UNTUK MENGAMBIL DESA ---
   Future<List<dynamic>> getDesa(String kecamatanId) async {
@@ -486,7 +486,7 @@ class ApiService {
     }
   }
 
-       Future<bool> checkKtpExists(String noKtp) async {
+  Future<bool> checkKtpExists(String noKtp) async {
     final url = Uri.parse('$baseUrl/check-ktp/$noKtp');
     try {
       final response = await http.get(
@@ -506,7 +506,6 @@ class ApiService {
       rethrow;
     }
   }
-
 
   Future<Map<String, dynamic>> registerCalonPelanggan({
     required Map<String, String> data,
