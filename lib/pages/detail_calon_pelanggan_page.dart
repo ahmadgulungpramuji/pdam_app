@@ -349,8 +349,16 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
   }
 
   Future<void> _launchMaps(String address) async {
-    final Uri mapsUrl = Uri.parse(
-        'http://googleusercontent.com/maps/api/2{Uri.encodeComponent(address)}');
+    // Memastikan format alamat adalah "latitude,longitude"
+    if (!address.contains(',') || address.split(',').length != 2) {
+      _showSnackbar('Format koordinat tidak valid.', isError: true);
+      return;
+    }
+
+    // *** PERBAIKAN FORMAT URL GOOGLE MAPS YANG BENAR DAN UNIVERSAL ***
+    // Ini akan membuka Google Maps di browser atau aplikasi jika terinstal
+    final Uri mapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');
+
     try {
       if (await canLaunchUrl(mapsUrl)) {
         await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
@@ -358,10 +366,10 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         throw 'Could not launch $mapsUrl';
       }
     } catch (e) {
-      _showSnackbar('Tidak dapat membuka Google Maps.', isError: true);
+      _showSnackbar('Tidak dapat membuka Google Maps: ${e.toString()}', isError: true);
     }
   }
-
+  
   void _showSnackbar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
