@@ -1,5 +1,5 @@
 // lib/home_pelanggan_page.dart
-// ignore_for_file: unused_element, unused_field
+// ignore_for_file: unused_element, unused_field, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +8,10 @@ import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/pages/notifikasi_page.dart';
-import 'package:pdam_app/view_profil_page.dart'; // **IMPORT HALAMAN BARU**
+import 'package:pdam_app/view_profil_page.dart';
+import 'package:pdam_app/lacak_laporan_saya_page.dart';
+import 'package:pdam_app/cek_tunggakan_page.dart';
+import 'package:pdam_app/lapor_foto_meter_page.dart';
 
 class HomePelangganPage extends StatefulWidget {
   const HomePelangganPage({super.key});
@@ -23,6 +26,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   bool _isLoading = true;
   String? _errorMessage;
   int _unreadNotifCount = 0;
+  int _currentIndex = 0;
 
   Future<void> _fetchUnreadCount() async {
     try {
@@ -35,46 +39,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     } catch (e) {
       // Biarkan 0 jika gagal, tidak perlu menampilkan error
     }
-  }
-
-  final List<Map<String, dynamic>> _menuItems = [
-    {
-      'icon': Ionicons.document_text_outline,
-      'title': 'Buat Laporan',
-      'subtitle': 'Keluhan & masalah layanan',
-      'route': '/buat_laporan',
-    },
-    {
-      'icon': Ionicons.search_circle_outline,
-      'title': 'Lacak Laporan',
-      'subtitle': 'Lihat progres laporan',
-      'route': '/lacak_laporan_saya',
-    },
-    {
-      'icon': Ionicons.receipt_outline,
-      'title': 'Info Tagihan',
-      'subtitle': 'Cek tunggakan & ID',
-      'route': '/cek_tunggakan',
-    },
-    {
-      'icon': Ionicons.camera_outline,
-      'title': 'Lapor Foto Meter',
-      'subtitle': 'Kirim foto meteran Anda',
-      'route': '/lapor_foto_meter',
-    },
-    {
-      'icon': Ionicons.chatbubbles_outline,
-      'title': 'Hubungi Kami',
-      'subtitle': 'Admin & info PDAM',
-      'route': '/chat_page',
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-    _fetchUnreadCount();
   }
 
   Future<void> _loadUserData() async {
@@ -91,7 +55,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             _userData = data;
             _isLoading = false;
           });
-          _fetchUnreadCount(); // <-- Panggil juga di sini
+          _fetchUnreadCount();
         } else {
           _showSnackbar(
             'Gagal memuat data pengguna. Sesi mungkin telah berakhir.',
@@ -103,8 +67,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage =
-              "Tidak dapat memuat data Anda. Periksa koneksi internet dan coba lagi.";
+          _errorMessage = "Tidak dapat memuat data Anda. Periksa koneksi internet dan coba lagi.";
           _isLoading = false;
         });
       }
@@ -151,6 +114,391 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       (hsl.lightness + amount).clamp(0.0, 1.0),
     );
     return hslLight.toColor();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Widget _buildHomeContent(ColorScheme colorScheme) {
+    final List<Map<String, dynamic>> primaryMenuItems = [
+      {
+        'icon': Ionicons.document_text_outline,
+        'title': 'Buat Laporan',
+        'subtitle': 'Keluhan & masalah layanan',
+        'route': '/buat_laporan',
+        'color': Colors.blue.shade400,
+      },
+      {
+        'icon': Ionicons.chatbubbles_outline,
+        'title': 'Hubungi Kami',
+        'subtitle': 'Admin & info PDAM',
+        'route': '/chat_page',
+        'color': Colors.green.shade400,
+      },
+    ];
+    
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      color: colorScheme.primary,
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220.0,
+            floating: true,
+            pinned: true,
+            snap: false,
+            elevation: 4.0,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            actions: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Ionicons.notifications_outline, size: 28),
+                    tooltip: 'Notifikasi',
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotifikasiPage(),
+                        ),
+                      );
+                      _fetchUnreadCount();
+                    },
+                  ),
+                  if (_unreadNotifCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        child: Text(
+                          '$_unreadNotifCount',
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(Ionicons.log_out_outline, color: colorScheme.onErrorContainer, size: 26),
+                tooltip: 'Logout',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Text('Konfirmasi Logout'),
+                      content: const Text('Apakah Anda yakin ingin keluar dari akun ini?'),
+                      actionsAlignment: MainAxisAlignment.end,
+                      actions: [
+                        TextButton(child: const Text('Batal'), onPressed: () => Navigator.of(ctx).pop()),
+                        TextButton(
+                          child: Text('Logout', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            _logout();
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: false,
+              titlePadding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
+              title: LayoutBuilder(
+                builder: (context, constraints) {
+                  return AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: constraints.biggest.height < kToolbarHeight + 40 ? 1.0 : 0.0,
+                    child: Text(
+                      'Beranda',
+                      style: GoogleFonts.lato(fontWeight: FontWeight.bold, color: colorScheme.onPrimary, fontSize: 20),
+                    ),
+                  );
+                },
+              ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_darkenColor(colorScheme.primary, 0.2), colorScheme.primary, _lightenColor(colorScheme.primary, 0.1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                  _buildWelcomeHeader(colorScheme),
+                ],
+              ),
+            ),
+          ),
+          
+          // Bagian Konten Beranda yang baru dan lebih elegan
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // KARTU FITUR MENONJOL (Opsi 1)
+                FadeInAnimation(
+                  delay: 0.2,
+                  slideDistance: 0.05,
+                  child: Text(
+                    "Layanan Utama",
+                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInAnimation(
+                  delay: 0.3,
+                  slideDistance: 0.05,
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16.0,
+                      mainAxisSpacing: 16.0,
+                      childAspectRatio: 0.95,
+                    ),
+                    itemCount: primaryMenuItems.length,
+                    itemBuilder: (context, index) {
+                      final item = primaryMenuItems[index];
+                      return _buildFeatureCard(
+                        icon: item['icon'] as IconData,
+                        title: item['title'] as String,
+                        subtitle: item['subtitle'] as String,
+                        color: item['color'] as Color,
+                        onTap: () {
+                          if (item['title'] == 'Hubungi Kami') {
+                            if (_userData != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => ChatPage(userData: _userData!)),
+                              );
+                            } else {
+                              _showSnackbar('Data pengguna belum siap, coba lagi.');
+                            }
+                          } else if (item['route'] != null) {
+                            Navigator.pushNamed(context, item['route'] as String);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // TOMBOL LAPOR TEMUAN KEbOCORAN
+                FadeInAnimation(
+                  delay: 0.4,
+                  child: _buildLaporTemuanButton(colorScheme),
+                ),
+
+                const SizedBox(height: 30),
+
+                // KONTEN REKOMENDASI: INFO & PENGUMUMAN
+                FadeInAnimation(
+                  delay: 0.5,
+                  child: Text(
+                    "Info & Pengumuman",
+                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInAnimation(
+                  delay: 0.6,
+                  child: _buildInfoCard(
+                    title: 'Pemeliharaan Jaringan Air',
+                    description: 'Akan ada pemadaman air sementara di area A dan B pada tanggal 10-12 Agustus 2025. Mohon maaf atas ketidaknyamanannya.',
+                    icon: Ionicons.construct_outline,
+                    color: Colors.orange,
+                  ),
+                ),
+                FadeInAnimation(
+                  delay: 0.7,
+                  child: _buildInfoCard(
+                    title: 'Layanan Pembayaran Online',
+                    description: 'Bayar tagihan air Anda sekarang lebih mudah melalui aplikasi mobile banking atau e-wallet.',
+                    icon: Ionicons.wallet_outline,
+                    color: Colors.purple,
+                  ),
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // KONTEN REKOMENDASI: TIPS HEMAT AIR
+                FadeInAnimation(
+                  delay: 0.8,
+                  child: Text(
+                    "Tips Hemat Air",
+                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInAnimation(
+                  delay: 0.9,
+                  child: _buildTipsCard(
+                    title: 'Periksa Kebocoran Pipa',
+                    description: 'Pastikan tidak ada kebocoran pada pipa atau keran air di rumah Anda.',
+                    icon: Ionicons.checkmark_circle_outline,
+                  ),
+                ),
+                FadeInAnimation(
+                  delay: 1.0,
+                  child: _buildTipsCard(
+                    title: 'Gunakan Air Secukupnya',
+                    description: 'Tutup keran saat menyikat gigi atau mencuci piring untuk menghemat air.',
+                    icon: Ionicons.leaf_outline,
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    return Scaffold(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildErrorView()
+              : _buildHomeContent(colorScheme),
+      
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Navigasi ke halaman Lapor Foto Meter
+          Navigator.pushNamed(context, '/lapor_foto_meter');
+        },
+        tooltip: 'Lapor Foto Meter',
+        backgroundColor: colorScheme.tertiary,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+        child: const Icon(Ionicons.camera_outline, size: 28),
+      ),
+      
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: colorScheme.surface,
+        selectedItemColor: colorScheme.primary,
+        unselectedItemColor: Colors.grey.shade600,
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          // Logika navigasi yang sudah benar
+          switch(index) {
+            case 0:
+              // Sudah di halaman beranda, tidak perlu navigasi
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/cek_tunggakan');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/lacak_laporan_saya');
+              break;
+            case 3:
+              Navigator.pushNamed(context, '/view_profil');
+              break;
+          }
+        },
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Ionicons.home_outline),
+            label: 'Beranda',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Ionicons.receipt_outline),
+            label: 'Tagihan',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Ionicons.search_circle_outline),
+            label: 'Lacak',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Ionicons.person_circle_outline),
+            label: 'Profil',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader(ColorScheme colorScheme) {
+    return FadeInAnimation(
+      delay: 0.1,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Halo,',
+              style: GoogleFonts.lato(
+                fontSize: 24,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+            Text(
+              _userData?['nama']?.toString().capitalize() ?? 'Pelanggan',
+              style: GoogleFonts.lato(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                height: 1.2,
+              ),
+            ),
+            if (_userData?['email'] != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
+                  const SizedBox(width: 8),
+                  Text(
+                    _userData!['email'],
+                    style: GoogleFonts.lato(
+                      fontSize: 14,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildFeatureCard({
@@ -229,58 +577,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  Widget _buildWelcomeHeader(ColorScheme colorScheme) {
-    return FadeInAnimation(
-      delay: 0.1,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Text(
-              'Halo,',
-              style: GoogleFonts.lato(
-                fontSize: 24,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.9),
-              ),
-            ),
-            Text(
-              _userData?['nama']?.toString().capitalize() ?? 'Pelanggan',
-              style: GoogleFonts.lato(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                height: 1.2,
-              ),
-            ),
-            if (_userData?['email'] != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
-                  const SizedBox(width: 8),
-                  Text(
-                    _userData!['email'],
-                    style: GoogleFonts.lato(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildLaporTemuanButton(ColorScheme colorScheme) {
     return Center(
       child: FadeInAnimation(
-        delay: 0.5 + (_menuItems.length * 0.08),
+        delay: 0.5,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -340,6 +640,110 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
+  Widget _buildInfoCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.lato(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: GoogleFonts.lato(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipsCard({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.blueAccent, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.lato(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildErrorView() {
     return Center(
       child: Padding(
@@ -392,306 +796,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           ],
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final List<Color> menuColors = [
-      colorScheme.tertiary,
-      colorScheme.secondary,
-      colorScheme.primary,
-      Colors.orange.shade700,
-      colorScheme.error,
-    ];
-
-    return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLowest,
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _errorMessage != null
-              ? _buildErrorView()
-              : RefreshIndicator(
-                onRefresh: _loadUserData,
-                color: colorScheme.primary,
-                child: CustomScrollView(
-                  slivers: [
-                    SliverAppBar(
-                      expandedHeight: 220.0,
-                      floating: true,
-                      pinned: true,
-                      snap: false,
-                      elevation: 4.0,
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      actions: [
-                        // **INI PERUBAHAN UTAMANYA**
-                        IconButton(
-                          icon: Icon(
-                            Ionicons.person_circle_outline,
-                            color: colorScheme.onPrimary,
-                            size: 26,
-                          ),
-                          tooltip: 'Profil Saya',
-                          onPressed: () async {
-                            // Navigasi ke halaman ViewProfilPage dan tunggu hasilnya
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ViewProfilPage(),
-                              ),
-                            );
-
-                            // Jika ViewProfilPage atau ProfilPage mengembalikan true,
-                            // itu artinya ada update, maka refresh data di sini
-                            if (result == true && mounted) {
-                              _loadUserData();
-                            }
-                          },
-                        ),
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Ionicons.notifications_outline,
-                                size: 28,
-                              ),
-                              tooltip: 'Notifikasi',
-                              onPressed: () async {
-                                // Navigasi ke halaman notifikasi
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => const NotifikasiPage(),
-                                  ),
-                                );
-                                // Setelah kembali dari halaman notifikasi, refresh hitungannya
-                                _fetchUnreadCount();
-                              },
-                            ),
-                            // Tampilkan badge HANYA JIKA ada notifikasi yang belum dibaca
-                            if (_unreadNotifCount > 0)
-                              Positioned(
-                                right: 8,
-                                top: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 18,
-                                    minHeight: 18,
-                                  ),
-                                  child: Text(
-                                    '$_unreadNotifCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Ionicons.log_out_outline,
-                            color: colorScheme.onErrorContainer,
-                            size: 26,
-                          ),
-                          tooltip: 'Logout',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder:
-                                  (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    title: const Text('Konfirmasi Logout'),
-                                    content: const Text(
-                                      'Apakah Anda yakin ingin keluar dari akun ini?',
-                                    ),
-                                    actionsAlignment: MainAxisAlignment.end,
-                                    actions: [
-                                      TextButton(
-                                        child: const Text('Batal'),
-                                        onPressed:
-                                            () => Navigator.of(ctx).pop(),
-                                      ),
-                                      TextButton(
-                                        child: Text(
-                                          'Logout',
-                                          style: TextStyle(
-                                            color: colorScheme.error,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.of(ctx).pop();
-                                          _logout();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      flexibleSpace: FlexibleSpaceBar(
-                        centerTitle: false,
-                        titlePadding: const EdgeInsets.only(
-                          left: 16.0,
-                          bottom: 16.0,
-                        ),
-                        title: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return AnimatedOpacity(
-                              duration: const Duration(milliseconds: 200),
-                              opacity:
-                                  constraints.biggest.height <
-                                          kToolbarHeight + 40
-                                      ? 1.0
-                                      : 0.0,
-                              child: Text(
-                                'Beranda',
-                                style: GoogleFonts.lato(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onPrimary,
-                                  fontSize: 20,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        background: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    _darkenColor(colorScheme.primary, 0.2),
-                                    colorScheme.primary,
-                                    _lightenColor(colorScheme.primary, 0.1),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                            ),
-                            _buildWelcomeHeader(colorScheme),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        16.0,
-                        20.0,
-                        16.0,
-                        16.0,
-                      ),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          FadeInAnimation(
-                            delay: 0.2,
-                            slideDistance: 0.05,
-                            child: Text(
-                              "Menu Layanan Utama",
-                              style: GoogleFonts.lato(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ]),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      sliver: SliverGrid(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount:
-                              MediaQuery.of(context).size.width > 600 ? 3 : 2,
-                          crossAxisSpacing: 16.0,
-                          mainAxisSpacing: 16.0,
-                          childAspectRatio: 0.95,
-                        ),
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = _menuItems[index];
-                          return FadeInAnimation(
-                            delay: 0.25 + (index * 0.08),
-                            slideDistance: 0.05,
-                            child: _buildFeatureCard(
-                              icon: item['icon'] as IconData,
-                              title: item['title'] as String,
-                              subtitle: item['subtitle'] as String,
-                              color: menuColors[index % menuColors.length],
-                              onTap: () {
-                                if (item['title'] == 'Hubungi Kami') {
-                                  // --- INI PERUBAHANNYA ---
-                                  if (_userData != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                ChatPage(userData: _userData!),
-                                      ),
-                                    );
-                                  } else {
-                                    // Handle jika data user belum termuat
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Data pengguna belum siap, coba lagi.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  // --- AKHIR PERUBAHAN ---
-                                } else if (item['route'] != null) {
-                                  Navigator.pushNamed(
-                                    context,
-                                    item['route'] as String,
-                                  );
-                                }
-                              },
-                            ),
-                          );
-                        }, childCount: _menuItems.length),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        16.0,
-                        30.0,
-                        16.0,
-                        20.0,
-                      ),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildLaporTemuanButton(colorScheme),
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
     );
   }
 }

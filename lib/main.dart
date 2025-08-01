@@ -8,14 +8,15 @@ import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/home_pelanggan_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdam_app/buat_laporan_page.dart';
-import 'package:pdam_app/services/notification_service.dart'; // <-- 1. IMPORT
+import 'package:pdam_app/services/notification_service.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
+import 'package:pdam_app/chat_page.dart'; // <-- Pastikan ini diimpor
+import 'package:pdam_app/pages/notifikasi_page.dart'; // <-- Pastikan ini diimpor
+import 'package:pdam_app/view_profil_page.dart'; // <-- Pastikan ini diimpor
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-// <-- 1. IMPORT INI
-// <-- 2. IMPORT INI (hasil dari FlutterFire CLI)
 import 'package:pdam_app/home_petugas_page.dart';
 import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/profil_page.dart';
@@ -25,28 +26,19 @@ import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/pages/welcome_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// lib/main.dart
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // Baris ini wajib ada untuk memastikan semua binding siap
   WidgetsFlutterBinding.ensureInitialized();
-
-  // !! BAGIAN PENTING YANG HILANG !!
-  // Tambahkan blok ini untuk menginisialisasi Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // !! AKHIR DARI BAGIAN PENTING !!
-
-  // Kode Anda yang sudah ada bisa tetap di sini
   await initializeDateFormatting('id_ID', null);
   await NotificationService().init();
+
   NotificationService().onNotificationTap.listen((data) {
     log("Notifikasi di-tap dengan data: $data");
     if (data.containsKey('pengaduan_id')) {
       final pengaduanId = int.tryParse(data['pengaduan_id'] ?? '');
       if (pengaduanId != null) {
-        // Gunakan GlobalKey untuk navigasi
         navigatorKey.currentState?.pushNamed(
           '/lacak_laporan_saya',
           arguments: {'pengaduan_id': pengaduanId},
@@ -56,10 +48,9 @@ void main() async {
   });
 
   final prefs = await SharedPreferences.getInstance();
-  final bool hasSeenWelcomeScreen =
-      prefs.getBool('hasSeenWelcomeScreen') ?? false;
+  final bool hasSeenWelcomeScreen = prefs.getBool('hasSeenWelcomeScreen') ?? false;
 
-  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen)); //
+  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen));
 }
 
 class MyApp extends StatelessWidget {
@@ -99,30 +90,21 @@ class MyApp extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
         ),
       ),
-      // Atur rute awal secara dinamis
-      // Jika sudah pernah lihat welcome screen, langsung ke login. Jika belum, ke welcome screen.
       initialRoute: hasSeenWelcomeScreen ? '/login' : '/welcome',
       routes: {
-        // Rute untuk halaman-halaman yang sudah ada
-        '/': (context) => const LoginPage(), // Fallback ke login
+        '/': (context) => const LoginPage(),
         '/login': (context) => const LoginPage(),
-        '/welcome': (context) => const WelcomePage(), // <-- RUTE HALAMAN BARU
-        '/register':
-            (context) => const RegisterPage(), // <-- RUTE REGISTER DIAKTIFKAN
-        // MODIFIED ROUTE FOR /home_petugas (sudah ada dari kode Anda)
+        '/welcome': (context) => const WelcomePage(),
+        '/register': (context) => const RegisterPage(),
         '/home_petugas': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           int petugasId;
-
-          if (arguments is Map<String, dynamic> &&
-              arguments.containsKey('idPetugasLoggedIn')) {
+          if (arguments is Map<String, dynamic> && arguments.containsKey('idPetugasLoggedIn')) {
             petugasId = arguments['idPetugasLoggedIn'] as int;
           } else if (arguments is int) {
             petugasId = arguments;
           } else {
-            throw FlutterError(
-              'HomePetugasPage requires an idPetugasLoggedIn argument.',
-            );
+            throw FlutterError('HomePetugasPage requires an idPetugasLoggedIn argument.');
           }
           return HomePetugasPage(idPetugasLoggedIn: petugasId);
         },
@@ -131,20 +113,17 @@ class MyApp extends StatelessWidget {
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
-        '/profil_page': (context) => const ProfilPage(),
-        '/register_calon_pelanggan':
-            (context) => const CalonPelangganRegisterPage(),
-
+        '/view_profil': (context) => const ViewProfilPage(), // <-- Rute yang hilang
+        '/profil_page': (context) => const ProfilPage(), // Rute lama, mungkin perlu dihapus atau disesuaikan
+        '/register_calon_pelanggan': (context) => const CalonPelangganRegisterPage(),
         '/detail_temuan_page': (context) {
-          final temuan =
-              ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
+          final temuan = ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
           return DetailTemuanPage(temuanKebocoran: temuan);
         },
         '/tracking_page': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           String? kodeTracking;
-          if (arguments is Map<String, dynamic> &&
-              arguments.containsKey('kodeTracking')) {
+          if (arguments is Map<String, dynamic> && arguments.containsKey('kodeTracking')) {
             kodeTracking = arguments['kodeTracking'] as String?;
           } else if (arguments is String?) {
             kodeTracking = arguments;
@@ -152,16 +131,20 @@ class MyApp extends StatelessWidget {
           return TrackingPage(kodeTracking: kodeTracking);
         },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
+        '/notifikasi_page': (context) => const NotifikasiPage(), // <-- Tambahkan jika belum ada
+        '/chat_page': (context) {
+           final userData = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+           return ChatPage(userData: userData ?? {});
+        },
       },
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
-          builder:
-              (context) => Scaffold(
-                appBar: AppBar(title: const Text('Halaman Tidak Ditemukan')),
-                body: Center(
-                  child: Text('Rute "${settings.name}" tidak ditemukan.'),
-                ),
-              ),
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('Halaman Tidak Ditemukan')),
+            body: Center(
+              child: Text('Rute "${settings.name}" tidak ditemukan.'),
+            ),
+          ),
         );
       },
     );
