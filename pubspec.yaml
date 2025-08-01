@@ -30,8 +30,6 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   image: ^4.1.0           # Untuk memproses dan menulis teks pada gambar
   
-
-
   intl: ^0.19.0
   flutter_staggered_animations: ^1.1.1
   smooth_page_indicator: ^1.1.0 
@@ -43,13 +41,12 @@ dependencies:
   firebase_messaging: ^15.0.3  
   flutter_local_notifications: ^17.2.1 
   
-  
   # Firebase essentials
   firebase_core: ^3.2.0 # Menentukan versi lebih spesifik lebih baik dari 'any'
   cloud_firestore: ^5.1.0 # Menentukan versi lebih spesifik lebih baik dari 'any'
   firebase_auth: ^5.1.2 # Menentukan versi lebih spesifik lebih baik dari 'any'
   timeago: ^3.7.1
-
+  flutter_slidable: ^3.0.0 # Tambahkan package ini
 
 dev_dependencies:
   flutter_test:
