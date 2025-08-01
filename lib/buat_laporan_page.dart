@@ -305,6 +305,15 @@ Future<void> _submitLaporan() async {
     _showSnackbar('Data esensial tidak lengkap. Mohon periksa kembali.');
     return;
   }
+  if (_fotoBuktiFile == null) {
+    _showSnackbar('Mohon unggah Foto Bukti.');
+    return;
+  }
+  
+  if (_fotoRumahFile == null) {
+    _showSnackbar('Mohon unggah Foto Rumah.');
+    return;
+  }
 
   // BLOK VALIDASI FORM STATE YANG MENYEBABKAN ERROR SUDAH DIHAPUS DARI SINI
 
