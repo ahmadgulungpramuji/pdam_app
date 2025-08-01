@@ -1,9 +1,9 @@
-// lib/temuan_kebocoran_page.dart
-// ignore_for_file: use_build_context_synchronously
+// lib/pages/temuan_kebocoran_page.dart
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -12,8 +12,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-// ignore: unused_import
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pdam_app/models/cabang_model.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
+import 'package:geocoding/geocoding.dart';
 
 class TemuanKebocoranPage extends StatefulWidget {
   const TemuanKebocoranPage({super.key});
@@ -32,8 +37,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   final ApiService _apiService = ApiService();
   late String _apiUrlSubmit;
 
-  final TextEditingController _deskripsiLokasiController =
-      TextEditingController();
+  final TextEditingController _deskripsiLokasiController = TextEditingController();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _nomorHpController = TextEditingController();
 
@@ -43,14 +47,16 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   bool _isSubmitting = false;
 
   int? _selectedCabangId;
-  List<Map<String, dynamic>> _cabangOptionsApi = [];
+  List<Cabang> _cabangOptionsApi = [];
   bool _isCabangLoading = true;
   String? _cabangError;
   String? _detectedCabangName;
 
   Position? _currentPosition;
-  File? _imageFile;
+  XFile? _imageFile;
   final ImagePicker _picker = ImagePicker();
+  String? _imageError;
+  bool _isImageProcessing = false;
 
   @override
   void initState() {
@@ -112,36 +118,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       _cabangError = null;
     });
     try {
-      final response = await _apiService.fetchCabangs().timeout(
+      final List<Cabang> cabangList = await _apiService.getCabangList().timeout(
         const Duration(seconds: 20),
       );
       if (!mounted) return;
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final List<Map<String, dynamic>> options =
-            data
-                .whereType<Map<String, dynamic>>()
-                .where(
-                  (item) =>
-                      item.containsKey('id') && item.containsKey('nama_cabang'),
-                )
-                .map(
-                  (item) => {
-                    'id': item['id'] as int,
-                    'nama_cabang': item['nama_cabang'] as String,
-                    'lokasi_maps': item['lokasi_maps'] as String?,
-                  },
-                )
-                .toList();
-        setState(() => _cabangOptionsApi = options);
-        if (_currentPosition != null) _findNearestBranch();
-      } else {
-        setState(
-          () =>
-              _cabangError =
-                  'Gagal memuat cabang (Status: ${response.statusCode})',
-        );
-      }
+      setState(() => _cabangOptionsApi = cabangList);
+      if (_currentPosition != null) _findNearestBranch();
     } catch (e) {
       if (!mounted) return;
       setState(
@@ -173,8 +155,23 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         timeLimit: const Duration(seconds: 20),
       );
 
+      // --- Perbaikan: Ambil dan isi alamat otomatis ---
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+        localeIdentifier: 'id_ID',
+      );
+
       if (mounted) {
-        setState(() => _currentPosition = position);
+        setState(() {
+          _currentPosition = position;
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
+            // Format alamat dengan nama jalan, desa, kecamatan, kabupaten
+            String formattedAddress = "${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? ''}, ${place.subAdministrativeArea ?? ''}";
+            _deskripsiLokasiController.text = formattedAddress;
+          }
+        });
         _showSnackbar('Lokasi berhasil didapatkan!', isError: false);
         _findNearestBranch();
       }
@@ -196,27 +193,19 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     double minDistance = double.infinity;
 
     for (var cabang in _cabangOptionsApi) {
-      final String? lokasiMaps = cabang['lokasi_maps'];
-      if (lokasiMaps != null && lokasiMaps.isNotEmpty) {
-        try {
-          final List<String> latLng = lokasiMaps.split(',');
-          if (latLng.length == 2) {
-            final double branchLat = double.parse(latLng[0].trim());
-            final double branchLng = double.parse(latLng[1].trim());
-            final double distance = Geolocator.distanceBetween(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-              branchLat,
-              branchLng,
-            );
+      if (cabang.latitude != null && cabang.longitude != null) {
+        final double distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          cabang.latitude!,
+          cabang.longitude!,
+        );
 
-            if (distance < minDistance) {
-              minDistance = distance;
-              nearestBranchId = cabang['id'] as int;
-              nearestBranchName = cabang['nama_cabang'] as String;
-            }
-          }
-        } catch (_) {}
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestBranchId = cabang.id;
+          nearestBranchName = cabang.namaCabang;
+        }
       }
     }
 
@@ -234,36 +223,70 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    setState(() {
+      _imageError = null;
+      _isImageProcessing = true;
+    });
     try {
-      final pickedFile = await _picker.pickImage(
-        source: source,
-        imageQuality: 70,
-        maxWidth: 1024,
-      );
+      final XFile? pickedFile = await _picker.pickImage(source: source);
       if (pickedFile != null) {
-        setState(() => _imageFile = File(pickedFile.path));
+        final imageBytes = await pickedFile.readAsBytes();
+        final originalImage = img.decodeImage(imageBytes);
+
+        if (originalImage == null) {
+          throw Exception('Gagal memproses gambar');
+        }
+
+        final watermarkedImage = img.copyResize(originalImage, width: 800);
+        final now = DateTime.now();
+
+        img.drawString(
+          watermarkedImage,
+          font: img.arial14,
+          'Waktu: ${now.toIso8601String()}',
+          x: 10,
+          y: 10,
+          color: img.ColorRgb8(255, 255, 255),
+        );
+
+        final directory = await getTemporaryDirectory();
+        final fileName = 'watermarked_${path.basename(pickedFile.path)}';
+        final newPath = path.join(directory.path, fileName);
+        final newFile = File(newPath);
+        await newFile.writeAsBytes(img.encodeJpg(watermarkedImage, quality: 90));
+
+        setState(() {
+          _imageFile = XFile(newPath);
+          _isImageProcessing = false;
+        });
+      } else {
+        // Handle jika pengguna membatalkan pengambilan gambar
+        setState(() {
+          _isImageProcessing = false;
+        });
       }
     } catch (e) {
-      _showSnackbar('Gagal memilih gambar: $e', isError: true);
+      if (!mounted) return;
+      setState(() {
+        _imageError = 'Gagal memproses gambar: $e';
+        _isImageProcessing = false;
+      });
     }
   }
 
   Future<void> _submitForm() async {
+    // --- Perbaikan: Validasi foto bukti wajib ---
+    if (_imageFile == null) {
+      _pageController.animateToPage(
+        2,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.ease,
+      );
+      _showSnackbar('Foto bukti wajib diisi.', isError: true);
+      return;
+    }
+
     if (!_step3FormKey.currentState!.validate()) {
-      if (!_step2FormKey.currentState!.validate()) {
-        _pageController.animateToPage(
-          1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.ease,
-        );
-      }
-      if (!_step1FormKey.currentState!.validate()) {
-        _pageController.animateToPage(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.ease,
-        );
-      }
       _showSnackbar('Harap periksa kembali semua data yang wajib diisi.');
       return;
     }
@@ -343,27 +366,25 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         elevation: 0,
         centerTitle: true,
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                children: [
-                  _buildProgressBar(),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged:
-                          (page) => setState(() => _currentPage = page),
-                      children: [
-                        _buildStep1_InfoPelapor(),
-                        _buildStep2_Lokasi(),
-                        _buildStep3_BuktiKirim(),
-                      ],
-                    ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                _buildProgressBar(),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged: (page) => setState(() => _currentPage = page),
+                    children: [
+                      _buildStep1_InfoPelapor(),
+                      _buildStep2_Lokasi(),
+                      _buildStep3_BuktiKirim(),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -516,42 +537,57 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           const Center(
             child: Padding(
               padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
+              child: SpinKitChasingDots(color: Colors.blue),
             ),
-          ),
-        if (_cabangError != null)
-          Center(
+          )
+        else if (_cabangError != null)
+          Column(
+            children: [
+              Center(
+                child: Text(
+                  _cabangError!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text("Coba Lagi"),
+                onPressed: _fetchCabangOptions,
+              ),
+            ],
+          )
+        else if (_cabangOptionsApi.isEmpty)
+          const Center(
             child: Text(
-              _cabangError!,
-              style: const TextStyle(color: Colors.red),
+              "Tidak ada data cabang ditemukan.",
+              style: TextStyle(color: Colors.red),
             ),
+          )
+        else
+          DropdownButtonFormField<int>(
+            value: _selectedCabangId,
+            hint: const Text('Pilih Cabang'),
+            decoration: InputDecoration(
+              labelText:
+                  _detectedCabangName != null
+                      ? "Cabang Terdeteksi"
+                      : 'Cabang Pelaporan',
+            ),
+            items:
+                _cabangOptionsApi
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.namaCabang),
+                      ),
+                    )
+                    .toList(),
+            onChanged: (value) => setState(() {
+              _selectedCabangId = value;
+              _detectedCabangName = null;
+            }),
+            validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
           ),
-
-        DropdownButtonFormField<int>(
-          value: _selectedCabangId,
-          hint: const Text('Pilih Cabang'),
-          decoration: InputDecoration(
-            labelText:
-                _detectedCabangName != null
-                    ? "Cabang Terdeteksi"
-                    : 'Cabang Pelaporan',
-          ),
-          items:
-              _cabangOptionsApi
-                  .map(
-                    (c) => DropdownMenuItem(
-                      value: c['id'] as int,
-                      child: Text(c['nama_cabang'] as String),
-                    ),
-                  )
-                  .toList(),
-          onChanged:
-              (value) => setState(() {
-                _selectedCabangId = value;
-                _detectedCabangName = null;
-              }),
-          validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
-        ),
         if (_detectedCabangName != null)
           Padding(
             padding: const EdgeInsets.only(top: 4.0),
@@ -585,24 +621,33 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       isLastStep: true,
       children: [
         const Text(
-          "Unggah Foto Bukti (Opsional)",
+          "Unggah Foto Bukti", // <--- Perbaikan: Hapus "(Opsional)"
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
         const SizedBox(height: 8),
-        GestureDetector(
-          // --- PERUBAHAN 1: Langsung memanggil kamera ---
-          onTap: () => _pickImage(ImageSource.camera),
-          child: Container(
-            width: double.infinity,
-            height: 180,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(12.0),
+        if (_isImageProcessing)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(),
             ),
-            child:
-                _imageFile == null
-                    ? const Center(
+          )
+        else
+          GestureDetector(
+            onTap: () => _pickImage(ImageSource.camera),
+            child: Container(
+              width: double.infinity,
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                border: Border.all(
+                  color: _imageError != null ? Colors.red : Colors.grey.shade300,
+                  width: _imageError != null ? 2.0 : 1.0,
+                ),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: _imageFile == null
+                  ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -612,17 +657,19 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                             color: Colors.grey,
                           ),
                           SizedBox(height: 8),
-                          // --- PERUBAHAN 2: Mengubah teks untuk lebih jelas ---
                           Text('Ketuk untuk ambil foto'),
                         ],
                       ),
                     )
-                    : Stack(
+                  : Stack(
                       fit: StackFit.expand,
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(11),
-                          child: Image.file(_imageFile!, fit: BoxFit.cover),
+                          child: Image.file(
+                            File(_imageFile!.path),
+                            fit: BoxFit.cover,
+                          ),
                         ),
                         Positioned(
                           top: 8,
@@ -635,25 +682,33 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                                 color: Colors.white,
                                 size: 20,
                               ),
-                              onPressed:
-                                  () => setState(() => _imageFile = null),
+                              onPressed: () => setState(() {
+                                _imageFile = null;
+                                _imageError = 'Foto bukti wajib diisi.';
+                              }),
                             ),
                           ),
                         ),
                       ],
                     ),
+            ),
           ),
-        ),
+        if (_imageError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              _imageError!,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
         const SizedBox(height: 32),
         ElevatedButton.icon(
-          icon:
-              _isSubmitting
-                  ? const SizedBox.shrink()
-                  : const Icon(Ionicons.send, color: Colors.white),
-          label:
-              _isSubmitting
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('KIRIM LAPORAN'),
+          icon: _isSubmitting
+              ? const SizedBox.shrink()
+              : const Icon(Ionicons.send, color: Colors.white),
+          label: _isSubmitting
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text('KIRIM LAPORAN'),
           onPressed: _isSubmitting ? null : _submitForm,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
@@ -669,92 +724,58 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   }
 
   // --- Dialogs & Sheets ---
-  // --- PERUBAHAN 3: Menghapus fungsi untuk menampilkan pilihan galeri/kamera ---
-  /* void _showImageSourceActionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Ionicons.image_outline),
-                  title: const Text('Galeri'),
-                  onTap: () {
-                    _pickImage(ImageSource.gallery);
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Ionicons.camera_outline),
-                  title: const Text('Kamera'),
-                  onTap: () {
-                    _pickImage(ImageSource.camera);
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-              ],
-            ),
-          ),
-    );
-  }
-  */
-
   void _showSuccessDialog(String trackingCode) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Laporan Terkirim'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Terima kasih! Mohon simpan kode pelacakan ini:'),
-                const SizedBox(height: 15),
-                Container(
-
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          trackingCode,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Ionicons.copy_outline),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: trackingCode));
-                          _showSnackbar('Kode disalin!', isError: false);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                child: const Text('OK'),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pop();
-                },
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Laporan Terkirim'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Terima kasih! Mohon simpan kode pelacakan ini:'),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      trackingCode,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Ionicons.copy_outline),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: trackingCode));
+                      _showSnackbar('Kode disalin!', isError: false);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(context).pop();
+            },
           ),
+        ],
+      ),
     );
   }
 
@@ -768,8 +789,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       SnackBar(
         content: Text(message, style: const TextStyle(color: Colors.white)),
         backgroundColor:
-            backgroundColor ??
-            (isError ? Colors.red.shade600 : Colors.green.shade600),
+            backgroundColor ?? (isError ? Colors.red.shade600 : Colors.green.shade600),
         behavior: SnackBarBehavior.floating,
       ),
     );
