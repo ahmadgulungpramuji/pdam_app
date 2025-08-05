@@ -116,20 +116,31 @@ class _ChatPageState extends State<ChatPage> {
   // --- UI Widgets ---
   @override
   Widget build(BuildContext context) {
+    // Dapatkan warna utama dari tema aplikasi Anda
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           _isLiveChatActive ? 'Live Chat dengan Admin' : 'Chat dengan PDAM Bot',
         ),
+        // Menambahkan properti foregroundColor akan mengubah warna default untuk
+        // semua elemen di dalam AppBar, termasuk tombol kembali (back button).
+        // Ini adalah cara yang lebih modern dan bersih.
+        foregroundColor: Colors.white, // Atur warna ikon dan judul jika AppBar berwarna gelap
+        backgroundColor: primaryColor, // Atur warna latar belakang AppBar
         actions: [
           if (!_isLiveChatActive)
             TextButton.icon(
-              icon: const Icon(Icons.support_agent, color: Colors.white),
-              label: const Text(
-                'Bicara dengan Admin',
-                style: TextStyle(color: Colors.white),
-              ),
+              // Ikon sekarang akan mengambil warna dari 'foregroundColor' AppBar
+              icon: const Icon(Icons.support_agent),
+              label: const Text('Bicara dengan Admin'),
               onPressed: _isLoading ? null : _switchToLiveChat,
+              // Atur gaya tombol agar lebih terlihat
+              style: TextButton.styleFrom(
+                // Atur warna teks dan ikon menjadi putih agar kontras dengan latar belakang AppBar
+                foregroundColor: Colors.white,
+              ),
             ),
         ],
       ),

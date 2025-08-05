@@ -7,11 +7,13 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/login_page.dart';
+import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/pages/notifikasi_page.dart';
 import 'package:pdam_app/view_profil_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
+import 'package:intl/intl.dart';
 
 class HomePelangganPage extends StatefulWidget {
   const HomePelangganPage({super.key});
@@ -27,6 +29,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   String? _errorMessage;
   int _unreadNotifCount = 0;
   int _currentIndex = 0;
+  Pengaduan? _laporanTerbaru;
 
   Future<void> _fetchUnreadCount() async {
     try {
@@ -38,6 +41,40 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       }
     } catch (e) {
       // Biarkan 0 jika gagal, tidak perlu menampilkan error
+    }
+  }
+
+  Future<void> _fetchLaporanTerbaru() async {
+    try {
+      // Panggil endpoint yang sama dengan halaman lacak laporan
+      final List<dynamic> rawData = await _apiService.getLaporanPengaduan();
+      if (mounted && rawData.isNotEmpty) {
+        // Ubah data mentah menjadi List<Pengaduan>
+        final allLaporan = rawData
+            .whereType<Map<String, dynamic>>()
+            .map((item) => Pengaduan.fromJson(item))
+            .toList();
+
+        // Urutkan laporan dari yang paling baru (berdasarkan tanggal update)
+        allLaporan.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+        // Ambil laporan pertama (yang paling baru) dan simpan ke state
+        setState(() {
+          _laporanTerbaru = allLaporan.first;
+        });
+      } else {
+        // Jika tidak ada laporan sama sekali
+        setState(() {
+          _laporanTerbaru = null;
+        });
+      }
+    } catch (e) {
+      // Jika terjadi error, kita set null agar card menampilkan pesan kosong
+      // dan tidak merusak UI utama.
+      print("Gagal mengambil laporan terbaru di beranda: $e");
+      setState(() {
+        _laporanTerbaru = null;
+      });
     }
   }
 
@@ -56,6 +93,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             _isLoading = false;
           });
           _fetchUnreadCount();
+          _fetchLaporanTerbaru(); // Panggil fungsi untuk mengambil laporan terbaru
         } else {
           _showSnackbar(
             'Gagal memuat data pengguna. Sesi mungkin telah berakhir.',
@@ -67,7 +105,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = "Tidak dapat memuat data Anda. Periksa koneksi internet dan coba lagi.";
+          _errorMessage =
+              "Tidak dapat memuat data Anda. Periksa koneksi internet dan coba lagi.";
           _isLoading = false;
         });
       }
@@ -116,6 +155,22 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     return hslLight.toColor();
   }
 
+  void _showTipsDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: GoogleFonts.lato(fontWeight: FontWeight.bold)),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -123,23 +178,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   }
 
   Widget _buildHomeContent(ColorScheme colorScheme) {
-    final List<Map<String, dynamic>> primaryMenuItems = [
-      {
-        'icon': Ionicons.document_text_outline,
-        'title': 'Buat Laporan',
-        'subtitle': 'Keluhan & masalah layanan',
-        'route': '/buat_laporan',
-        'color': Colors.blue.shade400,
-      },
-      {
-        'icon': Ionicons.chatbubbles_outline,
-        'title': 'Hubungi Kami',
-        'subtitle': 'Admin & info PDAM',
-        'route': '/chat_page',
-        'color': Colors.green.shade400,
-      },
-    ];
-    
     return RefreshIndicator(
       onRefresh: _loadUserData,
       color: colorScheme.primary,
@@ -180,40 +218,19 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        constraints:
+                            const BoxConstraints(minWidth: 18, minHeight: 18),
                         child: Text(
                           '$_unreadNotifCount',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                 ],
-              ),
-              IconButton(
-                icon: Icon(Ionicons.log_out_outline, color: colorScheme.onErrorContainer, size: 26),
-                tooltip: 'Logout',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      title: const Text('Konfirmasi Logout'),
-                      content: const Text('Apakah Anda yakin ingin keluar dari akun ini?'),
-                      actionsAlignment: MainAxisAlignment.end,
-                      actions: [
-                        TextButton(child: const Text('Batal'), onPressed: () => Navigator.of(ctx).pop()),
-                        TextButton(
-                          child: Text('Logout', style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(ctx).pop();
-                            _logout();
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
               ),
               const SizedBox(width: 4),
             ],
@@ -224,10 +241,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 builder: (context, constraints) {
                   return AnimatedOpacity(
                     duration: const Duration(milliseconds: 200),
-                    opacity: constraints.biggest.height < kToolbarHeight + 40 ? 1.0 : 0.0,
+                    opacity:
+                        constraints.biggest.height < kToolbarHeight + 40 ? 1.0 : 0.0,
                     child: Text(
                       'Beranda',
-                      style: GoogleFonts.lato(fontWeight: FontWeight.bold, color: colorScheme.onPrimary, fontSize: 20),
+                      style: GoogleFonts.lato(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimary,
+                          fontSize: 20),
                     ),
                   );
                 },
@@ -238,7 +259,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_darkenColor(colorScheme.primary, 0.2), colorScheme.primary, _lightenColor(colorScheme.primary, 0.1)],
+                        colors: [
+                          _darkenColor(colorScheme.primary, 0.2),
+                          colorScheme.primary,
+                          _lightenColor(colorScheme.primary, 0.1)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -249,127 +274,131 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               ),
             ),
           ),
-          
-          // Bagian Konten Beranda yang baru dan lebih elegan
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 16.0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // KARTU FITUR MENONJOL (Opsi 1)
+                // Bagian baru untuk Akses Cepat (Opsi 2)
                 FadeInAnimation(
                   delay: 0.2,
                   slideDistance: 0.05,
                   child: Text(
-                    "Layanan Utama",
-                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                    "Akses Cepat",
+                    style: GoogleFonts.lato(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 16),
                 FadeInAnimation(
                   delay: 0.3,
                   slideDistance: 0.05,
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16.0,
-                      mainAxisSpacing: 16.0,
-                      childAspectRatio: 0.95,
-                    ),
-                    itemCount: primaryMenuItems.length,
-                    itemBuilder: (context, index) {
-                      final item = primaryMenuItems[index];
-                      return _buildFeatureCard(
-                        icon: item['icon'] as IconData,
-                        title: item['title'] as String,
-                        subtitle: item['subtitle'] as String,
-                        color: item['color'] as Color,
-                        onTap: () {
-                          if (item['title'] == 'Hubungi Kami') {
-                            if (_userData != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => ChatPage(userData: _userData!)),
-                              );
-                            } else {
-                              _showSnackbar('Data pengguna belum siap, coba lagi.');
-                            }
-                          } else if (item['route'] != null) {
-                            Navigator.pushNamed(context, item['route'] as String);
-                          }
-                        },
-                      );
-                    },
-                  ),
+                  child: _buildQuickAccessCard(colorScheme),
                 ),
 
                 const SizedBox(height: 30),
 
-                // TOMBOL LAPOR TEMUAN KEbOCORAN
+                // Laporan Terbaru
                 FadeInAnimation(
                   delay: 0.4,
-                  child: _buildLaporTemuanButton(colorScheme),
+                  slideDistance: 0.05,
+                  child: Text(
+                    "Laporan Terbaru",
+                    style: GoogleFonts.lato(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInAnimation(
+                  delay: 0.5,
+                  child: _buildLaporanTerbaruCard(colorScheme),
                 ),
 
                 const SizedBox(height: 30),
 
                 // KONTEN REKOMENDASI: INFO & PENGUMUMAN
                 FadeInAnimation(
-                  delay: 0.5,
+                  delay: 0.6,
                   child: Text(
                     "Info & Pengumuman",
-                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                    style: GoogleFonts.lato(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 16),
                 FadeInAnimation(
-                  delay: 0.6,
+                  delay: 0.7,
                   child: _buildInfoCard(
                     title: 'Pemeliharaan Jaringan Air',
-                    description: 'Akan ada pemadaman air sementara di area A dan B pada tanggal 10-12 Agustus 2025. Mohon maaf atas ketidaknyamanannya.',
+                    description:
+                        'Akan ada pemadaman air sementara di area Kecamatan Indramayu dan Jatibarang pada tanggal 10-12 Agustus 2025. Mohon maaf atas ketidaknyamanannya.',
                     icon: Ionicons.construct_outline,
                     color: Colors.orange,
                   ),
                 ),
                 FadeInAnimation(
-                  delay: 0.7,
+                  delay: 0.8,
                   child: _buildInfoCard(
                     title: 'Layanan Pembayaran Online',
-                    description: 'Bayar tagihan air Anda sekarang lebih mudah melalui aplikasi mobile banking atau e-wallet.',
+                    description:
+                        'Bayar tagihan air Anda sekarang lebih mudah melalui aplikasi mobile banking atau e-wallet.',
                     icon: Ionicons.wallet_outline,
                     color: Colors.purple,
                   ),
                 ),
-                
+
                 const SizedBox(height: 30),
-                
+
                 // KONTEN REKOMENDASI: TIPS HEMAT AIR
                 FadeInAnimation(
-                  delay: 0.8,
+                  delay: 0.9,
                   child: Text(
                     "Tips Hemat Air",
-                    style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+                    style: GoogleFonts.lato(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 16),
                 FadeInAnimation(
-                  delay: 0.9,
+                  delay: 1.0,
                   child: _buildTipsCard(
                     title: 'Periksa Kebocoran Pipa',
-                    description: 'Pastikan tidak ada kebocoran pada pipa atau keran air di rumah Anda.',
+                    description:
+                        'Pastikan tidak ada kebocoran pada pipa atau keran air di rumah Anda.',
                     icon: Ionicons.checkmark_circle_outline,
+                    onTap: () => _showTipsDialog(
+                      'Cara Memeriksa Kebocoran Pipa',
+                      '1. Tutup semua keran air di rumah Anda.\n'
+                      '2. Catat angka pada meteran air.\n'
+                      '3. Tunggu selama 1-2 jam tanpa menggunakan air.\n'
+                      '4. Periksa kembali meteran air. Jika angkanya berubah, kemungkinan ada kebocoran.',
+                    ),
                   ),
                 ),
                 FadeInAnimation(
-                  delay: 1.0,
+                  delay: 1.1,
                   child: _buildTipsCard(
                     title: 'Gunakan Air Secukupnya',
-                    description: 'Tutup keran saat menyikat gigi atau mencuci piring untuk menghemat air.',
+                    description:
+                        'Tutup keran saat menyikat gigi atau mencuci piring untuk menghemat air.',
                     icon: Ionicons.leaf_outline,
+                    onTap: () => _showTipsDialog(
+                      'Cara Menggunakan Air Secukupnya',
+                      '1. Mandi dengan shower lebih hemat daripada berendam di bak mandi.\n'
+                      '2. Gunakan sikat gigi dan pasta gigi, lalu nyalakan keran hanya saat membilas.\n'
+                      '3. Cuci piring dengan air yang mengalir, tapi jangan terlalu deras.\n'
+                      '4. Gunakan mesin cuci hanya jika pakaian kotor sudah cukup banyak.',
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
               ]),
             ),
@@ -383,7 +412,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: _isLoading
@@ -391,7 +420,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           : _errorMessage != null
               ? _buildErrorView()
               : _buildHomeContent(colorScheme),
-      
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -404,7 +432,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
         child: const Icon(Ionicons.camera_outline, size: 28),
       ),
-      
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: colorScheme.surface,
@@ -416,7 +443,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             _currentIndex = index;
           });
           // Logika navigasi yang sudah benar
-          switch(index) {
+          switch (index) {
             case 0:
               // Sudah di halaman beranda, tidak perlu navigasi
               break;
@@ -431,20 +458,20 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               break;
           }
         },
-        items: [
-          const BottomNavigationBarItem(
+        items: const [
+          BottomNavigationBarItem(
             icon: Icon(Ionicons.home_outline),
             label: 'Beranda',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Ionicons.receipt_outline),
             label: 'Tagihan',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Ionicons.search_circle_outline),
             label: 'Lacak',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Ionicons.person_circle_outline),
             label: 'Profil',
           ),
@@ -483,7 +510,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
+                  const Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
                   const SizedBox(width: 8),
                   Text(
                     _userData!['email'],
@@ -501,143 +528,199 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  Widget _buildFeatureCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double iconSize = constraints.maxWidth * 0.22;
-        double titleFontSize = constraints.maxWidth * 0.1;
-        double subtitleFontSize = constraints.maxWidth * 0.08;
-
-        iconSize = iconSize.clamp(32.0, 40.0);
-        titleFontSize = titleFontSize.clamp(15.0, 18.0);
-        subtitleFontSize = subtitleFontSize.clamp(12.0, 14.0);
-
-        return Card(
-          elevation: 4.0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+  Widget _buildQuickAccessCard(ColorScheme colorScheme) {
+    return Card(
+      elevation: 4.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade400.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Ionicons.document_text_outline,
+                  color: Colors.blue.shade400, size: 24),
+            ),
+            title: Text(
+              'Buat Laporan',
+              style: GoogleFonts.lato(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text('Keluhan & masalah layanan'),
+            trailing: const Icon(Ionicons.chevron_forward_outline, color: Colors.grey),
+            onTap: () {
+              Navigator.pushNamed(context, '/buat_laporan');
+            },
           ),
-          clipBehavior: Clip.antiAlias,
-          color: Colors.white,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+          const Divider(height: 0),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade400.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Ionicons.chatbubbles_outline,
+                  color: Colors.green.shade400, size: 24),
+            ),
+            title: Text(
+              'Hubungi Kami',
+              style: GoogleFonts.lato(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text('Admin & info PDAM'),
+            trailing: const Icon(Ionicons.chevron_forward_outline, color: Colors.grey),
+            onTap: () {
+              if (_userData != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ChatPage(userData: _userData!)),
+                );
+              } else {
+                _showSnackbar('Data pengguna belum siap, coba lagi.');
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLaporanTerbaruCard(ColorScheme colorScheme) {
+    // Jika state _laporanTerbaru masih loading atau kosong
+    if (_laporanTerbaru == null) {
+      return Card(
+        elevation: 2.0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Center(
+            child: Text(
+              'Anda belum memiliki laporan.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Jika data laporan ada, bangun kartu dengan data tersebut
+    final laporan = _laporanTerbaru!;
+    final statusMeta =
+        _getStatusMeta(laporan.status); // Helper untuk warna & ikon
+
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          // Navigasi tetap ke halaman lacak laporan
+          Navigator.pushNamed(context, '/lacak_laporan_saya');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(iconSize * 0.3),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: iconSize, color: color),
-                  ),
-                  const SizedBox(height: 12),
                   Text(
-                    title,
-                    textAlign: TextAlign.center,
+                    'Laporan #${laporan.id}', // Data dinamis
                     style: GoogleFonts.lato(
-                      fontSize: titleFontSize,
-                      fontWeight: FontWeight.w800,
-                      color: color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Expanded(
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:
+                          statusMeta.color.withOpacity(0.2), // Warna dinamis
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
+                      laporan.friendlyStatus, // Status dinamis
                       style: GoogleFonts.lato(
-                        fontSize: subtitleFontSize,
-                        color: Colors.grey.shade700,
-                        height: 1.3,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusMeta.color, // Warna dinamis
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLaporTemuanButton(ColorScheme colorScheme) {
-    return Center(
-      child: FadeInAnimation(
-        delay: 0.5,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.tertiary.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+              const SizedBox(height: 8),
+              Text(
+                'Masalah: ${laporan.friendlyKategori}', // Kategori dinamis
+                style: GoogleFonts.lato(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                // Format tanggal dinamis
+                'Tanggal: ${DateFormat('d MMMM yyyy').format(laporan.createdAt)}',
+                style: GoogleFonts.lato(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Lihat Detail >',
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.tertiary,
-                _darkenColor(colorScheme.tertiary, 0.15),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                Navigator.pushNamed(context, '/temuan_kebocoran');
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 16,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Ionicons.warning_outline,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      "Lapor Temuan Kebocoran",
-                      style: GoogleFonts.lato(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         ),
       ),
     );
+  }
+
+  // --- TAMBAHKAN FUNGSI HELPER INI ---
+  // Fungsi ini bisa Anda salin dari lacak_laporan_saya_page.dart untuk konsistensi
+  ({Color color, IconData icon}) _getStatusMeta(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+      case 'menunggu_konfirmasi':
+        return (
+          color: Colors.blue.shade700,
+          icon: Icons.pending_actions_rounded,
+        );
+      case 'diterima':
+      case 'dalam_perjalanan':
+      case 'diproses':
+        return (
+            color: Colors.orange.shade800,
+            icon: Icons.construction_rounded);
+      case 'selesai':
+        return (
+            color: Colors.green.shade700, icon: Icons.check_circle_rounded);
+      case 'ditolak':
+      case 'dibatalkan':
+        return (color: Colors.red.shade700, icon: Icons.cancel_rounded);
+      default:
+        return (
+            color: Colors.grey.shade600, icon: Icons.help_outline_rounded);
+    }
   }
 
   Widget _buildInfoCard({
@@ -696,50 +779,54 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     required String title,
     required String description,
     required IconData icon,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.blueAccent, size: 24),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.lato(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ],
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.blueAccent, size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.lato(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: GoogleFonts.lato(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
