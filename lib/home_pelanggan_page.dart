@@ -46,35 +46,28 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   Future<void> _fetchLaporanTerbaru() async {
     try {
-      // Panggil endpoint yang sama dengan halaman lacak laporan
       final List<dynamic> rawData = await _apiService.getLaporanPengaduan();
       if (mounted && rawData.isNotEmpty) {
-        // Ubah data mentah menjadi List<Pengaduan>
         final allLaporan = rawData
             .whereType<Map<String, dynamic>>()
             .map((item) => Pengaduan.fromJson(item))
             .toList();
-
-        // Urutkan laporan dari yang paling baru (berdasarkan tanggal update)
         allLaporan.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-        // Ambil laporan pertama (yang paling baru) dan simpan ke state
         setState(() {
           _laporanTerbaru = allLaporan.first;
         });
-      } else {
-        // Jika tidak ada laporan sama sekali
+      } else if (mounted) {
         setState(() {
           _laporanTerbaru = null;
         });
       }
     } catch (e) {
-      // Jika terjadi error, kita set null agar card menampilkan pesan kosong
-      // dan tidak merusak UI utama.
       print("Gagal mengambil laporan terbaru di beranda: $e");
-      setState(() {
-        _laporanTerbaru = null;
-      });
+      if (mounted) {
+        setState(() {
+          _laporanTerbaru = null;
+        });
+      }
     }
   }
 
@@ -93,7 +86,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             _isLoading = false;
           });
           _fetchUnreadCount();
-          _fetchLaporanTerbaru(); // Panggil fungsi untuk mengambil laporan terbaru
+          _fetchLaporanTerbaru();
         } else {
           _showSnackbar(
             'Gagal memuat data pengguna. Sesi mungkin telah berakhir.',
@@ -159,7 +152,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title, style: GoogleFonts.lato(fontWeight: FontWeight.bold)),
+        title:
+            Text(title, style: GoogleFonts.lato(fontWeight: FontWeight.bold)),
         content: Text(content),
         actions: [
           TextButton(
@@ -241,8 +235,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 builder: (context, constraints) {
                   return AnimatedOpacity(
                     duration: const Duration(milliseconds: 200),
-                    opacity:
-                        constraints.biggest.height < kToolbarHeight + 40 ? 1.0 : 0.0,
+                    opacity: constraints.biggest.height < kToolbarHeight + 40
+                        ? 1.0
+                        : 0.0,
                     child: Text(
                       'Beranda',
                       style: GoogleFonts.lato(
@@ -376,9 +371,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     onTap: () => _showTipsDialog(
                       'Cara Memeriksa Kebocoran Pipa',
                       '1. Tutup semua keran air di rumah Anda.\n'
-                      '2. Catat angka pada meteran air.\n'
-                      '3. Tunggu selama 1-2 jam tanpa menggunakan air.\n'
-                      '4. Periksa kembali meteran air. Jika angkanya berubah, kemungkinan ada kebocoran.',
+                          '2. Catat angka pada meteran air.\n'
+                          '3. Tunggu selama 1-2 jam tanpa menggunakan air.\n'
+                          '4. Periksa kembali meteran air. Jika angkanya berubah, kemungkinan ada kebocoran.',
                     ),
                   ),
                 ),
@@ -392,9 +387,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     onTap: () => _showTipsDialog(
                       'Cara Menggunakan Air Secukupnya',
                       '1. Mandi dengan shower lebih hemat daripada berendam di bak mandi.\n'
-                      '2. Gunakan sikat gigi dan pasta gigi, lalu nyalakan keran hanya saat membilas.\n'
-                      '3. Cuci piring dengan air yang mengalir, tapi jangan terlalu deras.\n'
-                      '4. Gunakan mesin cuci hanya jika pakaian kotor sudah cukup banyak.',
+                          '2. Gunakan sikat gigi dan pasta gigi, lalu nyalakan keran hanya saat membilas.\n'
+                          '3. Cuci piring dengan air yang mengalir, tapi jangan terlalu deras.\n'
+                          '4. Gunakan mesin cuci hanya jika pakaian kotor sudah cukup banyak.',
                     ),
                   ),
                 ),
@@ -510,7 +505,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  const Icon(Ionicons.mail_outline, size: 16, color: Colors.white70),
+                  const Icon(Ionicons.mail_outline,
+                      size: 16, color: Colors.white70),
                   const SizedBox(width: 8),
                   Text(
                     _userData!['email'],
@@ -551,7 +547,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               style: GoogleFonts.lato(fontWeight: FontWeight.bold),
             ),
             subtitle: const Text('Keluhan & masalah layanan'),
-            trailing: const Icon(Ionicons.chevron_forward_outline, color: Colors.grey),
+            trailing: const Icon(Ionicons.chevron_forward_outline,
+                color: Colors.grey),
             onTap: () {
               Navigator.pushNamed(context, '/buat_laporan');
             },
@@ -572,7 +569,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               style: GoogleFonts.lato(fontWeight: FontWeight.bold),
             ),
             subtitle: const Text('Admin & info PDAM'),
-            trailing: const Icon(Ionicons.chevron_forward_outline, color: Colors.grey),
+            trailing: const Icon(Ionicons.chevron_forward_outline,
+                color: Colors.grey),
             onTap: () {
               if (_userData != null) {
                 Navigator.push(
@@ -642,8 +640,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color:
-                          statusMeta.color.withOpacity(0.2), // Warna dinamis
+                      color: statusMeta.color.withOpacity(0.2), // Warna dinamis
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -709,17 +706,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       case 'dalam_perjalanan':
       case 'diproses':
         return (
-            color: Colors.orange.shade800,
-            icon: Icons.construction_rounded);
+          color: Colors.orange.shade800,
+          icon: Icons.construction_rounded
+        );
       case 'selesai':
-        return (
-            color: Colors.green.shade700, icon: Icons.check_circle_rounded);
+        return (color: Colors.green.shade700, icon: Icons.check_circle_rounded);
       case 'ditolak':
       case 'dibatalkan':
         return (color: Colors.red.shade700, icon: Icons.cancel_rounded);
       default:
-        return (
-            color: Colors.grey.shade600, icon: Icons.help_outline_rounded);
+        return (color: Colors.grey.shade600, icon: Icons.help_outline_rounded);
     }
   }
 

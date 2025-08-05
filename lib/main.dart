@@ -1,3 +1,6 @@
+// ignore_for_file: unused_local_variable
+
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -35,20 +38,54 @@ void main() async {
   await NotificationService().init();
 
   NotificationService().onNotificationTap.listen((data) {
-    log("Notifikasi di-tap dengan data: $data");
-    if (data.containsKey('pengaduan_id')) {
-      final pengaduanId = int.tryParse(data['pengaduan_id'] ?? '');
+    log('--- DEBUG NOTIFIKASI DARI HP ---');
+    log('Notifikasi di-tap dengan data: ${jsonEncode(data)}');
+    log('---------------------------------');
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) {
+      log('Navigator state is null. Cannot navigate.');
+      return;
+    }
+
+    final String? type = data['type'];
+    final String? status = data['status'];
+
+    log('Notifikasi Type: $type');
+    log('Notifikasi Status: $status');
+
+    // Pastikan logika ini memeriksa nama tipe yang benar
+    if (type == 'lapor_foto_water_meter_status') {
+      log('Jenis notifikasi cocok: lapor_foto_water_meter_status');
+      if (status == 'ditolak') {
+        log('Status ditolak, mengarahkan ke /lapor_foto_meter');
+        navigator.pushNamed('/lapor_foto_meter');
+      } else if (status == 'dikonfirmasi') {
+        log('Status dikonfirmasi, mengarahkan ke /notifikasi_page');
+        navigator.pushNamedAndRemoveUntil('/notifikasi_page', (route) => false);
+      } else {
+        log('Status tidak dikenal: $status. Tidak ada navigasi.');
+      }
+    } else if (data.containsKey('reference_id')) {
+      final pengaduanId = int.tryParse(data['reference_id'] ?? '');
+      log('Jenis notifikasi cocok: Pengaduan (reference_id)');
       if (pengaduanId != null) {
-        navigatorKey.currentState?.pushNamed(
+        log('Pengaduan ID: $pengaduanId. Mengarahkan ke /lacak_laporan_saya');
+        navigator.pushNamed(
           '/lacak_laporan_saya',
           arguments: {'pengaduan_id': pengaduanId},
         );
+      } else {
+        log('reference_id tidak valid: ${data['reference_id']}. Tidak ada navigasi.');
       }
+    } else {
+      log('Jenis notifikasi tidak cocok dengan kondisi yang ada.');
     }
   });
 
   final prefs = await SharedPreferences.getInstance();
-  final bool hasSeenWelcomeScreen = prefs.getBool('hasSeenWelcomeScreen') ?? false;
+  final bool hasSeenWelcomeScreen =
+      prefs.getBool('hasSeenWelcomeScreen') ?? false;
 
   runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen));
 }
@@ -99,12 +136,14 @@ class MyApp extends StatelessWidget {
         '/home_petugas': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           int petugasId;
-          if (arguments is Map<String, dynamic> && arguments.containsKey('idPetugasLoggedIn')) {
+          if (arguments is Map<String, dynamic> &&
+              arguments.containsKey('idPetugasLoggedIn')) {
             petugasId = arguments['idPetugasLoggedIn'] as int;
           } else if (arguments is int) {
             petugasId = arguments;
           } else {
-            throw FlutterError('HomePetugasPage requires an idPetugasLoggedIn argument.');
+            throw FlutterError(
+                'HomePetugasPage requires an idPetugasLoggedIn argument.');
           }
           return HomePetugasPage(idPetugasLoggedIn: petugasId);
         },
@@ -113,17 +152,22 @@ class MyApp extends StatelessWidget {
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
-        '/view_profil': (context) => const ViewProfilPage(), // <-- Rute yang hilang
-        '/profil_page': (context) => const ProfilPage(), // Rute lama, mungkin perlu dihapus atau disesuaikan
-        '/register_calon_pelanggan': (context) => const CalonPelangganRegisterPage(),
+        '/view_profil': (context) =>
+            const ViewProfilPage(), // <-- Rute yang hilang
+        '/profil_page': (context) =>
+            const ProfilPage(), // Rute lama, mungkin perlu dihapus atau disesuaikan
+        '/register_calon_pelanggan': (context) =>
+            const CalonPelangganRegisterPage(),
         '/detail_temuan_page': (context) {
-          final temuan = ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
+          final temuan =
+              ModalRoute.of(context)!.settings.arguments as TemuanKebocoran;
           return DetailTemuanPage(temuanKebocoran: temuan);
         },
         '/tracking_page': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           String? kodeTracking;
-          if (arguments is Map<String, dynamic> && arguments.containsKey('kodeTracking')) {
+          if (arguments is Map<String, dynamic> &&
+              arguments.containsKey('kodeTracking')) {
             kodeTracking = arguments['kodeTracking'] as String?;
           } else if (arguments is String?) {
             kodeTracking = arguments;
@@ -131,10 +175,12 @@ class MyApp extends StatelessWidget {
           return TrackingPage(kodeTracking: kodeTracking);
         },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
-        '/notifikasi_page': (context) => const NotifikasiPage(), // <-- Tambahkan jika belum ada
+        '/notifikasi_page': (context) =>
+            const NotifikasiPage(), // <-- Tambahkan jika belum ada
         '/chat_page': (context) {
-           final userData = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-           return ChatPage(userData: userData ?? {});
+          final userData = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
+          return ChatPage(userData: userData ?? {});
         },
       },
       onUnknownRoute: (settings) {

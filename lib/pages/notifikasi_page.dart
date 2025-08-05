@@ -2,6 +2,8 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/notifikasi_model.dart';
@@ -61,7 +63,8 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Gagal memuat data: ${snapshot.error}'));
+              return Center(
+                  child: Text('Gagal memuat data: ${snapshot.error}'));
             }
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(
@@ -74,7 +77,8 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
                       color: Colors.grey,
                     ),
                     SizedBox(height: 16),
-                    Text('Belum ada notifikasi', style: TextStyle(fontSize: 18)),
+                    Text('Belum ada notifikasi',
+                        style: TextStyle(fontSize: 18)),
                   ],
                 ),
               );
@@ -85,7 +89,8 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
               child: ListView.separated(
                 padding: const EdgeInsets.only(top: 100),
                 itemCount: notifikasiList.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final notif = notifikasiList[index];
                   return AnimationConfiguration.staggeredList(
@@ -116,44 +121,91 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
                               ],
                             ),
                             child: Card(
-                              elevation: 6, // Meningkatkan elevasi untuk shadow yang lebih jelas
+                              elevation:
+                                  6, // Meningkatkan elevasi untuk shadow yang lebih jelas
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18.0), // Sudut yang lebih melengkung
+                                borderRadius: BorderRadius.circular(
+                                    18.0), // Sudut yang lebih melengkung
                               ),
                               margin: EdgeInsets.zero,
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: Colors.blue.shade100, // Warna latar belakang avatar yang lebih kalem
+                                  backgroundColor: Colors.blue
+                                      .shade100, // Warna latar belakang avatar yang lebih kalem
                                   child: Icon(
                                     Icons.notifications,
-                                    color: Theme.of(context).primaryColor, // Warna ikon sesuai tema
+                                    color: Theme.of(context)
+                                        .primaryColor, // Warna ikon sesuai tema
                                     size: 24,
                                   ),
                                 ),
                                 title: Text(
                                   notif.title,
                                   style: TextStyle(
-                                    fontWeight: notif.isRead ? FontWeight.normal : FontWeight.bold,
-                                    color: Colors.grey.shade800, // Warna judul yang lebih gelap
+                                    fontWeight: notif.isRead
+                                        ? FontWeight.normal
+                                        : FontWeight.bold,
+                                    color: Colors.grey
+                                        .shade800, // Warna judul yang lebih gelap
                                   ),
                                 ),
                                 subtitle: Text(
                                   notif.body,
                                   style: TextStyle(
-                                    color: Colors.grey.shade600, // Warna subtitle yang lebih kalem
+                                    color: Colors.grey
+                                        .shade600, // Warna subtitle yang lebih kalem
                                   ),
                                 ),
                                 trailing: Text(
                                   timeago.format(notif.createdAt, locale: 'id'),
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey),
                                 ),
                                 onTap: () {
-                                  if (notif.referenceId != null) {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/lacak_laporan_saya',
-                                      arguments: {'pengaduan_id': notif.referenceId},
-                                    );
+                                  log('--- DEBUG NOTIFIKASI DI HALAMAN ---');
+                                  log('Notifikasi di-tap: ${notif.title}');
+                                  log('----------------------------------');
+
+                                  final notifType = notif.type;
+                                  final notifStatus = notif.status;
+                                  final notifRefId = notif.referenceId;
+
+                                  log('Notifikasi Type: $notifType');
+                                  log('Notifikasi Status: $notifStatus');
+                                  log('Notifikasi Reference ID: $notifRefId');
+
+                                  // Pastikan logika ini memeriksa nama tipe yang benar
+                                  if (notifType ==
+                                      'lapor_foto_water_meter_status') {
+                                    log('Jenis notifikasi cocok: lapor_foto_water_meter_status');
+                                    if (notifStatus == 'ditolak') {
+                                      log('Status ditolak, mengarahkan ke /lapor_foto_meter');
+                                      Navigator.pushNamed(
+                                          context, '/lapor_foto_meter');
+                                    } else if (notifStatus == 'dikonfirmasi') {
+                                      log('Status dikonfirmasi, tidak ada navigasi yang dilakukan.');
+                                    } else {
+                                      log('Status tidak dikenal: $notifStatus. Tidak ada navigasi.');
+                                    }
+                                  } else if (notif.referenceId != null) {
+                                    // Logika ini untuk notifikasi pengaduan
+                                    log('Jenis notifikasi cocok: Pengaduan (referenceId)');
+                                    final int? pengaduanId =
+                                        int.tryParse(notif.referenceId!);
+                                    if (pengaduanId != null) {
+                                      log('Pengaduan ID: $pengaduanId. Mengarahkan ke /lacak_laporan_saya');
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/lacak_laporan_saya',
+                                        arguments: {
+                                          'pengaduan_id': pengaduanId
+                                        },
+                                      );
+                                    } else {
+                                      log('Reference ID tidak valid. Tidak ada navigasi.');
+                                    }
+                                  } else {
+                                    log('Jenis notifikasi tidak cocok dengan kondisi yang ada.');
                                   }
                                 },
                               ),
