@@ -96,28 +96,28 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     for (var laporan in _masterLaporanList) {
       final status = laporan.status.toLowerCase();
 
-      if (status == 'pending' || status == 'menunggu_konfirmasi') {
-        _laporanDiproses.add(laporan);
-      } else if (status == 'diterima' ||
-          status == 'dalam_perjalanan' ||
-          status == 'diproses') {
-        _laporanDikerjakan.add(laporan);
-      } else if (status == 'selesai') {
-        _laporanSelesai.add(laporan);
-        if (laporan.ratingHasil == null) {
-          needRatingCount++;
-        }
-      } else if (status == 'ditolak' || status == 'dibatalkan') {
-        _laporanDibatalkan.add(laporan);
+      if (status == 'pending' || status == 'menunggu_konfirmasi' || status == 'menunggu_pelanggan') {
+      _laporanDiproses.add(laporan);
+    } else if (status == 'diterima' ||
+        status == 'dalam_perjalanan' ||
+        status == 'diproses') {
+      _laporanDikerjakan.add(laporan);
+    } else if (status == 'selesai') {
+      _laporanSelesai.add(laporan);
+      if (laporan.ratingHasil == null) {
+        needRatingCount++;
       }
-    }
-
-    if (mounted) {
-      setState(() {
-        _laporanButuhPenilaianCount = needRatingCount;
-      });
+    } else if (status == 'ditolak' || status == 'dibatalkan') {
+      _laporanDibatalkan.add(laporan);
     }
   }
+
+  if (mounted) {
+    setState(() {
+      _laporanButuhPenilaianCount = needRatingCount;
+    });
+  }
+}
 
   Future<String?> _getAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
