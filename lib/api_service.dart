@@ -17,7 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://10.66.9.148:8000/api';
+  final String baseUrl = 'http://192.168.164.148:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -26,7 +26,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://10.66.9.148:8000/api',
+            baseUrl: 'http://192.168.164.148:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -374,6 +374,24 @@ class ApiService {
         'Gagal mengambil notifikasi: ${e.response?.data['message'] ?? e.message}',
       );
       throw Exception('Gagal memuat riwayat notifikasi.');
+    }
+  }
+
+  Future<void> deleteNotifikasi(int notifikasiId) async {
+    try {
+      // Menggunakan Dio untuk request DELETE ke endpoint yang baru dibuat
+      // Contoh endpoint: /notifikasi/123
+      final response = await _dio.delete('/notifikasi/$notifikasiId');
+
+      if (response.statusCode != 200) {
+        // Jika status code bukan 200 OK, lemparkan error
+        throw Exception(
+            'Gagal menghapus notifikasi: ${response.data['message'] ?? 'Error tidak diketahui'}');
+      }
+      log("Notifikasi dengan ID $notifikasiId berhasil dihapus.");
+    } on DioException catch (e) {
+      log('Gagal menghapus notifikasi: ${e.response?.data['message'] ?? e.message}');
+      throw Exception('Gagal menghapus notifikasi di server.');
     }
   }
 

@@ -1,6 +1,6 @@
 // lib/pages/notifikasi_page.dart
 
-// ignore_for_file: depend_on_referenced_packages
+// ignore_for_file: depend_on_referenced_packages, unused_local_variable
 
 import 'dart:developer';
 
@@ -20,20 +20,93 @@ class NotifikasiPage extends StatefulWidget {
 
 class _NotifikasiPageState extends State<NotifikasiPage> {
   final ApiService _apiService = ApiService();
-  late Future<List<Notifikasi>> _notifikasiFuture;
+
+  // 1. Deklarasikan semua variabel state yang dibutuhkan
+  List<Notifikasi> _notifikasiList = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    // Atur timeago untuk format bahasa Indonesia
     timeago.setLocaleMessages('id', timeago.IdMessages());
+
+    // 2. Langsung panggil fungsi untuk memuat data
     _apiService.markNotifikasiAsRead();
-    _notifikasiFuture = _loadNotifikasi();
+    _loadNotifikasi();
   }
 
-  Future<List<Notifikasi>> _loadNotifikasi() async {
-    final List<dynamic> rawData = await _apiService.getNotifikasiSaya();
-    return rawData.map((json) => Notifikasi.fromJson(json)).toList();
+  // 3. Fungsi ini sekarang hanya bertugas mengisi variabel state
+  Future<void> _loadNotifikasi() async {
+    try {
+      final List<dynamic> rawData = await _apiService.getNotifikasiSaya();
+      if (mounted) {
+        setState(() {
+          _notifikasiList =
+              rawData.map((json) => Notifikasi.fromJson(json)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _handleDelete(Notifikasi notifikasi) async {
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Hapus'),
+          content: const Text(
+              'Apakah Anda yakin ingin menghapus notifikasi ini secara permanen?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Hapus'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      try {
+        await _apiService.deleteNotifikasi(notifikasi.id);
+
+        setState(() {
+          _notifikasiList.removeWhere((item) => item.id == notifikasi.id);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notifikasi berhasil dihapus.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menghapus: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -48,178 +121,136 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.blue.shade50,
-              Colors.white,
-            ],
+            colors: [Colors.blue.shade50, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
-        child: FutureBuilder<List<Notifikasi>>(
-          future: _notifikasiFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(
-                  child: Text('Gagal memuat data: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_off_outlined,
-                      size: 80,
-                      color: Colors.grey,
+        // 4. Widget build utama hanya memanggil _buildBody
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  // 5. _buildBody berisi semua logika untuk menampilkan UI
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(child: Text('Gagal memuat data: $_error'));
+    }
+
+    if (_notifikasiList.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_off_outlined,
+                size: 80, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Belum ada notifikasi', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+      );
+    }
+
+    // Tampilkan list jika data sudah ada
+    return AnimationLimiter(
+      child: ListView.separated(
+        padding: const EdgeInsets.only(top: 100),
+        itemCount: _notifikasiList.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final notif = _notifikasiList[index];
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 375),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Slidable(
+                    key: ValueKey(notif.id),
+                    endActionPane: ActionPane(
+                      motion: const StretchMotion(),
+                      children: [
+                        SlidableAction(
+                          onPressed: (context) => _handleDelete(notif),
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          icon: Icons.delete,
+                          label: 'Hapus',
+                          borderRadius: BorderRadius.circular(15.0),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 16),
-                    Text('Belum ada notifikasi',
-                        style: TextStyle(fontSize: 18)),
-                  ],
-                ),
-              );
-            }
-
-            final notifikasiList = snapshot.data!;
-            return AnimationLimiter(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(top: 100),
-                itemCount: notifikasiList.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final notif = notifikasiList[index];
-                  return AnimationConfiguration.staggeredList(
-                    position: index,
-                    duration: const Duration(milliseconds: 375),
-                    child: SlideAnimation(
-                      verticalOffset: 50.0,
-                      child: FadeInAnimation(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Slidable(
-                            key: ValueKey(notif.createdAt),
-                            endActionPane: ActionPane(
-                              motion: const StretchMotion(),
-                              children: [
-                                SlidableAction(
-                                  onPressed: (context) {
-                                    // Tambahkan logika untuk menghapus notifikasi
-                                    // Contoh: _apiService.deleteNotifikasi(notif.id);
-                                    // Kemudian panggil setState atau refetch data
-                                  },
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                  icon: Icons.delete,
-                                  label: 'Hapus',
-                                  borderRadius: BorderRadius.circular(15.0),
-                                ),
-                              ],
-                            ),
-                            child: Card(
-                              elevation:
-                                  6, // Meningkatkan elevasi untuk shadow yang lebih jelas
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    18.0), // Sudut yang lebih melengkung
-                              ),
-                              margin: EdgeInsets.zero,
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.blue
-                                      .shade100, // Warna latar belakang avatar yang lebih kalem
-                                  child: Icon(
-                                    Icons.notifications,
-                                    color: Theme.of(context)
-                                        .primaryColor, // Warna ikon sesuai tema
-                                    size: 24,
-                                  ),
-                                ),
-                                title: Text(
-                                  notif.title,
-                                  style: TextStyle(
-                                    fontWeight: notif.isRead
-                                        ? FontWeight.normal
-                                        : FontWeight.bold,
-                                    color: Colors.grey
-                                        .shade800, // Warna judul yang lebih gelap
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  notif.body,
-                                  style: TextStyle(
-                                    color: Colors.grey
-                                        .shade600, // Warna subtitle yang lebih kalem
-                                  ),
-                                ),
-                                trailing: Text(
-                                  timeago.format(notif.createdAt, locale: 'id'),
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.grey),
-                                ),
-                                onTap: () {
-                                  log('--- DEBUG NOTIFIKASI DI HALAMAN ---');
-                                  log('Notifikasi di-tap: ${notif.title}');
-                                  log('----------------------------------');
-
-                                  final notifType = notif.type;
-                                  final notifStatus = notif.status;
-                                  final notifRefId = notif.referenceId;
-
-                                  log('Notifikasi Type: $notifType');
-                                  log('Notifikasi Status: $notifStatus');
-                                  log('Notifikasi Reference ID: $notifRefId');
-
-                                  // Pastikan logika ini memeriksa nama tipe yang benar
-                                  if (notifType ==
-                                      'lapor_foto_water_meter_status') {
-                                    log('Jenis notifikasi cocok: lapor_foto_water_meter_status');
-                                    if (notifStatus == 'ditolak') {
-                                      log('Status ditolak, mengarahkan ke /lapor_foto_meter');
-                                      Navigator.pushNamed(
-                                          context, '/lapor_foto_meter');
-                                    } else if (notifStatus == 'dikonfirmasi') {
-                                      log('Status dikonfirmasi, tidak ada navigasi yang dilakukan.');
-                                    } else {
-                                      log('Status tidak dikenal: $notifStatus. Tidak ada navigasi.');
-                                    }
-                                  } else if (notif.referenceId != null) {
-                                    // Logika ini untuk notifikasi pengaduan
-                                    log('Jenis notifikasi cocok: Pengaduan (referenceId)');
-                                    final int? pengaduanId =
-                                        int.tryParse(notif.referenceId!);
-                                    if (pengaduanId != null) {
-                                      log('Pengaduan ID: $pengaduanId. Mengarahkan ke /lacak_laporan_saya');
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/lacak_laporan_saya',
-                                        arguments: {
-                                          'pengaduan_id': pengaduanId
-                                        },
-                                      );
-                                    } else {
-                                      log('Reference ID tidak valid. Tidak ada navigasi.');
-                                    }
-                                  } else {
-                                    log('Jenis notifikasi tidak cocok dengan kondisi yang ada.');
-                                  }
-                                },
-                              ),
-                            ),
+                    child: Card(
+                      elevation: 6,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18.0),
+                      ),
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.shade100,
+                          child: Icon(
+                            Icons.notifications,
+                            color: Theme.of(context).primaryColor,
+                            size: 24,
                           ),
                         ),
+                        title: Text(
+                          notif.title,
+                          style: TextStyle(
+                            fontWeight: notif.isRead
+                                ? FontWeight.normal
+                                : FontWeight.bold,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        subtitle: Text(
+                          notif.body,
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        trailing: Text(
+                          timeago.format(notif.createdAt, locale: 'id'),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        onTap: () {
+                          // ... Logika onTap Anda tetap sama
+                          log('Notifikasi di-tap: ${notif.title}');
+                          final notifType = notif.type;
+                          final notifStatus = notif.status;
+                          final notifRefId = notif.referenceId;
+
+                          if (notifType == 'lapor_foto_water_meter_status') {
+                            if (notifStatus == 'ditolak') {
+                              Navigator.pushNamed(context, '/lapor_foto_meter');
+                            }
+                          } else if (notif.referenceId != null) {
+                            final int? pengaduanId =
+                                int.tryParse(notif.referenceId!);
+                            if (pengaduanId != null) {
+                              Navigator.pushNamed(
+                                context,
+                                '/lacak_laporan_saya',
+                                arguments: {'pengaduan_id': pengaduanId},
+                              );
+                            }
+                          }
+                        },
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
