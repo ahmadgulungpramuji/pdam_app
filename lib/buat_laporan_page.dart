@@ -31,7 +31,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   final _deskripsiLokasiManualController = TextEditingController();
   final ApiService _apiService = ApiService();
 
-  // --- PERBAIKAN: Menambahkan controller untuk kategori lainnya ---
   final _kategoriLainnyaController = TextEditingController();
 
   // --- State Variables ---
@@ -49,14 +48,14 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   File? _fotoBuktiFile;
   File? _fotoRumahFile;
 
-  // --- PERBAIKAN: Menambahkan opsi 'Lain-lain...' ke dalam daftar ---
   final List<Map<String, String>> _jenisLaporanOptions = [
     {'value': 'air_tidak_mengalir', 'label': 'Air Tidak Mengalir'},
     {'value': 'air_keruh', 'label': 'Air Keruh'},
     {'value': 'water_meter_rusak', 'label': 'Meteran Rusak'},
     {'value': 'angka_meter_tidak_sesuai', 'label': 'Angka Meter Tidak Sesuai'},
+    {'value': 'water_meter_tidak_sesuai', 'label': 'Water Meter Tidak Sesuai'},
     {'value': 'tagihan_membengkak', 'label': 'Tagihan Membengkak'},
-    {'value': 'lain_lain', 'label': 'Lain-lain...'}, // <-- DITAMBAHKAN
+    {'value': 'lain_lain', 'label': 'Lain-lain...'},
   ];
 
   @override
@@ -70,7 +69,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     _pageController.dispose();
     _deskripsiController.dispose();
     _deskripsiLokasiManualController.dispose();
-    _kategoriLainnyaController.dispose(); // <-- PERBAIKAN: Hapus controller
+    _kategoriLainnyaController.dispose();
     super.dispose();
   }
 
@@ -293,72 +292,72 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
   }
 
- // Ganti seluruh fungsi _submitLaporan Anda dengan yang ini
-
-Future<void> _submitLaporan() async {
-  // Pengecekan data utama tetap diperlukan
-  if (_loggedInPelangganId == null ||
-      _selectedPdamIdNumber == null ||
-      _selectedCabangId == null ||
-      _currentPosition == null ||
-      _selectedJenisLaporan == null) {
-    _showSnackbar('Data esensial tidak lengkap. Mohon periksa kembali.');
-    return;
-  }
-  if (_fotoBuktiFile == null) {
-    _showSnackbar('Mohon unggah Foto Bukti.');
-    return;
-  }
-  
-  if (_fotoRumahFile == null) {
-    _showSnackbar('Mohon unggah Foto Rumah.');
-    return;
-  }
-
-  // BLOK VALIDASI FORM STATE YANG MENYEBABKAN ERROR SUDAH DIHAPUS DARI SINI
-
-  setState(() => _isSubmitting = true);
-  try {
-    Map<String, String> dataLaporan = {
-      'id_pelanggan': _loggedInPelangganId!,
-      'id_pdam': _selectedPdamIdNumber!,
-      'id_cabang': _selectedCabangId.toString(),
-      'kategori': _selectedJenisLaporan!,
-      'latitude': _currentPosition!.latitude.toString(),
-      'longitude': _currentPosition!.longitude.toString(),
-      'lokasi_maps':
-          'http://googleusercontent.com/maps.google.com/10${_currentPosition!.latitude},${_currentPosition!.longitude}',
-      'deskripsi_lokasi': _deskripsiLokasiManualController.text,
-      'deskripsi': _deskripsiController.text,
-    };
-
-    if (_selectedJenisLaporan == 'lain_lain') {
-      dataLaporan['kategori_lainnya'] = _kategoriLainnyaController.text;
+  Future<void> _submitLaporan() async {
+    if (_loggedInPelangganId == null ||
+        _selectedPdamIdNumber == null ||
+        _selectedCabangId == null ||
+        _currentPosition == null ||
+        _selectedJenisLaporan == null) {
+      _showSnackbar('Data esensial tidak lengkap. Mohon periksa kembali.');
+      return;
     }
 
-    // Bagian ini memanggil ApiService Anda untuk mengirim data
-    final response = await _apiService.buatPengaduan(
-      dataLaporan,
-      fotoBukti: _fotoBuktiFile,
-      fotoRumah: _fotoRumahFile,
-    );
+    // Memperbaiki: Validasi foto yang lebih spesifik
+    if (_selectedJenisLaporan == 'angka_meter_tidak_sesuai' && _fotoBuktiFile == null) {
+      _showSnackbar('Untuk laporan "Angka Meter Tidak Sesuai", mohon unggah foto bukti meteran.', isError: true);
+      return;
+    }
+    
+    if (_fotoBuktiFile == null) {
+      _showSnackbar('Mohon unggah Foto Bukti.');
+      return;
+    }
 
-    // Sisa dari kode tetap sama
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      _showSnackbar('Laporan berhasil dikirim!', isError: false);
-      Navigator.of(context).pop();
-    } else {
-      final responseData = jsonDecode(response.body);
-      _showSnackbar(
-        'Gagal mengirim laporan: ${responseData['message'] ?? 'Error tidak diketahui'}',
+    if (_fotoRumahFile == null) {
+      _showSnackbar('Mohon unggah Foto Rumah.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      Map<String, String> dataLaporan = {
+        'id_pelanggan': _loggedInPelangganId!,
+        'id_pdam': _selectedPdamIdNumber!,
+        'id_cabang': _selectedCabangId.toString(),
+        'kategori': _selectedJenisLaporan!,
+        'latitude': _currentPosition!.latitude.toString(),
+        'longitude': _currentPosition!.longitude.toString(),
+        'lokasi_maps':
+            'http://googleusercontent.com/maps.google.com/10${_currentPosition!.latitude},${_currentPosition!.longitude}',
+        'deskripsi_lokasi': _deskripsiLokasiManualController.text,
+        'deskripsi': _deskripsiController.text,
+      };
+
+      if (_selectedJenisLaporan == 'lain_lain') {
+        dataLaporan['kategori_lainnya'] = _kategoriLainnyaController.text;
+      }
+
+      final response = await _apiService.buatPengaduan(
+        dataLaporan,
+        fotoBukti: _fotoBuktiFile,
+        fotoRumah: _fotoRumahFile,
       );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _showSnackbar('Laporan berhasil dikirim!', isError: false);
+        Navigator.of(context).pop();
+      } else {
+        final responseData = jsonDecode(response.body);
+        _showSnackbar(
+          'Gagal mengirim laporan: ${responseData['message'] ?? 'Error tidak diketahui'}',
+        );
+      }
+    } catch (e) {
+      _showSnackbar('Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
-  } catch (e) {
-    _showSnackbar('Terjadi kesalahan: $e');
-  } finally {
-    if (mounted) setState(() => _isSubmitting = false);
   }
-}
 
   // --- UI Helpers ---
   final ImagePicker _picker = ImagePicker();
@@ -511,7 +510,6 @@ Future<void> _submitLaporan() async {
           validator: (value) => value == null ? 'Pilih Jenis Laporan' : null,
         ),
 
-        // --- PERBAIKAN: Widget baru yang muncul saat "Lain-lain" dipilih ---
         if (_selectedJenisLaporan == 'lain_lain')
           Padding(
             padding: const EdgeInsets.only(top: 16.0),
@@ -691,7 +689,6 @@ Future<void> _submitLaporan() async {
           _buildConfirmationTile(
             Ionicons.list_outline,
             'Jenis Laporan',
-            // --- PERBAIKAN: Logika untuk menampilkan kategori lainnya ---
             _selectedJenisLaporan == 'lain_lain'
                 ? 'Lain-lain: ${_kategoriLainnyaController.text}'
                 : _jenisLaporanOptions.firstWhere(
