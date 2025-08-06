@@ -1,5 +1,7 @@
 // lib/pages/petugas/detail_tugas_page.dart
 
+// ignore_for_file: unused_element
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -69,6 +71,19 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         margin: const EdgeInsets.all(10),
       ),
     );
+  }
+
+  String _formatPhoneNumberForWhatsApp(String phone) {
+    // Hapus karakter yang tidak diperlukan (spasi, strip, plus)
+    String cleanedPhone = phone.replaceAll(RegExp(r'[\s\-+]'), '');
+
+    // Jika nomor dimulai dengan '0', ganti dengan '62'
+    if (cleanedPhone.startsWith('0')) {
+      cleanedPhone = '62${cleanedPhone.substring(1)}';
+    }
+    // Jika sudah dimulai dengan '62', biarkan saja.
+    // Jika tidak, asumsikan sudah format internasional tanpa awalan.
+    return cleanedPhone;
   }
 
   Future<void> _updateStatus(
@@ -216,7 +231,28 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Ionicons.logo_whatsapp, size: 18),
+                label: const Text('WhatsApp'),
+                onPressed: () {
+                  final formattedPhone =
+                      _formatPhoneNumberForWhatsApp(kontak.nomorHp);
+                  final Uri whatsappUri =
+                      Uri.parse('https://wa.me/$formattedPhone');
+                  _launchURL(whatsappUri.toString());
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  foregroundColor: Colors.green.shade700, // Warna ikon dan teks
+                  side:
+                      BorderSide(color: Colors.green.shade700), // Warna border
+                  textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8), // Perkecil jarak antar tombol
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(
