@@ -123,17 +123,19 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         foregroundColor: Colors.white,
       ),
       body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Detail Pendaftaran Anda',
-                style: GoogleFonts.poppins(
-                    fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        // TAMBAHKAN LINE INI
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Detail Pendaftaran Anda',
+              style: GoogleFonts.poppins(
+                  fontSize: 24, fontWeight: FontWeight.bold),
+            ),
               const SizedBox(height: 8),
               Text(
                 namaLengkap,

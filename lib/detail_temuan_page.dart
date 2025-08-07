@@ -113,28 +113,32 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Laporan #${_currentTemuan.trackingCode ?? _currentTemuan.id}',
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(
+        'Laporan #${_currentTemuan.trackingCode ?? _currentTemuan.id}',
+      ),
+    ),
+    body: RefreshIndicator(
+      onRefresh: _refreshData,
+      // TAMBAHKAN AlwaysScrollableScrollPhysics di sini
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(), // <--- Tambahan
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailCard(),
+            if (_currentTemuan.status.toLowerCase() == 'selesai')
+              _buildRatingSection(),
+            // OPSIONAL: Tambahkan SizedBox kosong untuk memastikan scroll bisa dilakukan
+            // const SizedBox(height: 100), 
+          ],
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailCard(),
-              if (_currentTemuan.status.toLowerCase() == 'selesai')
-                _buildRatingSection(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDetailCard() {
     return Card(

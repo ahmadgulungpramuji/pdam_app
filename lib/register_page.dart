@@ -409,17 +409,26 @@ class _RegisterPageState extends State<RegisterPage> {
             },
           ),
           const SizedBox(height: 16),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _nomorHpController,
             keyboardType: TextInputType.phone,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: const InputDecoration(
-              labelText: 'Nomor WA', // Label diperbarui
-              prefixIcon: Icon(Ionicons.logo_whatsapp), // Icon diperbarui
+              labelText: 'Nomor WA',
+              prefixIcon: Icon(Ionicons.logo_whatsapp),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Nomor WA wajib diisi';
-              if (value.length < 10) return 'Nomor WA minimal 10 digit';
+              if (value == null || value.isEmpty) {
+                return 'Nomor WA wajib diisi';
+              }
+              if (value.length < 10) {
+                return 'Nomor WA minimal 10 digit';
+              }
+              // TAMBAHKAN VALIDASI INI
+              if (value.length > 14) {
+                return 'Nomor WA terlalu banyak';
+              }
               return null;
             },
           ),
