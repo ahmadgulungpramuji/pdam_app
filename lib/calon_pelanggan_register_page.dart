@@ -420,67 +420,87 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
-  Future<void> _submitRegistration() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
-      return;
-    }
-    if (_imageFileKtp == null) {
-      _showSnackbar('Foto KTP wajib diunggah.');
-      return;
-    }
-    if (_imageFileRumah == null) {
-      _showSnackbar('Foto Rumah wajib diunggah.');
-      return;
-    }
-    // Validasi tambahan: pastikan koordinat sudah didapat
-    if (_gpsCoordinates == null) {
-      _showSnackbar('Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.', isError: true);
-      return;
-    }
-    // Validasi bahwa cabang terdekat sudah ditentukan
-    if (_selectedCabangId == null) {
-      _showSnackbar(_nearestBranchError ?? 'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.', isError: true);
-      return;
-    }
+ Future<void> _submitRegistration() async {
+  // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
+  // Ini adalah baris KUNCI untuk memastikan validasi WA berjalan
+  final noWa = _noWaController.text;
+  if (noWa.isEmpty) {
+    _showSnackbar('Nomor WA wajib diisi.', isError: true);
+    return;
+  }
+  if (noWa.length < 10) {
+    _showSnackbar('Nomor WA minimal 10 digit.', isError: true);
+    return;
+  }
+  if (noWa.length > 14) {
+    _showSnackbar('Nomor WA tidak valid/terlalu banyak.', isError: true);
+    return;
+  }
+  
+  // === Lanjutkan dengan validasi form dan validasi lainnya ===
+  if (!(_formKey.currentState?.validate() ?? false)) {
+    _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
+    return;
+  }
 
+  // === Lanjutkan dengan validasi form dan validasi lainnya ===
+  if (!(_formKey.currentState?.validate() ?? false)) {
+    _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
+    return;
+  }
+  if (_imageFileKtp == null) {
+    _showSnackbar('Foto KTP wajib diunggah.');
+    return;
+  }
+  if (_imageFileRumah == null) {
+    _showSnackbar('Foto Rumah wajib diunggah.');
+    return;
+  }
+  if (_gpsCoordinates == null) {
+    _showSnackbar('Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.', isError: true);
+    return;
+  }
+  if (_selectedCabangId == null) {
+    _showSnackbar(_nearestBranchError ?? 'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.', isError: true);
+    return;
+  }
 
-    setState(() => _isSubmitting = true);
+  setState(() => _isSubmitting = true);
 
-    try {
-      final data = {
-        'id_cabang': _selectedCabangId?.toString() ?? '',
-        'nama_lengkap': _namaController.text,
-        'no_ktp': _noKtpController.text,
-        'provinsi': _provinsiController.text, // Mengirim Provinsi
-        'kabupaten_kota': _kabupatenKotaController.text, // Mengirim Kabupaten/Kota
-        'kecamatan': _selectedKecamatanName ?? '', // Nama Kecamatan terpilih
-        'desa_kelurahan': _selectedDesaName ?? '', // Nama Desa terpilih
-        'alamat': _gpsCoordinates!, // Mengirim koordinat ke kolom 'alamat'
-        'alamat_ktp': _alamatKtpController.text,
-        'deskripsi_alamat': _deskripsiAlamatController.text, // Mengirim alamat detail/lengkap ke kolom 'deskripsi_alamat'
-        'no_wa': _noWaController.text,
-      };
+  try {
+    final data = {
+      'id_cabang': _selectedCabangId?.toString() ?? '',
+      'nama_lengkap': _namaController.text,
+      'no_ktp': _noKtpController.text,
+      'provinsi': _provinsiController.text,
+      'kabupaten_kota': _kabupatenKotaController.text,
+      'kecamatan': _selectedKecamatanName ?? '',
+      'desa_kelurahan': _selectedDesaName ?? '',
+      'alamat': _gpsCoordinates!,
+      'alamat_ktp': _alamatKtpController.text,
+      'deskripsi_alamat': _deskripsiAlamatController.text,
+      'no_wa': _noWaController.text,
+    };
 
-      final responseData = await _apiService.registerCalonPelanggan(
-        data: data,
-        imagePathKtp: _imageFileKtp!.path,
-        imagePathRumah: _imageFileRumah!.path,
-      );
+    final responseData = await _apiService.registerCalonPelanggan(
+      data: data,
+      imagePathKtp: _imageFileKtp!.path,
+      imagePathRumah: _imageFileRumah!.path,
+    );
 
-      final trackingCode = responseData['data']?['tracking_code'] as String?;
-      _showSuccessDialog(trackingCode);
-    } catch (e) {
-      _showSnackbar(
-        'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    final trackingCode = responseData['data']?['tracking_code'] as String?;
+    _showSuccessDialog(trackingCode);
+  } catch (e) {
+    _showSnackbar(
+      'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
+      isError: true,
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -513,18 +533,24 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                   _buildKtpFormField(),
                   
                   const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _noWaController,
-                    label: 'Nomor WhatsApp Aktif',
-                    icon: Ionicons.logo_whatsapp,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Nomor WA wajib diisi';
-                      if (v.length < 10) return 'Nomor WA minimal 10 digit';
-                      return null;
-                    },
-                  ),
+                _buildTextFormField(
+  controller: _noWaController,
+  label: 'Nomor WhatsApp Aktif',
+  icon: Ionicons.logo_whatsapp,
+  keyboardType: TextInputType.phone,
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(14),
+  ],
+  validator: (v) {
+    // Validator ini hanya untuk menampilkan pesan error saat user mengetik
+    // Validasi yang menghentikan form sudah ada di _submitRegistration
+    if (v == null || v.isEmpty) {
+      return 'Nomor WA wajib diisi';
+    }
+    return null;
+  },
+),
                   const SizedBox(height: 16),
                   _buildTextFormField(
                     controller: _alamatKtpController,
