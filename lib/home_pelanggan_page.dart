@@ -13,6 +13,7 @@ import 'package:pdam_app/view_profil_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
+import 'package:pdam_app/models/berita_model.dart'; // Tambahkan import model berita
 import 'package:intl/intl.dart';
 
 class HomePelangganPage extends StatefulWidget {
@@ -23,7 +24,6 @@ class HomePelangganPage extends StatefulWidget {
 }
 
 class _HomePelangganPageState extends State<HomePelangganPage> {
-  
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
@@ -31,6 +31,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   int _unreadNotifCount = 0;
   int _currentIndex = 0;
   Pengaduan? _laporanTerbaru;
+
+  // Variabel state baru untuk berita
+  List<Berita> _beritaList = [];
+  bool _isBeritaLoading = true;
+  String? _beritaErrorMessage;
 
   Future<void> _fetchUnreadCount() async {
     try {
@@ -72,6 +77,31 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
+  // Method baru untuk mengambil berita
+  Future<void> _fetchBerita() async {
+    if (!mounted) return;
+    setState(() {
+      _isBeritaLoading = true;
+      _beritaErrorMessage = null;
+    });
+    try {
+      final berita = await _apiService.getBerita();
+      if (mounted) {
+        setState(() {
+          _beritaList = berita;
+          _isBeritaLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _beritaErrorMessage = 'Gagal memuat berita: $e';
+          _isBeritaLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadUserData() async {
     if (!mounted) return;
     setState(() {
@@ -88,6 +118,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           });
           _fetchUnreadCount();
           _fetchLaporanTerbaru();
+          _fetchBerita(); // Panggil method baru untuk mengambil berita
         } else {
           _showSnackbar(
             'Gagal memuat data pengguna. Sesi mungkin telah berakhir.',
@@ -174,7 +205,12 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   Widget _buildHomeContent(ColorScheme colorScheme) {
     return RefreshIndicator(
-      onRefresh: _loadUserData,
+      onRefresh: () => Future.wait([
+        _loadUserData(),
+        _fetchBerita(),
+        _fetchLaporanTerbaru(),
+        _fetchUnreadCount(),
+      ]),
       color: colorScheme.primary,
       child: CustomScrollView(
         slivers: [
@@ -315,11 +351,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
                 const SizedBox(height: 30),
 
-                // KONTEN REKOMENDASI: INFO & PENGUMUMAN
+                // Bagian baru untuk Berita & Pengumuman
                 FadeInAnimation(
                   delay: 0.6,
                   child: Text(
-                    "Info & Pengumuman",
+                    "Berita & Pengumuman",
                     style: GoogleFonts.lato(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -327,26 +363,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                FadeInAnimation(
-                  delay: 0.7,
-                  child: _buildInfoCard(
-                    title: 'Pemeliharaan Jaringan Air',
-                    description:
-                        'Akan ada pemadaman air sementara di area Kecamatan Indramayu dan Jatibarang pada tanggal 10-12 Agustus 2025. Mohon maaf atas ketidaknyamanannya.',
-                    icon: Ionicons.construct_outline,
-                    color: Colors.orange,
-                  ),
-                ),
-                FadeInAnimation(
-                  delay: 0.8,
-                  child: _buildInfoCard(
-                    title: 'Layanan Pembayaran Online',
-                    description:
-                        'Bayar tagihan air Anda sekarang lebih mudah melalui aplikasi mobile banking atau e-wallet.',
-                    icon: Ionicons.wallet_outline,
-                    color: Colors.purple,
-                  ),
-                ),
+                _buildBeritaList(colorScheme), // Memanggil widget baru
 
                 const SizedBox(height: 30),
 
@@ -693,8 +710,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  // --- TAMBAHKAN FUNGSI HELPER INI ---
-  // Fungsi ini bisa Anda salin dari lacak_laporan_saya_page.dart untuk konsistensi
+  // Helper untuk mendapatkan warna dan ikon status
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -706,10 +722,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       case 'diterima':
       case 'dalam_perjalanan':
       case 'diproses':
-        return (
-          color: Colors.orange.shade800,
-          icon: Icons.construction_rounded
-        );
+        return (color: Colors.orange.shade800, icon: Icons.construction_rounded);
       case 'selesai':
         return (color: Colors.green.shade700, icon: Icons.check_circle_rounded);
       case 'ditolak':
@@ -720,54 +733,88 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
-  Widget _buildInfoCard({
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 2.0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.lato(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: GoogleFonts.lato(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  // Method baru untuk membangun daftar berita
+  Widget _buildBeritaList(ColorScheme colorScheme) {
+    if (_isBeritaLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_beritaErrorMessage != null) {
+      return Center(child: Text(_beritaErrorMessage!));
+    }
+
+    if (_beritaList.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('Belum ada berita terbaru.'),
         ),
+      );
+    }
+
+    return Column(
+      children: _beritaList
+          .map((berita) => _buildBeritaCard(berita, colorScheme))
+          .toList(),
+    );
+  }
+
+  // Method baru untuk membangun satu kartu berita
+  Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (berita.fotoBanner != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                width: double.infinity,
+                height: 150,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 150,
+                  color: Colors.grey.shade300,
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported),
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  berita.judul,
+                  style: GoogleFonts.lato(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  berita.isi,
+                  style: GoogleFonts.lato(fontSize: 14),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Terbit: ${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
+                      style: GoogleFonts.lato(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
