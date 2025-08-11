@@ -46,6 +46,44 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   // Tambahan Controller untuk Provinsi dan Kabupaten/Kota yang otomatis dan read-only
   final _provinsiController = TextEditingController(text: 'JAWA BARAT');
   final _kabupatenKotaController = TextEditingController(text: 'INDRAMAYU');
+  final Map<String, int> _kecamatanToCabangMapping = {
+    // Format: 'NAMA KECAMATAN DALAM HURUF BESAR': id_cabang
+    'ANJATAN': 13,
+    'ARAHAN': 12,
+    'BALONGAN': 14,
+    'BANGODUA': 9,
+    'BONGAS': 11,
+    'CANTIGI': 12,
+    'CIKEDUNG': 7,
+    'GABUSWETAN': 11,
+    'GANTAR': 13,
+    'HAURGEULIS': 11,
+    'INDRAMAYU': 1,
+    'JATIBARANG': 4,
+    'JUNTINYUAT': 8,
+    'KANDANGHAUR': 6,
+    'KARANGAMPEL': 8,
+    'KEDOKAN BUNDER': 5,
+    'KERTASEMAYA': 5,
+    'KRANGKENG': 8,
+    'KROYA': 11,
+    'LELEA': 7,
+    'LOHBENER': 7,
+    'LOSARANG': 2,
+    'PASEKAN': 1,
+    'PATROL': 6,
+    'SINDANG': 3, // Di seeder, Sindang adalah cabang sendiri (ID 3)
+    'SLIYEG': 10,
+    'SUKAGUMIWANG': 10,
+    'SUKRA': 6,
+    'TERISI': 7,
+    'TUKDANA': 9,
+    'WIDASARI': 4,
+  };
+
+  // Variabel baru untuk menyimpan nama cabang dari berbagai sumber
+  String? _cabangByKecamatanName; // Nama cabang dari pilihan kecamatan
+  String? _cabangByGpsName; // Nama cabang dari saran GPS
 
   // Variabel internal untuk menyimpan koordinat
   String? _gpsCoordinates; // <-- Untuk menyimpan Lat,Long
@@ -81,6 +119,88 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
   bool _isLocationLoading =
       false; // DIKEMBALIKAN tapi hanya untuk internal loading state
+
+  Widget _buildBranchDropdown() {
+    bool isDropdownDisabled = _selectedKecamatanName == null;
+
+    return DropdownButtonFormField<int>(
+      value: _selectedCabangId,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Cabang Pemasangan',
+        prefixIcon: Icon(Ionicons.business_outline,
+            color: Theme.of(context).colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor:
+            isDropdownDisabled ? Colors.grey.shade200 : Colors.grey.shade50,
+        helperText: _cabangByKecamatanName == null
+            ? 'Pilih kecamatan untuk menentukan cabang otomatis'
+            : 'Otomatis: $_cabangByKecamatanName. Anda bisa mengubah jika yakin.',
+        helperStyle:
+            GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 12),
+      ),
+      items: _allCabangs.map((Cabang cabang) {
+        return DropdownMenuItem<int>(
+          value: cabang.id,
+          child: Text(cabang.namaCabang, style: GoogleFonts.poppins()),
+        );
+      }).toList(),
+      onChanged: isDropdownDisabled
+          ? null
+          : (newValue) {
+              if (newValue != null && newValue != _selectedCabangId) {
+                _showBranchChangeConfirmationDialog(newValue);
+              }
+            },
+      validator: (value) {
+        if (value == null) {
+          return 'Cabang pemasangan wajib ditentukan.';
+        }
+        return null;
+      },
+    );
+  }
+
+  Future<void> _showBranchChangeConfirmationDialog(int newCabangId) async {
+    // Cari nama cabang baru yang dipilih dari daftar
+    final selectedCabang = _allCabangs.firstWhere((c) => c.id == newCabangId);
+
+    bool? isConfirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Konfirmasi Perubahan Cabang',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          content: Text(
+            'Cabang yang kami sarankan berdasarkan kecamatan adalah "$_cabangByKecamatanName".\n\nAnda yakin ingin mengubahnya secara manual ke "${selectedCabang.namaCabang}"?',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Batal', style: GoogleFonts.poppins()),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Ya, Saya Yakin', style: GoogleFonts.poppins()),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Jika pengguna menekan "Ya, Saya Yakin", perbarui state
+    if (isConfirmed == true) {
+      setState(() {
+        _selectedCabangId = newCabangId;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -373,15 +493,16 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
     setState(() {
       if (nearestBranch != null) {
-        _selectedCabangId = nearestBranch.id;
-        _selectedCabangDisplayName =
-            '${nearestBranch.namaCabang} (${minDistance.toStringAsFixed(2)} km)';
-        _nearestBranchError = null; // Reset error jika ditemukan cabang
+        _cabangByGpsName = nearestBranch.namaCabang;
+
+        if (_selectedKecamatanName == null) {
+          _selectedCabangDisplayName =
+              'Saran Terdekat (GPS): ${nearestBranch.namaCabang}';
+        }
       } else {
-        _selectedCabangId = null;
-        _selectedCabangDisplayName = 'Tidak ada cabang terdekat ditemukan.';
-        _nearestBranchError =
-            'Tidak ada cabang dengan koordinat valid di Indramayu.';
+        if (_selectedKecamatanName == null) {
+          _selectedCabangDisplayName = 'Tidak ada cabang terdekat ditemukan.';
+        }
       }
     });
   }
@@ -408,6 +529,34 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
           ..writeAsBytesSync(compressedBytes);
 
     return tempFile;
+  }
+
+  void _updateCabangBasedOnKecamatan(String kecamatanName) {
+    final kecamatanKey = kecamatanName.toUpperCase();
+    if (_kecamatanToCabangMapping.containsKey(kecamatanKey)) {
+      final cabangId = _kecamatanToCabangMapping[kecamatanKey];
+      // Cari objek Cabang dari daftar _allCabangs berdasarkan ID yang didapat
+      final selectedCabang = _allCabangs.firstWhere(
+        (cabang) => cabang.id == cabangId,
+        orElse: () => Cabang(id: 0, namaCabang: 'Cabang tidak terdaftar'),
+      );
+
+      setState(() {
+        // Simpan nama cabang yang ditentukan oleh kecamatan
+        _cabangByKecamatanName = selectedCabang.namaCabang;
+        // Atur cabang yang terpilih secara otomatis
+        _selectedCabangId = selectedCabang.id;
+        _nearestBranchError = null; // Hapus pesan error jika ada
+      });
+    } else {
+      // Jika kecamatan tidak ada di pemetaan, kosongkan pilihan
+      setState(() {
+        _cabangByKecamatanName = null;
+        _selectedCabangId = null;
+        _nearestBranchError =
+            'Wilayah kerja cabang untuk kecamatan ini tidak ditemukan.';
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source, {required bool isKtp}) async {
@@ -639,6 +788,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                   const SizedBox(height: 16),
                   _buildDesaDropdown(),
                   const SizedBox(height: 16),
+                  _buildBranchDropdown(),
+
                   _buildTextFormField(
                     controller:
                         _deskripsiAlamatController, // Menggunakan deskripsi_alamat untuk alamat detail
@@ -788,7 +939,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
           Text(_isKecamatanLoading ? 'Memuat kecamatan...' : 'Pilih Kecamatan'),
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Kecamatan',
+        labelText: 'Kecamatan (Wajib & Penentu Cabang)',
         prefixIcon: Icon(Ionicons.map_outline,
             color: Theme.of(context).colorScheme.primary),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -808,6 +959,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     _selectedKecamatanCode = selectedItem['code'];
                     _selectedKecamatanId = kecamatanCode;
                     _selectedKecamatanName = selectedItem['name'];
+                    _updateCabangBasedOnKecamatan(selectedItem['name']);
                   });
                   if (kecamatanCode != null) {
                     _fetchDesa(kecamatanCode);
@@ -905,15 +1057,16 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
             ? Colors.grey.shade200
             : Colors.grey.shade50,
       ),
-      onChanged: _selectedKecamatanId == null || _isDesaLoading
-          ? null
-          : (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedDesaName = value;
-                });
-              }
-            },
+      onChanged:
+          _selectedKecamatanCode == null || _isDesaLoading // <-- UBAH DI SINI
+              ? null
+              : (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDesaName = value;
+                    });
+                  }
+                },
       items: _desaOptions
           .where((item) => item is Map && item.containsKey('name'))
           .map<DropdownMenuItem<String>>((desa) {
