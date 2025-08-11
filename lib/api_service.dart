@@ -506,27 +506,6 @@ class ApiService {
     }
   }
 
-  Future<bool> checkKtpExists(String noKtp) async {
-    final url = Uri.parse('$baseUrl/check-ktp/$noKtp');
-    try {
-      final response = await http.get(
-        url,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        return responseData['exists'] as bool;
-      } else {
-        throw Exception('Gagal memverifikasi No. KTP ke server.');
-      }
-    } on TimeoutException {
-      throw Exception('Server tidak merespons. Cek koneksi Anda.');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   Future<Map<String, dynamic>> registerCalonPelanggan({
     required Map<String, String> data,
     required String imagePathKtp,

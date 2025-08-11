@@ -21,7 +21,6 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:image/image.dart' as img;
 
 // Enum untuk merepresentasikan semua kemungkinan status validasi KTP
-enum KtpValidationState { initial, invalidLength, checking, valid, taken }
 
 class CalonPelangganRegisterPage extends StatefulWidget {
   const CalonPelangganRegisterPage({super.key});
@@ -80,9 +79,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   File? _imageFileRumah;
   final _picker = ImagePicker();
 
-  KtpValidationState _ktpState = KtpValidationState.initial;
-  String? _ktpServerMessage;
-  Timer? _debounce;
   bool _isLocationLoading =
       false; // DIKEMBALIKAN tapi hanya untuk internal loading state
 
@@ -94,7 +90,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _namaController.dispose();
     _noKtpController.dispose();
     _alamatKtpController.dispose();
@@ -463,47 +458,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
-  Future<void> _onKtpChanged(String value) async {
-    if (_ktpServerMessage != null) {
-      setState(() => _ktpServerMessage = null);
-    }
-
-    _debounce?.cancel();
-
-    if (value.isEmpty) {
-      setState(() => _ktpState = KtpValidationState.initial);
-      return;
-    }
-
-    if (value.length < 16) {
-      setState(() => _ktpState = KtpValidationState.invalidLength);
-      return;
-    }
-
-    if (value.length == 16) {
-      setState(() => _ktpState = KtpValidationState.checking);
-      _debounce = Timer(const Duration(milliseconds: 700), () async {
-        try {
-          final isTaken = await _apiService.checkKtpExists(value);
-          if (mounted) {
-            setState(() {
-              _ktpState =
-                  isTaken ? KtpValidationState.taken : KtpValidationState.valid;
-              if (isTaken) _ktpServerMessage = 'No. KTP ini sudah terdaftar.';
-            });
-          }
-        } catch (e) {
-          if (mounted) {
-            setState(() {
-              _ktpState = KtpValidationState.taken;
-              _ktpServerMessage = 'Gagal memverifikasi No. KTP.';
-            });
-          }
-        }
-      });
-    }
-  }
-
   Future<void> _submitRegistration() async {
     // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
     // Ini adalah baris KUNCI untuk memastikan validasi WA berjalan
@@ -799,36 +753,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Widget _buildKtpFormField() {
-    Widget? suffixIcon;
-    Color inputColor = Colors.black87;
-
-    switch (_ktpState) {
-      case KtpValidationState.invalidLength:
-        suffixIcon = const Icon(Icons.cancel, color: Colors.red);
-        inputColor = Colors.red;
-        break;
-      case KtpValidationState.checking:
-        suffixIcon = const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2));
-        break;
-      case KtpValidationState.valid:
-        suffixIcon = const Icon(Icons.check_circle, color: Colors.green);
-        inputColor = Colors.green.shade800;
-        break;
-      case KtpValidationState.taken:
-        suffixIcon = const Icon(Icons.error, color: Colors.red);
-        inputColor = Colors.red;
-        break;
-      case KtpValidationState.initial:
-        suffixIcon = null;
-        break;
-    }
-
     return TextFormField(
       controller: _noKtpController,
-      onChanged: _onKtpChanged,
       decoration: InputDecoration(
         labelText: 'Nomor KTP (16 digit)',
         prefixIcon: Icon(Ionicons.card_outline,
@@ -836,37 +762,22 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey.shade50,
-        suffixIcon: suffixIcon,
-        helperText: _ktpState == KtpValidationState.checking
-            ? 'Memeriksa ketersediaan...'
-            : _ktpServerMessage,
-        helperStyle: TextStyle(
-            color: _ktpState == KtpValidationState.taken
-                ? Colors.red
-                : Colors.grey),
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(16),
       ],
-      style: GoogleFonts.poppins(
-        color: inputColor,
-        fontWeight: FontWeight.w600,
-      ),
       validator: (v) {
-        if (v == null || v.isEmpty) return 'Nomor KTP wajib diisi';
-        if (_ktpState == KtpValidationState.invalidLength) {
+        if (v == null || v.isEmpty) {
+          return 'Nomor KTP wajib diisi';
+        }
+        if (v.length != 16) {
           return 'Nomor KTP harus 16 digit';
-        }
-        if (_ktpState == KtpValidationState.taken) {
-          return _ktpServerMessage;
-        }
-        if (_ktpState != KtpValidationState.valid) {
-          return 'Mohon pastikan No. KTP benar dan tersedia.';
         }
         return null;
       },
+      style: GoogleFonts.poppins(),
     );
   }
 
