@@ -13,7 +13,7 @@ import 'package:pdam_app/view_profil_page.dart';
 import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
-import 'package:pdam_app/models/berita_model.dart'; // Tambahkan import model berita
+import 'package:pdam_app/models/berita_model.dart';
 import 'package:intl/intl.dart';
 
 class HomePelangganPage extends StatefulWidget {
@@ -36,6 +36,12 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   List<Berita> _beritaList = [];
   bool _isBeritaLoading = true;
   String? _beritaErrorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
 
   Future<void> _fetchUnreadCount() async {
     try {
@@ -197,11 +203,62 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
+  // Method baru untuk menampilkan detail berita dalam dialog
+  void _showBeritaDetailModal(Berita berita) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            berita.judul,
+            style: GoogleFonts.lato(fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (berita.fotoBanner != null)
+                  Image.network(
+                    _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 150,
+                      color: Colors.grey.shade300,
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Text(
+                  DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  berita.isi,
+                  style: GoogleFonts.lato(fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
   }
+
 
   Widget _buildHomeContent(ColorScheme colorScheme) {
     return RefreshIndicator(
@@ -310,7 +367,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 16.0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Bagian baru untuk Akses Cepat (Opsi 2)
+                // Bagian Akses Cepat
                 FadeInAnimation(
                   delay: 0.2,
                   slideDistance: 0.05,
@@ -363,7 +420,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildBeritaList(colorScheme), // Memanggil widget baru
+                _buildBeritaHorizontalList(colorScheme),
 
                 const SizedBox(height: 30),
 
@@ -733,8 +790,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
-  // Method baru untuk membangun daftar berita
-  Widget _buildBeritaList(ColorScheme colorScheme) {
+
+  // Method baru untuk membangun daftar berita horizontal
+  Widget _buildBeritaHorizontalList(ColorScheme colorScheme) {
     if (_isBeritaLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -744,7 +802,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
 
     if (_beritaList.isEmpty) {
-      return const Card(
+      return const Center(
         child: Padding(
           padding: EdgeInsets.all(16.0),
           child: Text('Belum ada berita terbaru.'),
@@ -752,69 +810,81 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       );
     }
 
-    return Column(
-      children: _beritaList
-          .map((berita) => _buildBeritaCard(berita, colorScheme))
-          .toList(),
+    return SizedBox(
+      height: 250, // Mengatur tinggi agar daftar dapat di-scroll horizontal
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _beritaList.length,
+        itemBuilder: (context, index) {
+          return FadeInAnimation(
+            delay: 0.1 * index, // Menambahkan delay animasi untuk setiap kartu
+            child: _buildBeritaCard(_beritaList[index], colorScheme),
+          );
+        },
+      ),
     );
   }
 
   // Method baru untuk membangun satu kartu berita
   Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (berita.fotoBanner != null)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
-                width: double.infinity,
-                height: 150,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 150,
-                  color: Colors.grey.shade300,
-                  child: const Center(
-                    child: Icon(Icons.image_not_supported),
+    return Container(
+      width: 250, // Mengatur lebar kartu
+      margin: const EdgeInsets.only(right: 16),
+      child: Card(
+        elevation: 4.0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias, // Memastikan gambar di-clip
+        child: InkWell(
+          onTap: () {
+            // Panggil metode baru untuk menampilkan modal
+            _showBeritaDetailModal(berita);
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (berita.fotoBanner != null)
+                Image.network(
+                  _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                  width: double.infinity,
+                  height: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 120,
+                    color: Colors.grey.shade300,
+                    child: const Center(
+                      child: Icon(Icons.image_not_supported, color: Colors.grey),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  berita.judul,
-                  style: GoogleFonts.lato(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  berita.isi,
-                  style: GoogleFonts.lato(fontSize: 14),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.calendar_today, size: 14),
-                    const SizedBox(width: 4),
                     Text(
-                      'Terbit: ${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
-                      style: GoogleFonts.lato(fontSize: 12),
+                      berita.judul,
+                      style: GoogleFonts.lato(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
+                      style: GoogleFonts.lato(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
