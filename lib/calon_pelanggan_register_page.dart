@@ -2,7 +2,13 @@
 
 import 'dart:async';
 import 'dart:developer' show log;
-import 'dart:math' show cos, sqrt, asin, pi, sin; // <-- Tambahkan 'sin' di sini// Tambahkan pi untuk perhitungan jarak
+import 'dart:math'
+    show
+        cos,
+        sqrt,
+        asin,
+        pi,
+        sin; // <-- Tambahkan 'sin' di sini// Tambahkan pi untuk perhitungan jarak
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +18,7 @@ import 'package:geolocator/geolocator.dart'; // DIKEMBALIKAN
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/cabang_model.dart'; // Pastikan ini mengacu pada model yang sudah diperbarui
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:image/image.dart' as img;
 
 // Enum untuk merepresentasikan semua kemungkinan status validasi KTP
 enum KtpValidationState { initial, invalidLength, checking, valid, taken }
@@ -28,21 +35,23 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     with SingleTickerProviderStateMixin {
   // --- Keys & Controllers ---
   final _formKey = GlobalKey<FormState>();
-  final ApiService _apiService = ApiService(); // Gunakan _apiService, bukan _apiService.apiService
+  final ApiService _apiService =
+      ApiService(); // Gunakan _apiService, bukan _apiService.apiService
   final _namaController = TextEditingController();
   final _noKtpController = TextEditingController();
   final _alamatKtpController = TextEditingController();
-  final _deskripsiAlamatController = TextEditingController(); // Ini akan dipakai untuk alamat detail manual
+  final _deskripsiAlamatController =
+      TextEditingController(); // Ini akan dipakai untuk alamat detail manual
   final _noWaController = TextEditingController();
 
   // Tambahan Controller untuk Provinsi dan Kabupaten/Kota yang otomatis dan read-only
   final _provinsiController = TextEditingController(text: 'JAWA BARAT');
   final _kabupatenKotaController = TextEditingController(text: 'INDRAMAYU');
 
-
   // Variabel internal untuk menyimpan koordinat
   String? _gpsCoordinates; // <-- Untuk menyimpan Lat,Long
-  String? _detectedKabupatenKota; // BARU: Untuk menyimpan kabupaten/kota yang terdeteksi dari GPS
+  String?
+      _detectedKabupatenKota; // BARU: Untuk menyimpan kabupaten/kota yang terdeteksi dari GPS
 
   // --- State Variables ---
   bool _isLoading = true;
@@ -59,10 +68,12 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   bool _isDesaLoading = false;
   bool _isCabangLoading = true;
 
-  String? _cabangError; // Tidak lagi digunakan untuk error dropdown, tapi untuk error cabang terdekat
+  String?
+      _cabangError; // Tidak lagi digunakan untuk error dropdown, tapi untuk error cabang terdekat
   List<Cabang> _allCabangs = []; // Semua data cabang dari API
   int? _selectedCabangId; // ID cabang terdekat yang otomatis terpilih
-  String _selectedCabangDisplayName = 'Mencari Cabang Terdekat...'; // Nama cabang untuk ditampilkan
+  String _selectedCabangDisplayName =
+      'Mencari Cabang Terdekat...'; // Nama cabang untuk ditampilkan
   String? _nearestBranchError; // Error spesifik untuk fitur cabang terdekat
 
   File? _imageFileKtp;
@@ -72,7 +83,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   KtpValidationState _ktpState = KtpValidationState.initial;
   String? _ktpServerMessage;
   Timer? _debounce;
-  bool _isLocationLoading = false; // DIKEMBALIKAN tapi hanya untuk internal loading state
+  bool _isLocationLoading =
+      false; // DIKEMBALIKAN tapi hanya untuk internal loading state
 
   @override
   void initState() {
@@ -106,7 +118,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   Future<void> _fetchCabangOptions() async {
     setState(() => _isCabangLoading = true);
     try {
-      final options = await _apiService.getCabangList(); // Mengambil Cabang objects
+      final options =
+          await _apiService.getCabangList(); // Mengambil Cabang objects
       if (mounted) {
         setState(() {
           _allCabangs = options; // Simpan semua cabang
@@ -123,7 +136,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   Future<void> _fetchKecamatan() async {
     setState(() => _isKecamatanLoading = true);
     try {
-      final List<dynamic> kecamatanData = await _apiService.getKecamatanIndramayu();
+      final List<dynamic> kecamatanData =
+          await _apiService.getKecamatanIndramayu();
       log('Data Kecamatan Diterima: ${kecamatanData.length} item');
       if (mounted) {
         setState(() {
@@ -174,7 +188,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showSnackbar('Layanan lokasi tidak aktif. Mohon aktifkan GPS Anda.', isError: true);
+        _showSnackbar('Layanan lokasi tidak aktif. Mohon aktifkan GPS Anda.',
+            isError: true);
         setState(() {
           _deskripsiAlamatController.text = 'Layanan lokasi tidak aktif.';
           _selectedCabangDisplayName = 'Tidak dapat menentukan cabang.';
@@ -188,7 +203,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _showSnackbar('Izin lokasi ditolak. Aplikasi memerlukan izin lokasi untuk melanjutkan.', isError: true);
+          _showSnackbar(
+              'Izin lokasi ditolak. Aplikasi memerlukan izin lokasi untuk melanjutkan.',
+              isError: true);
           setState(() {
             _deskripsiAlamatController.text = 'Izin lokasi ditolak.';
             _selectedCabangDisplayName = 'Tidak dapat menentukan cabang.';
@@ -199,7 +216,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        _showSnackbar('Izin lokasi ditolak permanen. Mohon berikan izin lokasi dari pengaturan aplikasi.', isError: true);
+        _showSnackbar(
+            'Izin lokasi ditolak permanen. Mohon berikan izin lokasi dari pengaturan aplikasi.',
+            isError: true);
         setState(() {
           _deskripsiAlamatController.text = 'Izin lokasi ditolak permanen.';
           _selectedCabangDisplayName = 'Tidak dapat menentukan cabang.';
@@ -219,7 +238,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       });
 
       // Panggil API untuk mengubah koordinat menjadi alamat lengkap dan coba deteksi kabupaten/kota
-      final String fullAddressString = await _apiService.getAddressFromCoordinates(
+      final String fullAddressString =
+          await _apiService.getAddressFromCoordinates(
         position.latitude,
         position.longitude,
       );
@@ -228,22 +248,26 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       // Ini hanya contoh sederhana, implementasi sebenarnya mungkin butuh parsing yang lebih robust
       _detectedKabupatenKota = _extractKabupatenKota(fullAddressString);
 
-
       if (mounted) {
         setState(() {
-          _deskripsiAlamatController.text = fullAddressString; // Isi otomatis ke field deskripsi_alamat
+          _deskripsiAlamatController.text =
+              fullAddressString; // Isi otomatis ke field deskripsi_alamat
         });
-        _showSnackbar('Lokasi dan Alamat berhasil didapatkan secara otomatis.', isError: false);
+        _showSnackbar('Lokasi dan Alamat berhasil didapatkan secara otomatis.',
+            isError: false);
       }
 
       // Setelah mendapatkan lokasi dan alamat, baru cari cabang terdekat
-      _findNearestBranch(position.latitude, position.longitude, _detectedKabupatenKota);
-
+      _findNearestBranch(
+          position.latitude, position.longitude, _detectedKabupatenKota);
     } on TimeoutException {
       if (mounted) {
-        _showSnackbar('Waktu habis saat mendapatkan lokasi. Pastikan koneksi internet stabil.', isError: true);
+        _showSnackbar(
+            'Waktu habis saat mendapatkan lokasi. Pastikan koneksi internet stabil.',
+            isError: true);
         setState(() {
-          _deskripsiAlamatController.text = 'Waktu habis saat mendapatkan lokasi.';
+          _deskripsiAlamatController.text =
+              'Waktu habis saat mendapatkan lokasi.';
           _selectedCabangDisplayName = 'Gagal menentukan cabang.';
           _nearestBranchError = 'Timeout lokasi.';
           _gpsCoordinates = null;
@@ -252,7 +276,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     } catch (e) {
       if (mounted) {
         log('Error getting location or finding nearest branch: $e');
-        _showSnackbar('Gagal mendapatkan lokasi & alamat: ${e.toString().replaceFirst("Exception: ", "")}', isError: true);
+        _showSnackbar(
+            'Gagal mendapatkan lokasi & alamat: ${e.toString().replaceFirst("Exception: ", "")}',
+            isError: true);
         setState(() {
           _deskripsiAlamatController.text = 'Gagal mendapatkan lokasi.';
           _selectedCabangDisplayName = 'Error menentukan cabang.';
@@ -284,16 +310,18 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     return 'Tidak Diketahui'; // Atau nilai default lainnya
   }
 
-
   // Fungsi Haversine untuk menghitung jarak antara dua koordinat (dalam KM)
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     const R = 6371; // Radius bumi dalam kilometer
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
 
     final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
-            sin(dLon / 2) * sin(dLon / 2);
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
     final c = 2 * asin(sqrt(a));
     return R * c;
   }
@@ -303,7 +331,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   // Fungsi untuk menemukan cabang terdekat
-  void _findNearestBranch(double currentLat, double currentLon, String? detectedKabupatenKota) {
+  void _findNearestBranch(
+      double currentLat, double currentLon, String? detectedKabupatenKota) {
     if (_allCabangs.isEmpty) {
       setState(() {
         _selectedCabangId = null;
@@ -315,11 +344,13 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
 
     // --- LOGIKA PENGECUALIAN DI LUAR INDRAMAYU ---
     // Di sini kita asumsikan 'INDRAMAYU' adalah nama kabupaten yang konsisten
-    if (detectedKabupatenKota == null || detectedKabupatenKota.toUpperCase() != 'INDRAMAYU') {
+    if (detectedKabupatenKota == null ||
+        detectedKabupatenKota.toUpperCase() != 'INDRAMAYU') {
       setState(() {
         _selectedCabangId = null;
         _selectedCabangDisplayName = 'Di luar wilayah Indramayu.';
-        _nearestBranchError = 'Pendaftaran hanya di wilayah Kabupaten Indramayu.';
+        _nearestBranchError =
+            'Pendaftaran hanya di wilayah Kabupaten Indramayu.';
       });
       return;
     }
@@ -348,34 +379,87 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     setState(() {
       if (nearestBranch != null) {
         _selectedCabangId = nearestBranch.id;
-        _selectedCabangDisplayName = '${nearestBranch.namaCabang} (${minDistance.toStringAsFixed(2)} km)';
+        _selectedCabangDisplayName =
+            '${nearestBranch.namaCabang} (${minDistance.toStringAsFixed(2)} km)';
         _nearestBranchError = null; // Reset error jika ditemukan cabang
       } else {
         _selectedCabangId = null;
         _selectedCabangDisplayName = 'Tidak ada cabang terdekat ditemukan.';
-        _nearestBranchError = 'Tidak ada cabang dengan koordinat valid di Indramayu.';
+        _nearestBranchError =
+            'Tidak ada cabang dengan koordinat valid di Indramayu.';
       }
     });
   }
 
+  Future<File?> _compressAndGetFile(File file) async {
+    final imageBytes = await file.readAsBytes();
+    final originalImage = img.decodeImage(imageBytes);
+
+    if (originalImage == null) {
+      return null;
+    }
+
+    img.Image resizedImage = originalImage;
+    if (originalImage.width > 1280 || originalImage.height > 1280) {
+      resizedImage = img.copyResize(originalImage,
+          width: 1280, interpolation: img.Interpolation.average);
+    }
+
+    final compressedBytes = img.encodeJpg(resizedImage, quality: 85);
+
+    final tempDir = Directory.systemTemp;
+    final tempFile =
+        File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg')
+          ..writeAsBytesSync(compressedBytes);
+
+    return tempFile;
+  }
+
   Future<void> _pickImage(ImageSource source, {required bool isKtp}) async {
+    final pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile == null) return;
+
+    // Tampilkan dialog loading
+    showDialog(
+      // ignore: use_build_context_synchronously
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Memproses gambar..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
     try {
-      final pickedFile = await _picker.pickImage(
-        source: source,
-        imageQuality: 70,
-        maxWidth: 1024,
-      );
-      if (pickedFile != null) {
+      final compressedFile = await _compressAndGetFile(File(pickedFile.path));
+
+      if (compressedFile != null) {
         setState(() {
           if (isKtp) {
-            _imageFileKtp = File(pickedFile.path);
+            _imageFileKtp = compressedFile;
           } else {
-            _imageFileRumah = File(pickedFile.path);
+            _imageFileRumah = compressedFile;
           }
         });
+      } else {
+        _showSnackbar('Format gambar tidak didukung atau file rusak.');
       }
     } catch (e) {
-      _showSnackbar('Gagal memilih gambar: $e', isError: true);
+      _showSnackbar('Gagal memproses gambar: $e');
+    } finally {
+      // ignore: use_build_context_synchronously
+      Navigator.of(context).pop(); // Tutup dialog loading
     }
   }
 
@@ -420,87 +504,92 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     }
   }
 
- Future<void> _submitRegistration() async {
-  // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
-  // Ini adalah baris KUNCI untuk memastikan validasi WA berjalan
-  final noWa = _noWaController.text;
-  if (noWa.isEmpty) {
-    _showSnackbar('Nomor WA wajib diisi.', isError: true);
-    return;
-  }
-  if (noWa.length < 10) {
-    _showSnackbar('Nomor WA minimal 10 digit.', isError: true);
-    return;
-  }
-  if (noWa.length > 14) {
-    _showSnackbar('Nomor WA tidak valid/terlalu banyak.', isError: true);
-    return;
-  }
-  
-  // === Lanjutkan dengan validasi form dan validasi lainnya ===
-  if (!(_formKey.currentState?.validate() ?? false)) {
-    _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
-    return;
-  }
+  Future<void> _submitRegistration() async {
+    // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
+    // Ini adalah baris KUNCI untuk memastikan validasi WA berjalan
+    final noWa = _noWaController.text;
+    if (noWa.isEmpty) {
+      _showSnackbar('Nomor WA wajib diisi.', isError: true);
+      return;
+    }
+    if (noWa.length < 10) {
+      _showSnackbar('Nomor WA minimal 10 digit.', isError: true);
+      return;
+    }
+    if (noWa.length > 14) {
+      _showSnackbar('Nomor WA tidak valid/terlalu banyak.', isError: true);
+      return;
+    }
 
-  // === Lanjutkan dengan validasi form dan validasi lainnya ===
-  if (!(_formKey.currentState?.validate() ?? false)) {
-    _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
-    return;
-  }
-  if (_imageFileKtp == null) {
-    _showSnackbar('Foto KTP wajib diunggah.');
-    return;
-  }
-  if (_imageFileRumah == null) {
-    _showSnackbar('Foto Rumah wajib diunggah.');
-    return;
-  }
-  if (_gpsCoordinates == null) {
-    _showSnackbar('Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.', isError: true);
-    return;
-  }
-  if (_selectedCabangId == null) {
-    _showSnackbar(_nearestBranchError ?? 'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.', isError: true);
-    return;
-  }
+    // === Lanjutkan dengan validasi form dan validasi lainnya ===
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
+      return;
+    }
 
-  setState(() => _isSubmitting = true);
+    // === Lanjutkan dengan validasi form dan validasi lainnya ===
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
+      return;
+    }
+    if (_imageFileKtp == null) {
+      _showSnackbar('Foto KTP wajib diunggah.');
+      return;
+    }
+    if (_imageFileRumah == null) {
+      _showSnackbar('Foto Rumah wajib diunggah.');
+      return;
+    }
+    if (_gpsCoordinates == null) {
+      _showSnackbar(
+          'Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.',
+          isError: true);
+      return;
+    }
+    if (_selectedCabangId == null) {
+      _showSnackbar(
+          _nearestBranchError ??
+              'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.',
+          isError: true);
+      return;
+    }
 
-  try {
-    final data = {
-      'id_cabang': _selectedCabangId?.toString() ?? '',
-      'nama_lengkap': _namaController.text,
-      'no_ktp': _noKtpController.text,
-      'provinsi': _provinsiController.text,
-      'kabupaten_kota': _kabupatenKotaController.text,
-      'kecamatan': _selectedKecamatanName ?? '',
-      'desa_kelurahan': _selectedDesaName ?? '',
-      'alamat': _gpsCoordinates!,
-      'alamat_ktp': _alamatKtpController.text,
-      'deskripsi_alamat': _deskripsiAlamatController.text,
-      'no_wa': _noWaController.text,
-    };
+    setState(() => _isSubmitting = true);
 
-    final responseData = await _apiService.registerCalonPelanggan(
-      data: data,
-      imagePathKtp: _imageFileKtp!.path,
-      imagePathRumah: _imageFileRumah!.path,
-    );
+    try {
+      final data = {
+        'id_cabang': _selectedCabangId?.toString() ?? '',
+        'nama_lengkap': _namaController.text,
+        'no_ktp': _noKtpController.text,
+        'provinsi': _provinsiController.text,
+        'kabupaten_kota': _kabupatenKotaController.text,
+        'kecamatan': _selectedKecamatanName ?? '',
+        'desa_kelurahan': _selectedDesaName ?? '',
+        'alamat': _gpsCoordinates!,
+        'alamat_ktp': _alamatKtpController.text,
+        'deskripsi_alamat': _deskripsiAlamatController.text,
+        'no_wa': _noWaController.text,
+      };
 
-    final trackingCode = responseData['data']?['tracking_code'] as String?;
-    _showSuccessDialog(trackingCode);
-  } catch (e) {
-    _showSnackbar(
-      'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
-      isError: true,
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      final responseData = await _apiService.registerCalonPelanggan(
+        data: data,
+        imagePathKtp: _imageFileKtp!.path,
+        imagePathRumah: _imageFileRumah!.path,
+      );
+
+      final trackingCode = responseData['data']?['tracking_code'] as String?;
+      _showSuccessDialog(trackingCode);
+    } catch (e) {
+      _showSnackbar(
+        'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -529,28 +618,28 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                     icon: Ionicons.person_outline,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   _buildKtpFormField(),
-                  
+
                   const SizedBox(height: 16),
-                _buildTextFormField(
-  controller: _noWaController,
-  label: 'Nomor WhatsApp Aktif',
-  icon: Ionicons.logo_whatsapp,
-  keyboardType: TextInputType.phone,
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(14),
-  ],
-  validator: (v) {
-    // Validator ini hanya untuk menampilkan pesan error saat user mengetik
-    // Validasi yang menghentikan form sudah ada di _submitRegistration
-    if (v == null || v.isEmpty) {
-      return 'Nomor WA wajib diisi';
-    }
-    return null;
-  },
-),
+                  _buildTextFormField(
+                    controller: _noWaController,
+                    label: 'Nomor WhatsApp Aktif',
+                    icon: Ionicons.logo_whatsapp,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(14),
+                    ],
+                    validator: (v) {
+                      // Validator ini hanya untuk menampilkan pesan error saat user mengetik
+                      // Validasi yang menghentikan form sudah ada di _submitRegistration
+                      if (v == null || v.isEmpty) {
+                        return 'Nomor WA wajib diisi';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: 16),
                   _buildTextFormField(
                     controller: _alamatKtpController,
@@ -560,7 +649,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                   ),
                   const SizedBox(height: 24),
                   _buildSectionTitle('Informasi Alamat Pemasangan'),
-                  
+
                   // Bagian untuk Provinsi (read-only)
                   _buildTextFormField(
                     controller: _provinsiController,
@@ -581,7 +670,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                         return 'Kabupaten/Kota wajib diisi.';
                       }
                       // Pengecekan apakah terdeteksi di Indramayu
-                      if (_detectedKabupatenKota != null && _detectedKabupatenKota!.toUpperCase() != 'INDRAMAYU') {
+                      if (_detectedKabupatenKota != null &&
+                          _detectedKabupatenKota!.toUpperCase() !=
+                              'INDRAMAYU') {
                         return 'Pendaftaran hanya dapat dilakukan di Kabupaten Indramayu.';
                       }
                       return null;
@@ -595,24 +686,28 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                   _buildDesaDropdown(),
                   const SizedBox(height: 16),
                   _buildTextFormField(
-                    controller: _deskripsiAlamatController, // Menggunakan deskripsi_alamat untuk alamat detail
-                    label: 'Alamat Lengkap Pemasangan (Jalan, No. Rumah, RT/RW)', // Label diubah
+                    controller:
+                        _deskripsiAlamatController, // Menggunakan deskripsi_alamat untuk alamat detail
+                    label:
+                        'Alamat Lengkap Pemasangan (Jalan, No. Rumah, RT/RW)', // Label diubah
                     icon: Ionicons.boat_outline,
                     hint: 'Contoh: Jl. Merdeka No. 12, RT 01/RW 02',
                     maxLines: 3,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Cabang Pemasangan (Otomatis dari Lokasi Terdekat)
                   // Mengganti DropdownButtonFormField dengan TextFormField read-only
                   _buildTextFormField(
-                    controller: TextEditingController(text: _selectedCabangDisplayName),
+                    controller:
+                        TextEditingController(text: _selectedCabangDisplayName),
                     label: 'Cabang Pemasangan Otomatis',
                     icon: Ionicons.business_outline,
                     readOnly: true,
                     validator: (value) {
                       if (_selectedCabangId == null) {
-                        return _nearestBranchError ?? 'Cabang pemasangan wajib ditentukan.';
+                        return _nearestBranchError ??
+                            'Cabang pemasangan wajib ditentukan.';
                       }
                       return null;
                     },
@@ -622,7 +717,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                       padding: const EdgeInsets.only(left: 12.0, top: 4.0),
                       child: Text(
                         _nearestBranchError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12.0),
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 12.0),
                       ),
                     ),
 
@@ -683,10 +779,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon,
-            color: Theme.of(context).colorScheme.primary),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
@@ -715,7 +809,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
         break;
       case KtpValidationState.checking:
         suffixIcon = const SizedBox(
-            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2));
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2));
         break;
       case KtpValidationState.valid:
         suffixIcon = const Icon(Icons.check_circle, color: Colors.green);
@@ -745,7 +841,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
             ? 'Memeriksa ketersediaan...'
             : _ktpServerMessage,
         helperStyle: TextStyle(
-            color: _ktpState == KtpValidationState.taken ? Colors.red : Colors.grey),
+            color: _ktpState == KtpValidationState.taken
+                ? Colors.red
+                : Colors.grey),
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [
@@ -824,25 +922,38 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-
   // BARU: Widget untuk menampilkan status pengambilan GPS
   Widget _buildLocationStatus() {
     return Container(
       padding: const EdgeInsets.all(12.0),
       margin: const EdgeInsets.only(bottom: 16.0),
       decoration: BoxDecoration(
-        color: _gpsCoordinates != null ? Colors.green.shade100 : Colors.blue.shade100,
+        color: _gpsCoordinates != null
+            ? Colors.green.shade100
+            : Colors.blue.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _gpsCoordinates != null ? Colors.green.shade600 : Colors.blue.shade600, width: 1.5),
+        border: Border.all(
+            color: _gpsCoordinates != null
+                ? Colors.green.shade600
+                : Colors.blue.shade600,
+            width: 1.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _isLocationLoading
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.blueAccent))
               : Icon(
-                  _gpsCoordinates != null ? Ionicons.checkmark_circle : Ionicons.location_outline,
-                  color: _gpsCoordinates != null ? Colors.green.shade800 : Colors.blue.shade800,
+                  _gpsCoordinates != null
+                      ? Ionicons.checkmark_circle
+                      : Ionicons.location_outline,
+                  color: _gpsCoordinates != null
+                      ? Colors.green.shade800
+                      : Colors.blue.shade800,
                   size: 28,
                 ),
           const SizedBox(width: 12),
@@ -854,7 +965,9 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
                       ? 'Lokasi GPS & Alamat berhasil didapatkan otomatis!'
                       : 'Pastikan izin lokasi diaktifkan. Lokasi akan diambil secara otomatis.'),
               style: GoogleFonts.poppins(
-                color: _gpsCoordinates != null ? Colors.green.shade800 : Colors.blue.shade800,
+                color: _gpsCoordinates != null
+                    ? Colors.green.shade800
+                    : Colors.blue.shade800,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -982,8 +1095,7 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     return ElevatedButton.icon(
       onPressed: _isSubmitting ? null : _submitRegistration,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            Theme.of(context).colorScheme.secondary,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         foregroundColor: Theme.of(context).colorScheme.onSecondary,
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(

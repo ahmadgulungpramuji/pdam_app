@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img;
 
 class BuatLaporanPage extends StatefulWidget {
   const BuatLaporanPage({super.key});
@@ -229,7 +231,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     final lat = _currentPosition!.latitude;
     final lng = _currentPosition!.longitude;
 
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng?q=$lat,$lng');
+    final uri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng?q=$lat,$lng');
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -276,19 +279,81 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     });
   }
 
+  Future<File?> _compressAndGetFile(File file) async {
+    // 1. Baca file gambar ke dalam memori
+    final imageBytes = await file.readAsBytes();
+
+    // 2. Decode gambar menggunakan library 'image'
+    final originalImage = img.decodeImage(imageBytes);
+
+    if (originalImage == null) {
+      // Jika format tidak bisa dibaca, kembalikan null
+      return null;
+    }
+
+    // 3. Resize gambar jika terlalu besar, dengan menjaga rasio aspek
+    img.Image resizedImage = originalImage;
+    if (originalImage.width > 1280 || originalImage.height > 1280) {
+      resizedImage = img.copyResize(originalImage, width: 1280);
+    }
+
+    // 4. Encode gambar yang sudah di-resize ke format JPEG dengan kualitas 85
+    final compressedBytes = img.encodeJpg(resizedImage, quality: 85);
+
+    // 5. Simpan bytes yang sudah dikompres ke file temporary baru
+    final tempDir = Directory.systemTemp;
+    final tempFile =
+        File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg')
+          ..writeAsBytesSync(compressedBytes);
+
+    return tempFile;
+  }
+
   Future<void> _pickImage(ImageSource source, String type) async {
-    final pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 70,
+    final pickedFile = await _picker.pickImage(source: source);
+
+    if (pickedFile == null) return;
+
+    // Tampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Memproses gambar..."),
+              ],
+            ),
+          ),
+        );
+      },
     );
-    if (pickedFile != null) {
-      setState(() {
-        if (type == 'bukti') {
-          _fotoBuktiFile = File(pickedFile.path);
-        } else if (type == 'rumah') {
-          _fotoRumahFile = File(pickedFile.path);
-        }
-      });
+
+    try {
+      final compressedFile = await _compressAndGetFile(File(pickedFile.path));
+
+      if (compressedFile != null) {
+        setState(() {
+          if (type == 'bukti') {
+            _fotoBuktiFile = compressedFile;
+          } else if (type == 'rumah') {
+            _fotoRumahFile = compressedFile;
+          }
+        });
+      } else {
+        _showSnackbar('Format gambar tidak didukung atau file rusak.');
+      }
+    } catch (e) {
+      _showSnackbar('Gagal memproses gambar: $e');
+    } finally {
+      // Tutup dialog loading
+      Navigator.of(context).pop();
     }
   }
 
@@ -303,11 +368,14 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
 
     // Memperbaiki: Validasi foto yang lebih spesifik
-    if (_selectedJenisLaporan == 'angka_meter_tidak_sesuai' && _fotoBuktiFile == null) {
-      _showSnackbar('Untuk laporan "Angka Meter Tidak Sesuai", mohon unggah foto bukti meteran.', isError: true);
+    if (_selectedJenisLaporan == 'angka_meter_tidak_sesuai' &&
+        _fotoBuktiFile == null) {
+      _showSnackbar(
+          'Untuk laporan "Angka Meter Tidak Sesuai", mohon unggah foto bukti meteran.',
+          isError: true);
       return;
     }
-    
+
     if (_fotoBuktiFile == null) {
       _showSnackbar('Mohon unggah Foto Bukti.');
       return;
@@ -397,7 +465,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
                   child: PageView(
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
-                    onPageChanged: (page) => setState(() => _currentPage = page),
+                    onPageChanged: (page) =>
+                        setState(() => _currentPage = page),
                     children: [
                       _buildStep1_InfoDasar(),
                       _buildStep2_Lokasi(),
@@ -509,7 +578,6 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           onChanged: (value) => setState(() => _selectedJenisLaporan = value),
           validator: (value) => value == null ? 'Pilih Jenis Laporan' : null,
         ),
-
         if (_selectedJenisLaporan == 'lain_lain')
           Padding(
             padding: const EdgeInsets.only(top: 16.0),
@@ -589,8 +657,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             labelText: 'Deskripsi Detail Lokasi (bisa diedit)',
           ),
           maxLines: 3,
-          validator: (value) =>
-              value == null || value.isEmpty ? 'Deskripsi lokasi wajib diisi' : null,
+          validator: (value) => value == null || value.isEmpty
+              ? 'Deskripsi lokasi wajib diisi'
+              : null,
         ),
         const SizedBox(height: 8),
         Row(
