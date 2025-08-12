@@ -47,7 +47,6 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   final _provinsiController = TextEditingController(text: 'JAWA BARAT');
   final _kabupatenKotaController = TextEditingController(text: 'INDRAMAYU');
   final Map<String, int> _kecamatanToCabangMapping = {
-    // Format: 'NAMA KECAMATAN DALAM HURUF BESAR': id_cabang
     'ANJATAN': 13,
     'ARAHAN': 12,
     'BALONGAN': 14,
