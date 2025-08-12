@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter/widgets.dart';
+import 'dart:ui';
 // Halaman utama tetap StatefulWidget untuk mengelola animasi background
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -128,17 +129,11 @@ class _WelcomePageState extends State<WelcomePage>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Spacer(flex: 2),
-                const Icon(
-                  Icons.waves_rounded,
-                  size: 120,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      blurRadius: 15,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                Image.asset(
+                  'assets/images/logo.png',
+                    height: 120,
+                    color: Colors.white,
+                    colorBlendMode: BlendMode.srcIn,
                 ),
                 const SizedBox(height: 20),
                 Text(

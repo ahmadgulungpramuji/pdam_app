@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer';
 import 'package:pdam_app/services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:flutter/widgets.dart';
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
 
@@ -225,7 +225,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             children: [
               const SizedBox(height: 30),
-              Icon(Ionicons.water, size: 60, color: Colors.blue.shade700),
+              Image.asset('assets/images/logo.png', height: 100),
               const SizedBox(height: 15),
               Text(
                 'Selamat Datang',
