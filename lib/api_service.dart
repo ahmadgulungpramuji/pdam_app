@@ -18,8 +18,7 @@ import 'package:pdam_app/models/berita_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl =
-      'https://cilkgunvmwnj.ap-southeast-1.clawcloudrun.com/api';
+  final String baseUrl = 'http://192.168.100.23:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -28,7 +27,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://cilkgunvmwnj.ap-southeast-1.clawcloudrun.com/api',
+            baseUrl: 'http://192.168.100.23:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -503,6 +502,27 @@ class ApiService {
     if (response.statusCode != 200) {
       final errorBody = jsonDecode(response.body);
       throw Exception(errorBody['message'] ?? 'Gagal membatalkan penugasan.');
+    }
+  }
+
+  Future<bool> checkKtpExists(String noKtp) async {
+    final url = Uri.parse('$baseUrl/check-ktp/$noKtp');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        return responseData['exists'] as bool;
+      } else {
+        throw Exception('Gagal memverifikasi No. KTP ke server.');
+      }
+    } on TimeoutException {
+      throw Exception('Server tidak merespons. Cek koneksi Anda.');
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -2131,49 +2151,47 @@ class ApiService {
   }
 
   Future<List<Berita>> getBerita() async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Autentikasi diperlukan. Silakan login kembali.');
-    }
+  final token = await getToken();
+  if (token == null) {
+    throw Exception('Autentikasi diperlukan. Silakan login kembali.');
+  }
 
-    final url = Uri.parse('$baseUrl/berita');
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
+  final url = Uri.parse('$baseUrl/berita');
+  try {
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
 
-      if (response.statusCode == 200) {
-        // Periksa apakah body respons tidak kosong sebelum di-decode
-        if (response.body.isNotEmpty) {
-          final decodedBody = jsonDecode(response.body);
-
-          // Pastikan responsnya adalah sebuah List
-          if (decodedBody is List) {
-            return decodedBody.map((json) => Berita.fromJson(json)).toList();
-          } else {
-            // Jika bukan list, kemungkinan formatnya tidak sesuai
-            throw Exception(
-                'Format respons dari server tidak valid (bukan list)');
-          }
+    if (response.statusCode == 200) {
+      // Periksa apakah body respons tidak kosong sebelum di-decode
+      if (response.body.isNotEmpty) {
+        final decodedBody = jsonDecode(response.body);
+        
+        // Pastikan responsnya adalah sebuah List
+        if (decodedBody is List) {
+          return decodedBody.map((json) => Berita.fromJson(json)).toList();
         } else {
-          // Jika body respons kosong, anggap tidak ada berita
-          return [];
+          // Jika bukan list, kemungkinan formatnya tidak sesuai
+          throw Exception('Format respons dari server tidak valid (bukan list)');
         }
       } else {
-        // Tangani status code lain dengan pesan yang lebih informatif
-        throw Exception(
-            'Gagal memuat berita (Status: ${response.statusCode}, Body: ${response.body})');
+        // Jika body respons kosong, anggap tidak ada berita
+        return [];
       }
-    } catch (e) {
-      log('Error di getBerita: $e');
-      // Anda bisa melempar ulang error untuk ditangani di HomePelangganPage
-      rethrow;
+    } else {
+      // Tangani status code lain dengan pesan yang lebih informatif
+      throw Exception('Gagal memuat berita (Status: ${response.statusCode}, Body: ${response.body})');
     }
+  } catch (e) {
+    log('Error di getBerita: $e');
+    // Anda bisa melempar ulang error untuk ditangani di HomePelangganPage
+    rethrow;
   }
+}
 }
 
 // Di dalam class ApiService

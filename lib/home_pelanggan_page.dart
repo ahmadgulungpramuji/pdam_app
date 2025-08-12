@@ -230,21 +230,32 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                Text(
-                  DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  berita.isi,
-                  style: GoogleFonts.lato(fontSize: 16),
-                ),
-              ],
-            ),
+               const SizedBox(height: 12),
+    Text(
+      DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
+      style: GoogleFonts.lato(
+        fontSize: 14,
+        color: Colors.grey.shade600,
+      ),
+    ),
+    // --- TAMBAHKAN BARIS INI ---
+    if (berita.namaAdmin != null)
+      Text(
+        'Oleh: ${berita.namaAdmin}',
+        style: GoogleFonts.lato(
+          fontSize: 14,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    // --- AKHIR TAMBAHAN ---
+    const SizedBox(height: 12),
+    Text(
+      berita.isi,
+      style: GoogleFonts.lato(fontSize: 16),
+    ),
+  ],
+),
           ),
           actions: [
             TextButton(
@@ -828,15 +839,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   // Method baru untuk membangun satu kartu berita
   Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
     return Container(
-      width: 250, // Mengatur lebar kartu
-      margin: const EdgeInsets.only(right: 16),
+      // HAPUS width: 250, agar lebar menjadi full
+      margin: const EdgeInsets.only(bottom: 16), // UBAH MARGIN MENJADI BOTTOM
       child: Card(
         elevation: 4.0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias, // Memastikan gambar di-clip
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
-            // Panggil metode baru untuk menampilkan modal
             _showBeritaDetailModal(berita);
           },
           child: Column(
@@ -846,10 +856,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 Image.network(
                   _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
                   width: double.infinity,
-                  height: 120,
+                  height: 200, // Tinggikan sedikit agar lebih proporsional
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    height: 120,
+                    height: 200, // Tinggikan juga di sini
                     color: Colors.grey.shade300,
                     child: const Center(
                       child: Icon(Icons.image_not_supported, color: Colors.grey),
@@ -873,12 +883,21 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
+                      '${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
                       style: GoogleFonts.lato(
                         fontSize: 12,
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    if (berita.namaAdmin != null)
+                      Text(
+                        'Oleh: ${berita.namaAdmin}',
+                        style: GoogleFonts.lato(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -888,7 +907,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       ),
     );
   }
-
   Widget _buildTipsCard({
     required String title,
     required String description,
