@@ -839,14 +839,15 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   // Method baru untuk membangun satu kartu berita
   Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
     return Container(
-      // HAPUS width: 250, agar lebar menjadi full
-      margin: const EdgeInsets.only(bottom: 16), // UBAH MARGIN MENJADI BOTTOM
+      width: 250, // Mengatur lebar kartu
+      margin: const EdgeInsets.only(right: 16),
       child: Card(
         elevation: 4.0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
+        clipBehavior: Clip.antiAlias, // Memastikan gambar di-clip
         child: InkWell(
           onTap: () {
+            // Panggil metode baru untuk menampilkan modal
             _showBeritaDetailModal(berita);
           },
           child: Column(
@@ -856,10 +857,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 Image.network(
                   _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
                   width: double.infinity,
-                  height: 200, // Tinggikan sedikit agar lebih proporsional
+                  height: 120,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    height: 200, // Tinggikan juga di sini
+                    height: 120,
                     color: Colors.grey.shade300,
                     child: const Center(
                       child: Icon(Icons.image_not_supported, color: Colors.grey),
@@ -867,46 +868,49 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      berita.judul,
-                      style: GoogleFonts.lato(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
-                      style: GoogleFonts.lato(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    if (berita.namaAdmin != null)
-                      Text(
-                        'Oleh: ${berita.namaAdmin}',
-                        style: GoogleFonts.lato(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+  padding: const EdgeInsets.all(12.0),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        berita.judul,
+        style: GoogleFonts.lato(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: colorScheme.onSurface,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        '${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
+        style: GoogleFonts.lato(
+          fontSize: 12,
+          color: Colors.grey.shade600,
+        ),
+      ),
+      // --- TAMBAHKAN BARIS INI ---
+      if (berita.namaAdmin != null)
+        Text(
+          'Oleh: ${berita.namaAdmin}',
+          style: GoogleFonts.lato(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      // --- AKHIR TAMBAHAN ---
+    ],
+  ),
+),
             ],
           ),
         ),
       ),
     );
   }
+
   Widget _buildTipsCard({
     required String title,
     required String description,
