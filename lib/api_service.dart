@@ -18,7 +18,7 @@ import 'package:pdam_app/models/berita_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.100.23:8000/api';
+  final String baseUrl = 'http://192.168.164.226:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -27,7 +27,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.168.100.23:8000/api',
+            baseUrl: 'http://192.168.164.226:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},

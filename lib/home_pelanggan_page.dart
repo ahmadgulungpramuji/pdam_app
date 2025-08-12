@@ -803,113 +803,150 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
 
   // Method baru untuk membangun daftar berita horizontal
-  Widget _buildBeritaHorizontalList(ColorScheme colorScheme) {
-    if (_isBeritaLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+Widget _buildBeritaHorizontalList(ColorScheme colorScheme) {
+  if (_isBeritaLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    if (_beritaErrorMessage != null) {
-      return Center(child: Text(_beritaErrorMessage!));
-    }
+  if (_beritaErrorMessage != null) {
+    return Center(child: Text(_beritaErrorMessage!));
+  }
 
-    if (_beritaList.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('Belum ada berita terbaru.'),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 250, // Mengatur tinggi agar daftar dapat di-scroll horizontal
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _beritaList.length,
-        itemBuilder: (context, index) {
-          return FadeInAnimation(
-            delay: 0.1 * index, // Menambahkan delay animasi untuk setiap kartu
-            child: _buildBeritaCard(_beritaList[index], colorScheme),
-          );
-        },
+  if (_beritaList.isEmpty) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text('Belum ada berita terbaru.'),
       ),
     );
   }
+
+  final PageController pageController = PageController(viewportFraction: 0.9);
+
+  return Stack(
+    children: [
+      SizedBox(
+        height: 250,
+        child: PageView.builder(
+          controller: pageController,
+          itemCount: _beritaList.length,
+          itemBuilder: (context, index) {
+            return AnimatedBuilder(
+              animation: pageController,
+              builder: (context, child) {
+                double value = 1.0;
+                if (pageController.position.haveDimensions) {
+                  value = pageController.page! - index;
+                  value = (1 - (value.abs() * 0.3)).clamp(0.0, 1.0);
+                }
+                return Center(
+                  child: SizedBox(
+                    height: Curves.easeOut.transform(value) * 250,
+                    child: _buildBeritaCard(_beritaList[index], colorScheme),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+      if (_beritaList.length > 1)
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+              ),
+              child: const Icon(
+                Ionicons.chevron_forward,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
 
   // Method baru untuk membangun satu kartu berita
-  Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
-    return Container(
-      width: 250, // Mengatur lebar kartu
-      margin: const EdgeInsets.only(right: 16),
-      child: Card(
-        elevation: 4.0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias, // Memastikan gambar di-clip
-        child: InkWell(
-          onTap: () {
-            // Panggil metode baru untuk menampilkan modal
-            _showBeritaDetailModal(berita);
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (berita.fotoBanner != null)
-                Image.network(
-                  _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
-                  width: double.infinity,
+   Widget _buildBeritaCard(Berita berita, ColorScheme colorScheme) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    child: Card(
+      elevation: 4.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          _showBeritaDetailModal(berita);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (berita.fotoBanner != null)
+              Image.network(
+                _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                width: double.infinity,
+                height: 120,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
                   height: 120,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 120,
-                    color: Colors.grey.shade300,
-                    child: const Center(
-                      child: Icon(Icons.image_not_supported, color: Colors.grey),
-                    ),
+                  color: Colors.grey.shade300,
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported, color: Colors.grey),
                   ),
                 ),
-              Padding(
-  padding: const EdgeInsets.all(12.0),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        berita.judul,
-        style: GoogleFonts.lato(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: colorScheme.onSurface,
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      const SizedBox(height: 8),
-      Text(
-        '${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
-        style: GoogleFonts.lato(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ),
-      // --- TAMBAHKAN BARIS INI ---
-      if (berita.namaAdmin != null)
-        Text(
-          'Oleh: ${berita.namaAdmin}',
-          style: GoogleFonts.lato(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      // --- AKHIR TAMBAHAN ---
-    ],
-  ),
-),
-            ],
-          ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    berita.judul,
+                    style: GoogleFonts.lato(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${DateFormat('d MMMM yyyy').format(berita.tanggalTerbit)}',
+                    style: GoogleFonts.lato(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  if (berita.namaAdmin != null)
+                    Text(
+                      'Oleh: ${berita.namaAdmin}',
+                      style: GoogleFonts.lato(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTipsCard({
     required String title,
