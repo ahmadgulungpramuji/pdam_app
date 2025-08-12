@@ -1,16 +1,15 @@
 // lib/chat_page.dart
 // ignore_for_file: use_build_context_synchronously
 
-// ignore: unused_import
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pdam_app/api_service.dart';
-import 'package:pdam_app/services/chat_service.dart'; // <-- Gunakan service baru kita
+import 'package:pdam_app/models/pengaduan_model.dart';
+import 'package:pdam_app/services/chat_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatPage extends StatefulWidget {
-  // Menerima data pengguna dari halaman sebelumnya
   final Map<String, dynamic> userData;
-
   const ChatPage({super.key, required this.userData});
 
   @override
@@ -18,31 +17,27 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  // --- Services & Controllers ---
   final TextEditingController _chatController = TextEditingController();
-  final ApiService _apiService = ApiService(); // Untuk Wit.ai & token
-  final ChatService _chatService = ChatService(); // Untuk Live Chat Firestore
+  final ApiService _apiService = ApiService();
+  final ChatService _chatService = ChatService();
 
-  // --- State Management ---
   final List<Map<String, dynamic>> _botMessages = [
     {
       "sender": "bot",
       "text":
-          "Selamat datang! Ketik pertanyaan Anda atau tekan tombol 'Bicara dengan Admin' untuk bantuan langsung.",
+          "Selamat datang di PDAM Bot! Ada yang bisa saya bantu? Anda bisa bertanya cara lapor atau status laporan Anda.",
     },
   ];
-  String? _liveChatThreadId; // Untuk menyimpan ID thread live chat
+  String? _liveChatThreadId;
   bool _isLiveChatActive = false;
   bool _isLoading = false;
 
-  // --- Logic ---
   void _sendMessage() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
     _chatController.clear();
 
     if (_isLiveChatActive) {
-      // Jika mode live chat aktif, kirim pesan ke Firestore
       _chatService.sendMessage(
         _liveChatThreadId!,
         widget.userData['firebase_uid'],
@@ -50,60 +45,183 @@ class _ChatPageState extends State<ChatPage> {
         text,
       );
     } else {
-      // Jika masih mode bot, kirim ke Wit.ai
+      // --- MODIFIKASI ---
+      // Tambahkan pesan pengguna ke UI sebelum dikirim ke bot
+      setState(() {
+        _botMessages.insert(0, {"sender": "user", "text": text});
+      });
       _sendMessageToBot(text);
     }
   }
 
   void _sendMessageToBot(String text) {
     setState(() {
-      _botMessages.insert(0, {"sender": "user", "text": text});
       _isLoading = true;
     });
 
-    _apiService
-        .sendMessage(text)
-        .then((witResponse) {
-          _handleWitAiResponse(witResponse);
-        })
-        .whenComplete(() => setState(() => _isLoading = false));
+    _apiService.sendMessage(text).then((witResponse) {
+      // --- MODIFIKASI --- Memanggil handler Wit.ai yang sudah diperbarui
+      _handleWitAiResponse(witResponse);
+    }).catchError((e) {
+      _addBotMessage(
+          "Terjadi kesalahan saat menghubungi bot. Silakan coba lagi nanti.");
+    }).whenComplete(() => setState(() => _isLoading = false));
   }
 
-  void _handleWitAiResponse(Map<String, dynamic>? response) {
-    String botReply =
-        "Maaf, saya tidak mengerti. Coba tanyakan hal lain atau hubungi admin.";
-    // (Anda bisa masukkan kembali logika Wit.ai Anda yang lama di sini jika perlu)
-    // Untuk sekarang, kita buat simpel.
-    if (response != null && !response.containsKey("error")) {
-      // Logika sederhana berdasarkan response
-      botReply =
-          "Ini adalah respons dari Bot. Jika butuh bantuan lebih lanjut, silakan hubungi admin.";
-    }
+  // --- BARU --- Fungsi helper untuk menambahkan pesan dari bot ke UI
+  void _addBotMessage(String text) {
     setState(() {
-      _botMessages.insert(0, {"sender": "bot", "text": botReply});
+      _botMessages.insert(0, {"sender": "bot", "text": text});
     });
+  }
+
+  // --- MODIFIKASI TOTAL ---
+  // Ini adalah logika utama yang telah dikembangkan untuk menangani respon dari Wit.ai
+  void _handleWitAiResponse(Map<String, dynamic>? response) {
+    // Penanganan jika response tidak valid atau intent tidak terdeteksi
+    if (response == null ||
+        response.containsKey("error") ||
+        response['intents'] == null ||
+        (response['intents'] as List).isEmpty) {
+      _addBotMessage(
+          "Maaf, saya tidak mengerti. Anda bisa coba 'cek laporan 1234' atau 'bagaimana cara lapor?'.");
+      return;
+    }
+
+    final intent = (response['intents'] as List).first['name'];
+    final confidence = (response['intents'] as List).first['confidence'];
+
+    // Abaikan jika confidence (tingkat kepercayaan) bot terlalu rendah
+    if (confidence < 0.8) {
+      _addBotMessage(
+          "Saya kurang yakin dengan maksud Anda. Bisa coba gunakan kalimat yang lebih spesifik?");
+      return;
+    }
+
+    // Logika berdasarkan intent yang terdeteksi
+    switch (intent) {
+      case 'sapaan':
+        _addBotMessage("Halo! Ada yang bisa saya bantu terkait layanan PDAM?");
+        break;
+
+      case 'terima_kasih':
+        _addBotMessage("Sama-sama! Senang bisa membantu Anda.");
+        break;
+
+      case 'tanya_cara_lapor':
+        _addBotMessage(
+            "Anda dapat membuat laporan pengaduan melalui tombol 'Buat Laporan' di halaman utama aplikasi. Pastikan Anda menyiapkan detail keluhan dan foto bukti jika diperlukan.");
+        break;
+
+      case 'lacak_laporan':
+        final entities = response['entities'] as Map<String, dynamic>?;
+        // Mencari entity 'nomor_laporan' yang sudah kita latih di Wit.ai
+        final nomorLaporanEntity =
+            entities?['nomor_laporan:nomor_laporan'] as List?;
+        if (nomorLaporanEntity != null && nomorLaporanEntity.isNotEmpty) {
+          final nomorLaporan = nomorLaporanEntity.first['value'].toString();
+          // Memanggil fungsi untuk mengambil detail dari API
+          _fetchAndDisplayReportStatus(nomorLaporan);
+        } else {
+          _addBotMessage(
+              "Tentu, mohon sebutkan nomor laporan yang ingin Anda lacak.");
+        }
+        break;
+
+      case 'minta_bantuan_admin':
+        _addBotMessage(
+            "Baik, saya akan segera menghubungkan Anda dengan Admin kami.");
+        Future.delayed(const Duration(milliseconds: 500), _switchToLiveChat);
+        break;
+
+      default:
+        _addBotMessage(
+            "Maaf, saya belum dapat memahami itu. Anda bisa bertanya tentang cara membuat laporan atau melacak status laporan Anda.");
+        break;
+    }
+  }
+
+  // --- BARU --- Fungsi untuk mengambil status laporan dari API dan menampilkannya
+  Future<void> _fetchAndDisplayReportStatus(String nomorLaporan) async {
+    setState(() => _isLoading = true);
+    _addBotMessage("Baik, sedang saya periksa laporan nomor $nomorLaporan...");
+
+    try {
+      // Pastikan fungsi getDetailLaporan sudah ada di api_service.dart
+      final Pengaduan laporan =
+          await _apiService.getDetailLaporan(nomorLaporan);
+
+      String statusText = "Status laporan Anda: **${laporan.friendlyStatus}**.";
+
+      // Memberikan konteks tambahan berdasarkan status
+      if (laporan.status == 'menunggu_pelanggan') {
+        statusText +=
+            "\n\nTim kami membutuhkan konfirmasi dari Anda. Silakan periksa detailnya di halaman 'Lacak Laporan Saya' untuk memberikan respon.";
+      } else if (laporan.status == 'selesai') {
+        statusText +=
+            "\n\nTerima kasih atas kesabaran Anda. Jangan lupa berikan rating pelayanan kami di halaman 'Lacak Laporan Saya'.";
+      } else if (laporan.status == 'ditolak') {
+        statusText +=
+            "\n\nMohon maaf, laporan Anda belum dapat kami proses. Silakan cek detail alasan penolakan di halaman 'Lacak Laporan Saya'.";
+      }
+
+      _addBotMessage(statusText);
+    } catch (e) {
+      _addBotMessage(
+          "Maaf, laporan dengan nomor '$nomorLaporan' tidak ditemukan atau terjadi kesalahan. Mohon periksa kembali nomor Anda.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Fungsi reauthenticateWithFirebase dan _switchToLiveChat tidak diubah,
+  // karena sudah sesuai dengan struktur baru Anda.
+  Future<void> reauthenticateWithFirebase() async {
+    try {
+      // Anda perlu membuat fungsi ini di ApiService yang mengembalikan custom token dari server Anda
+      final String? customToken = await _apiService.getFirebaseCustomToken();
+
+      if (customToken != null) {
+        await FirebaseAuth.instance.signInWithCustomToken(customToken);
+        print('Re-authentication to Firebase successful!');
+      } else {
+        throw Exception('Failed to get custom token from server.');
+      }
+    } catch (e) {
+      print('Error re-authenticating with Firebase: $e');
+      rethrow;
+    }
   }
 
   Future<void> _switchToLiveChat() async {
     setState(() => _isLoading = true);
     try {
-      print('Memulai Live Chat dengan userData: ${widget.userData}');
+      await reauthenticateWithFirebase();
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        throw Exception(
+            "Sesi Firebase Anda telah berakhir. Mohon login kembali.");
+      }
 
       final token = await _apiService.getToken();
       if (token == null) {
         throw Exception("Sesi berakhir. Silakan login kembali.");
       }
 
-      final threadId = await _chatService
-          .getOrCreateAdminChatThreadForPelanggan(
-            userData: widget.userData,
-            apiToken: token,
-          );
+      final threadId =
+          await _chatService.getOrCreateAdminChatThreadForPelanggan(
+        userData: widget.userData,
+        apiToken: token,
+      );
 
-      setState(() {
-        _isLiveChatActive = true;
-        _liveChatThreadId = threadId;
-      });
+      if (threadId != null) {
+        setState(() {
+          _isLiveChatActive = true;
+          _liveChatThreadId = threadId;
+        });
+      } else {
+        throw Exception("Gagal mendapatkan ID thread dari service.");
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal terhubung ke live chat: $e')),
@@ -113,32 +231,25 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // --- UI Widgets ---
+  // Bagian UI (build, _buildLiveChatView, dst.) tidak diubah.
+  // ... (Sisa kode UI dari file Anda diletakkan di sini) ...
   @override
   Widget build(BuildContext context) {
-    // Dapatkan warna utama dari tema aplikasi Anda
     final primaryColor = Theme.of(context).primaryColor;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
           _isLiveChatActive ? 'Live Chat dengan Admin' : 'Chat dengan PDAM Bot',
         ),
-        // Menambahkan properti foregroundColor akan mengubah warna default untuk
-        // semua elemen di dalam AppBar, termasuk tombol kembali (back button).
-        // Ini adalah cara yang lebih modern dan bersih.
-        foregroundColor: Colors.white, // Atur warna ikon dan judul jika AppBar berwarna gelap
-        backgroundColor: primaryColor, // Atur warna latar belakang AppBar
+        foregroundColor: Colors.white,
+        backgroundColor: primaryColor,
         actions: [
           if (!_isLiveChatActive)
             TextButton.icon(
-              // Ikon sekarang akan mengambil warna dari 'foregroundColor' AppBar
               icon: const Icon(Icons.support_agent),
               label: const Text('Bicara dengan Admin'),
               onPressed: _isLoading ? null : _switchToLiveChat,
-              // Atur gaya tombol agar lebih terlihat
               style: TextButton.styleFrom(
-                // Atur warna teks dan ikon menjadi putih agar kontras dengan latar belakang AppBar
                 foregroundColor: Colors.white,
               ),
             ),
@@ -150,7 +261,6 @@ class _ChatPageState extends State<ChatPage> {
             _buildLiveChatView()
           else
             _buildBotChatView(),
-
           if (_isLoading) const LinearProgressIndicator(),
           _buildMessageInput(),
         ],
@@ -158,14 +268,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // Di dalam file chat_page.dart
-
   Widget _buildLiveChatView() {
     return Expanded(
-      // 1. Ubah tipe data StreamBuilder
       child: StreamBuilder<List<Message>>(
-        // <-- DARI QuerySnapshot MENJADI List<Message>
-        // 2. Gunakan method getMessages yang sudah diperbarui
         stream: _chatService.getMessages(_liveChatThreadId!),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -175,26 +280,21 @@ class _ChatPageState extends State<ChatPage> {
               !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          // 3. 'snapshot.data' sekarang adalah List<Message>, bukan QuerySnapshot
-          final messages = snapshot.data ?? []; // <-- JAUH LEBIH SEDERHANA
+          final messages = snapshot.data ?? [];
           if (messages.isEmpty) {
             return const Center(
               child: Text('Kirim pesan pertama Anda ke admin!'),
             );
           }
-
           return ListView.builder(
             reverse: true,
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              // 4. 'msg' sekarang adalah objek Message yang type-safe
-              final msg = messages[index]; // <-- OBJEK MESSAGE
+              final msg = messages[index];
               final isMe = msg.senderId == widget.userData['firebase_uid'];
               return _buildMessageBubble(
-                // 5. Akses properti secara langsung dan aman
                 text: msg.text,
-                sender: msg.senderName, // <-- LEBIH BERSIH
+                sender: msg.senderName,
                 isMe: isMe,
               );
             },
@@ -208,6 +308,7 @@ class _ChatPageState extends State<ChatPage> {
     return Expanded(
       child: ListView.builder(
         reverse: true,
+        padding: const EdgeInsets.all(8.0),
         itemCount: _botMessages.length,
         itemBuilder: (context, index) {
           final msg = _botMessages[index];
@@ -227,7 +328,6 @@ class _ChatPageState extends State<ChatPage> {
     required String sender,
     required bool isMe,
   }) {
-    // UI untuk satu bubble chat, bisa digunakan oleh bot dan live chat
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

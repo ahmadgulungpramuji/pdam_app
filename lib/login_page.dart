@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer';
 import 'package:pdam_app/services/notification_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'api_service.dart';
 import 'models/temuan_kebocoran_model.dart';
@@ -119,6 +120,24 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _reauthenticateWithFirebase() async {
+    log('[LoginPage] Memulai re-otentikasi Firebase...');
+    try {
+      final String? customToken = await _apiService.getFirebaseCustomToken();
+      if (customToken != null) {
+        await FirebaseAuth.instance.signInWithCustomToken(customToken);
+        log('[LoginPage] Re-otentikasi Firebase BERHASIL.');
+      } else {
+        throw Exception(
+            'Gagal mendapatkan token otentikasi Firebase dari server.');
+      }
+    } catch (e) {
+      log('[LoginPage] Re-otentikasi Firebase GAGAL: $e');
+      // Lempar kembali error agar bisa ditangkap oleh blok catch di _login
+      rethrow;
+    }
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -146,7 +165,7 @@ class _LoginPageState extends State<LoginPage> {
       // setelah login berhasil.
       log("Mencoba mengirim FCM token ke server setelah login...");
       await NotificationService().sendFcmTokenToServer();
-      // --- SELESAI PENAMBAHAN ---
+      await _reauthenticateWithFirebase();
 
       if (!mounted) return;
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);

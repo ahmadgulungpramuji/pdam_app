@@ -96,28 +96,30 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     for (var laporan in _masterLaporanList) {
       final status = laporan.status.toLowerCase();
 
-      if (status == 'pending' || status == 'menunggu_konfirmasi' || status == 'menunggu_pelanggan') {
-      _laporanDiproses.add(laporan);
-    } else if (status == 'diterima' ||
-        status == 'dalam_perjalanan' ||
-        status == 'diproses') {
-      _laporanDikerjakan.add(laporan);
-    } else if (status == 'selesai') {
-      _laporanSelesai.add(laporan);
-      if (laporan.ratingHasil == null) {
-        needRatingCount++;
+      if (status == 'pending' ||
+          status == 'menunggu_konfirmasi' ||
+          status == 'menunggu_pelanggan') {
+        _laporanDiproses.add(laporan);
+      } else if (status == 'diterima' ||
+          status == 'dalam_perjalanan' ||
+          status == 'diproses') {
+        _laporanDikerjakan.add(laporan);
+      } else if (status == 'selesai') {
+        _laporanSelesai.add(laporan);
+        if (laporan.ratingHasil == null) {
+          needRatingCount++;
+        }
+      } else if (status == 'ditolak' || status == 'dibatalkan') {
+        _laporanDibatalkan.add(laporan);
       }
-    } else if (status == 'ditolak' || status == 'dibatalkan') {
-      _laporanDibatalkan.add(laporan);
+    }
+
+    if (mounted) {
+      setState(() {
+        _laporanButuhPenilaianCount = needRatingCount;
+      });
     }
   }
-
-  if (mounted) {
-    setState(() {
-      _laporanButuhPenilaianCount = needRatingCount;
-    });
-  }
-}
 
   Future<String?> _getAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -269,7 +271,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       setDialogLoadingState(false);
     }
   }
-  
+
   // --- UI WIDGETS (MODERN & ELEGANT) ---
 
   @override
@@ -293,7 +295,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             indicatorColor: Theme.of(context).primaryColor,
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey.shade600,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             unselectedLabelStyle:
                 const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
             tabs: [
@@ -369,14 +372,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         final laporan = laporanList[index];
         // Animasi untuk setiap item kartu
         return AnimatedContainer(
-          duration: Duration(milliseconds: 400 + (index * 100)),
-          curve: Curves.easeInOut,
-          child: _buildTimelineCard(laporan, isLast: index == laporanList.length - 1)
-        );
+            duration: Duration(milliseconds: 400 + (index * 100)),
+            curve: Curves.easeInOut,
+            child: _buildTimelineCard(laporan,
+                isLast: index == laporanList.length - 1));
       },
     );
   }
-  
+
   Widget _buildTimelineCard(Pengaduan laporan, {bool isLast = false}) {
     final statusMeta = _getStatusMeta(laporan.status);
 
@@ -399,11 +402,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: statusMeta.color.withOpacity(0.2),
-                    border: Border.all(color: statusMeta.color, width: 2)
-                  ),
-                  child: Icon(statusMeta.icon, color: statusMeta.color, size: 16),
+                      shape: BoxShape.circle,
+                      color: statusMeta.color.withOpacity(0.2),
+                      border: Border.all(color: statusMeta.color, width: 2)),
+                  child:
+                      Icon(statusMeta.icon, color: statusMeta.color, size: 16),
                 ),
                 Expanded(
                   child: Container(
@@ -443,8 +446,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                             _buildStatusBadge(laporan.friendlyStatus),
-                             Text(
+                            _buildStatusBadge(laporan.friendlyStatus),
+                            Text(
                               '#${laporan.id}',
                               style: TextStyle(
                                 color: Colors.grey.shade500,
@@ -464,37 +467,42 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                           ),
                         ),
                         const SizedBox(height: 8),
-                         Text(
+                        Text(
                           laporan.deskripsi,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                              height: 1.5),
                         ),
                         const Divider(height: 28),
                         Row(
                           children: [
-                            Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade500),
+                            Icon(Icons.calendar_today_rounded,
+                                size: 14, color: Colors.grey.shade500),
                             const SizedBox(width: 8),
                             Text(
-                              DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt),
+                              DateFormat('d MMMM yyyy, HH:mm')
+                                  .format(laporan.createdAt),
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 12,
                               ),
                             ),
                             const Spacer(),
-                             if (laporan.ratingHasil != null)
+                            if (laporan.ratingHasil != null)
                               Row(
                                 children: [
-                                  Icon(Icons.star_rounded, color: Colors.amber.shade700, size: 18),
+                                  Icon(Icons.star_rounded,
+                                      color: Colors.amber.shade700, size: 18),
                                   const SizedBox(width: 4),
                                   Text(
                                     laporan.ratingHasil!.toStringAsFixed(1),
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.amber.shade800,
-                                      fontSize: 14
-                                    ),
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.amber.shade800,
+                                        fontSize: 14),
                                   ),
                                 ],
                               ),
@@ -512,18 +520,23 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     );
   }
 
-  Widget _buildEmptyState({String message = 'Semua laporan pengaduan Anda akan muncul di sini.'}) {
+  Widget _buildEmptyState(
+      {String message = 'Semua laporan pengaduan Anda akan muncul di sini.'}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.file_copy_outlined, size: 100, color: Colors.grey.shade300),
+            Icon(Icons.file_copy_outlined,
+                size: 100, color: Colors.grey.shade300),
             const SizedBox(height: 24),
             Text(
               'Belum Ada Laporan',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700),
             ),
             const SizedBox(height: 8),
             Text(
@@ -536,7 +549,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       ),
     );
   }
-  
+
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -553,7 +566,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       case 'diterima':
       case 'menunggu_konfirmasi':
       case 'dalam_perjalanan':
-        return (color: Colors.orange.shade800, icon: Icons.construction_rounded);
+        return (
+          color: Colors.orange.shade800,
+          icon: Icons.construction_rounded
+        );
       case 'selesai':
         return (color: Colors.green.shade700, icon: Icons.check_circle_rounded);
       case 'dibatalkan':
@@ -590,11 +606,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       ),
     );
   }
-  
-   // --- UNMODIFIED LOGIC & HELPER WIDGETS ---
+
+  // --- UNMODIFIED LOGIC & HELPER WIDGETS ---
   // Kode di bawah ini sebagian besar tidak diubah secara fungsional,
   // hanya beberapa penyesuaian gaya agar konsisten.
-  
+
   void _showDetailAndRatingSheet(Pengaduan laporan) {
     _dialogRatingKecepatan = laporan.ratingKecepatan?.toDouble() ?? 0;
     _dialogRatingPelayanan = laporan.ratingPelayanan?.toDouble() ?? 0;
@@ -616,8 +632,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             bool allRatingsGiven = _dialogRatingKecepatan > 0 &&
                 _dialogRatingPelayanan > 0 &&
                 _dialogRatingHasil > 0;
-            bool ratingsChanged =
-                (laporan.ratingKecepatan?.toDouble() ?? 0) !=
+            bool ratingsChanged = (laporan.ratingKecepatan?.toDouble() ?? 0) !=
                     _dialogRatingKecepatan ||
                 (laporan.ratingPelayanan?.toDouble() ?? 0) !=
                     _dialogRatingPelayanan ||
@@ -704,10 +719,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                       'Tindak Lanjut Laporan',
                                       style: Theme.of(
                                         context,
-                                      )
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
+                                      ).textTheme.titleMedium?.copyWith(
                                             fontWeight: FontWeight.bold,
                                             color: Colors.blue.shade800,
                                           ),
@@ -912,8 +924,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               ),
                               const SizedBox(height: 24),
                               if (_isDialogRatingLoading)
-                                const Center(
-                                    child: CircularProgressIndicator())
+                                const Center(child: CircularProgressIndicator())
                               else
                                 SizedBox(
                                   width: double.infinity,
@@ -1053,7 +1064,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                     context,
                     MaterialPageRoute(
                       builder: (_) => ReusableChatPage(
-                        threadId: threadId,
+                        threadId: threadId!,
                         chatTitle: "Live Chat Admin",
                         currentUser: _currentUserData!,
                       ),
@@ -1070,7 +1081,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -1113,8 +1125,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text("Gagal memulai chat petugas: $e")),
+                      SnackBar(content: Text("Gagal memulai chat petugas: $e")),
                     );
                   }
                 } finally {
@@ -1125,7 +1136,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -1146,7 +1158,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+                fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 6),
           Text(value, style: const TextStyle(fontSize: 16, height: 1.5)),

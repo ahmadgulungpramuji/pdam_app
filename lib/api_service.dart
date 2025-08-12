@@ -18,7 +18,7 @@ import 'package:pdam_app/models/berita_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.164.226:8000/api';
+  final String baseUrl = 'http://10.66.9.148:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -27,7 +27,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.168.164.226:8000/api',
+            baseUrl: 'http://10.66.9.148:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -124,6 +124,47 @@ class ApiService {
         "error": true, //
         "message": "Terjadi kesalahan jaringan atau sistem: $e", //
       };
+    }
+  }
+
+  Future<String?> getFirebaseCustomToken() async {
+    // 1. Ambil token otentikasi Laravel dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
+    if (token == null) {
+      print('[ApiService] Gagal: Token otentikasi tidak ditemukan.');
+      return null;
+    }
+
+    // 2. Siapkan URL ke endpoint baru di Laravel
+    final url = Uri.parse('$baseUrl/firebase/custom-token');
+    print('[ApiService] Meminta Firebase Custom Token dari: $url');
+
+    try {
+      // 3. Kirim request POST dengan menyertakan token otentikasi di header
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      // 4. Proses respons dari server
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('[ApiService] Custom token berhasil diterima.');
+        // Kembalikan token yang didapat dari Laravel
+        return responseData['custom_token'];
+      } else {
+        print(
+            '[ApiService] Gagal mendapatkan custom token. Status: ${response.statusCode}, Body: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print(
+          '[ApiService] Terjadi error saat memanggil getFirebaseCustomToken: $e');
+      return null;
     }
   }
 
@@ -668,9 +709,49 @@ class ApiService {
     }
   }
 
-  // =======================================================================
-  // == METHOD BARU UNTUK MENGAMBIL LAPORAN PENGADUAN PENGGUNA (PELANGGAN) ==
-  // =======================================================================
+  Future<Pengaduan> getDetailLaporan(String nomorLaporan) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Autentikasi dibutuhkan. Token tidak ditemukan.');
+    }
+
+    // Ganti endpoint ini sesuai dengan route di backend Anda
+    // Contoh: Route::get('/pengaduan/detail/{id}', [PengaduanController::class, 'showDetail']);
+    final String endpoint = '/pengaduan/detail/$nomorLaporan';
+    final url = Uri.parse('$baseUrl$endpoint');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final dynamic decodedBody = json.decode(response.body);
+
+        // Asumsi backend mengembalikan data laporan di dalam key 'data'
+        if (decodedBody is Map<String, dynamic> &&
+            decodedBody.containsKey('data')) {
+          return Pengaduan.fromJson(decodedBody['data']);
+        } else {
+          // Atau jika backend langsung mengembalikan objek laporan
+          return Pengaduan.fromJson(decodedBody);
+        }
+      } else if (response.statusCode == 404) {
+        throw Exception('Laporan tidak ditemukan.');
+      } else {
+        throw Exception(
+          'Gagal mengambil data laporan (Status: ${response.statusCode})',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<List<dynamic>> getLaporanPengaduan() async {
     //
     // Atau Future<List<Pengaduan>>
@@ -2151,47 +2232,49 @@ class ApiService {
   }
 
   Future<List<Berita>> getBerita() async {
-  final token = await getToken();
-  if (token == null) {
-    throw Exception('Autentikasi diperlukan. Silakan login kembali.');
-  }
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Autentikasi diperlukan. Silakan login kembali.');
+    }
 
-  final url = Uri.parse('$baseUrl/berita');
-  try {
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    );
+    final url = Uri.parse('$baseUrl/berita');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      // Periksa apakah body respons tidak kosong sebelum di-decode
-      if (response.body.isNotEmpty) {
-        final decodedBody = jsonDecode(response.body);
-        
-        // Pastikan responsnya adalah sebuah List
-        if (decodedBody is List) {
-          return decodedBody.map((json) => Berita.fromJson(json)).toList();
+      if (response.statusCode == 200) {
+        // Periksa apakah body respons tidak kosong sebelum di-decode
+        if (response.body.isNotEmpty) {
+          final decodedBody = jsonDecode(response.body);
+
+          // Pastikan responsnya adalah sebuah List
+          if (decodedBody is List) {
+            return decodedBody.map((json) => Berita.fromJson(json)).toList();
+          } else {
+            // Jika bukan list, kemungkinan formatnya tidak sesuai
+            throw Exception(
+                'Format respons dari server tidak valid (bukan list)');
+          }
         } else {
-          // Jika bukan list, kemungkinan formatnya tidak sesuai
-          throw Exception('Format respons dari server tidak valid (bukan list)');
+          // Jika body respons kosong, anggap tidak ada berita
+          return [];
         }
       } else {
-        // Jika body respons kosong, anggap tidak ada berita
-        return [];
+        // Tangani status code lain dengan pesan yang lebih informatif
+        throw Exception(
+            'Gagal memuat berita (Status: ${response.statusCode}, Body: ${response.body})');
       }
-    } else {
-      // Tangani status code lain dengan pesan yang lebih informatif
-      throw Exception('Gagal memuat berita (Status: ${response.statusCode}, Body: ${response.body})');
+    } catch (e) {
+      log('Error di getBerita: $e');
+      // Anda bisa melempar ulang error untuk ditangani di HomePelangganPage
+      rethrow;
     }
-  } catch (e) {
-    log('Error di getBerita: $e');
-    // Anda bisa melempar ulang error untuk ditangani di HomePelangganPage
-    rethrow;
   }
-}
 }
 
 // Di dalam class ApiService
