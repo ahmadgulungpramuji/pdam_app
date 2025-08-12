@@ -501,18 +501,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           : _errorMessage != null
               ? _buildErrorView()
               : _buildHomeContent(colorScheme),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigasi ke halaman Lapor Foto Meter
-          Navigator.pushNamed(context, '/lapor_foto_meter');
-        },
-        tooltip: 'Lapor Foto Meter',
-        backgroundColor: colorScheme.tertiary,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-        child: const Icon(Ionicons.camera_outline, size: 28),
-      ),
+      // Tombol FloatingActionButton dihapus sesuai permintaan
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: colorScheme.surface,
@@ -637,6 +626,29 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 color: Colors.grey),
             onTap: () {
               Navigator.pushNamed(context, '/buat_laporan');
+            },
+          ),
+          const Divider(height: 0),
+          // Fitur Lapor Foto Water Meter Mandiri yang baru
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade400.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Ionicons.camera_outline,
+                  color: Colors.purple.shade400, size: 24),
+            ),
+            title: Text(
+              'Lapor Foto Water Meter Mandiri',
+              style: GoogleFonts.lato(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text('Kirim foto meter air bulanan Anda'),
+            trailing: const Icon(Ionicons.chevron_forward_outline,
+                color: Colors.grey),
+            onTap: () {
+              Navigator.pushNamed(context, '/lapor_foto_meter');
             },
           ),
           const Divider(height: 0),

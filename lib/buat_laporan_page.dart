@@ -387,7 +387,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
 
     setState(() => _isSubmitting = true);
-    try {
+       try {
       Map<String, String> dataLaporan = {
         'id_pelanggan': _loggedInPelangganId!,
         'id_pdam': _selectedPdamIdNumber!,
@@ -395,8 +395,9 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         'kategori': _selectedJenisLaporan!,
         'latitude': _currentPosition!.latitude.toString(),
         'longitude': _currentPosition!.longitude.toString(),
+        // PERBAIKAN DI BARIS INI
         'lokasi_maps':
-            'http://googleusercontent.com/maps.google.com/10${_currentPosition!.latitude},${_currentPosition!.longitude}',
+            'http://maps.google.com/?q=${_currentPosition!.latitude},${_currentPosition!.longitude}',
         'deskripsi_lokasi': _deskripsiLokasiManualController.text,
         'deskripsi': _deskripsiController.text,
       };
@@ -404,7 +405,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       if (_selectedJenisLaporan == 'lain_lain') {
         dataLaporan['kategori_lainnya'] = _kategoriLainnyaController.text;
       }
-
+      
       final response = await _apiService.buatPengaduan(
         dataLaporan,
         fotoBukti: _fotoBuktiFile,
@@ -699,9 +700,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         _buildPhotoPickerButton(
           label: 'Unggah Foto Bukti',
           file: _fotoBuktiFile,
-          onPressed: () => _showImageSourceActionSheet(
-            (source) => _pickImage(source, 'bukti'),
-          ),
+          // MODIFIKASI: Langsung panggil _pickImage dengan source.camera
+          onPressed: () => _pickImage(ImageSource.camera, 'bukti'),
         ),
         if (_fotoBuktiFile != null) ...[
           const SizedBox(height: 8),
@@ -717,6 +717,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         _buildPhotoPickerButton(
           label: 'Unggah Foto Rumah (Tampak Depan)',
           file: _fotoRumahFile,
+          // TIDAK DIUBAH: Tetap panggil _showImageSourceActionSheet
           onPressed: () => _showImageSourceActionSheet(
             (source) => _pickImage(source, 'rumah'),
           ),
