@@ -780,7 +780,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       {'icon': Ionicons.camera_outline, 'label': 'Lapor Meter', 'route': '/lapor_foto_meter'},
       {'icon': Ionicons.map_outline, 'label': 'Lacak Laporan', 'route': '/lacak_laporan_saya'},
       {'icon': Ionicons.receipt_outline, 'label': 'Cek Tagihan', 'route': '/cek_tunggakan'},
-      {'icon': Ionicons.person_circle_outline, 'label': 'Profil', 'route': '/view_profil'},
     ];
 
     return GridView.builder(
