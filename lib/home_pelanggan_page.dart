@@ -546,7 +546,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         BottomNavigationBarItem(icon: Icon(Ionicons.home_outline), activeIcon: Icon(Ionicons.home), label: 'Beranda'),
         BottomNavigationBarItem(icon: Icon(Ionicons.document_text_outline), activeIcon: Icon(Ionicons.document_text), label: 'Laporan'),
         BottomNavigationBarItem(icon: Icon(Ionicons.receipt_outline), activeIcon: Icon(Ionicons.receipt), label: 'Tagihan'),
-        BottomNavigationBarItem(icon: Icon(Ionicons.headset_outline), activeIcon: Icon(Ionicons.headset), label: 'Bantuan'),
         BottomNavigationBarItem(icon: Icon(Ionicons.person_outline), activeIcon: Icon(Ionicons.person), label: 'Profil'),
       ],
     );
