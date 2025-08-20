@@ -1,5 +1,6 @@
 // lib/view_profil_page.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
@@ -7,11 +8,11 @@ import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/profil_page.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
 // ==========================================================
 // == 1. PASTIKAN ANDA MENGIMPOR HALAMAN LOGIN ANDA DI SINI ==
 // ==========================================================
 import 'package:pdam_app/login_page.dart'; // Ganti jika nama file Anda berbeda
-
 
 class ViewProfilPage extends StatefulWidget {
   const ViewProfilPage({super.key});
@@ -82,17 +83,18 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Konfirmasi Logout'),
           content: const Text('Apakah Anda yakin ingin keluar dari akun Anda?'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Tidak'),
+              child: const Text('Batal'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Ya, Keluar'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
             ),
           ],
         );
@@ -108,14 +110,16 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
         // == 2. UBAH BAGIAN INI UNTUK MENGARAH KE HALAMAN LOGIN ANDA ==
         // ==================================================================
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginPage()), // Diubah dari Placeholder
+          MaterialPageRoute(builder: (context) => const LoginPage()),
           (Route<dynamic> route) => false,
         );
 
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menghubungi server, token lokal dihapus. Error: ${e.toString()}')),
-        );
+        if(mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghubungi server, token lokal dihapus. Error: ${e.toString()}')),
+          );
+        }
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -127,107 +131,137 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _isLoading ? null : AppBar(
-        leading: BackButton(
-          onPressed: () {
-            Navigator.of(context).pop(true);
-          },
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Theme.of(context).colorScheme.primary,
-      ),
       backgroundColor: Colors.grey[100],
-      body: WillPopScope(
-        onWillPop: () async {
-          Navigator.of(context).pop(true);
-          return true;
-        },
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _errorMessage != null
-                ? _buildErrorView()
-                : CustomScrollView(
-                    slivers: [
-                      _buildSliverAppBar(),
-                      SliverToBoxAdapter(child: const SizedBox(height: 16)),
-                      _buildAnimatedInfoList(),
-                    ],
-                  ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildErrorView()
+              : CustomScrollView(
+                  slivers: [
+                    _buildStylishSliverAppBar(),
+                    SliverToBoxAdapter(child: const SizedBox(height: 20)),
+                    _buildUserInfoSection(),
+                    _buildActionsSection(),
+                  ],
+                ),
     );
   }
 
-  SliverAppBar _buildSliverAppBar() {
+  SliverAppBar _buildStylishSliverAppBar() {
     final String? profilePhotoPath = _userData?['foto_profil'];
     final fullImageUrl = (profilePhotoPath != null && profilePhotoPath.isNotEmpty)
         ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
         : '';
     final userName = _userData?['nama']?.toString() ?? 'Nama Pengguna';
+    final userEmail = _userData?['email'] ?? 'email@example.com';
 
     return SliverAppBar(
-      automaticallyImplyLeading: false,
-      expandedHeight: 250.0,
-      floating: false,
+      expandedHeight: 300.0,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      elevation: 0,
       pinned: true,
       stretch: true,
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Colors.white,
       flexibleSpace: FlexibleSpaceBar(
-        centerTitle: true,
-        titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        title: Text(
-          userName,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Colors.white,
-          ),
-        ),
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                    Theme.of(context).colorScheme.primary,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+        background: ClipPath(
+          clipper: AppBarClipper(),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primary.withOpacity(0.7)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            Center(
-              child: FadeInDown(
-                delay: const Duration(milliseconds: 200),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.white24,
-                      child: CircleAvatar(
-                        radius: 46,
-                        backgroundColor: Colors.white,
-                        backgroundImage: fullImageUrl.isNotEmpty
-                            ? CachedNetworkImageProvider(fullImageUrl)
-                            : null,
-                        child: fullImageUrl.isEmpty
-                            ? Icon(Ionicons.person, size: 50, color: Colors.grey.shade400)
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _userData?['email'] ?? 'email@example.com',
-                      style: GoogleFonts.poppins(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Efek Blur di Latar Belakang
+                if(fullImageUrl.isNotEmpty)
+                ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: CachedNetworkImage(
+                    imageUrl: fullImageUrl,
+                    fit: BoxFit.cover,
+                    color: Colors.black.withOpacity(0.3),
+                    colorBlendMode: BlendMode.darken,
+                  ),
                 ),
-              ),
+                // Konten Profil
+                FadeInDown(
+                  duration: const Duration(milliseconds: 500),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 52,
+                        backgroundColor: Colors.white.withOpacity(0.8),
+                        child: CircleAvatar(
+                          radius: 48,
+                          backgroundColor: Colors.white,
+                          backgroundImage: fullImageUrl.isNotEmpty
+                              ? CachedNetworkImageProvider(fullImageUrl)
+                              : null,
+                          child: fullImageUrl.isEmpty
+                              ? Icon(Ionicons.person, size: 50, color: Colors.grey.shade400)
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        userName,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        userEmail,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                        ),
+                      ),
+                       const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserInfoSection() {
+    return SliverToBoxAdapter(
+      child: FadeInUp(
+        duration: const Duration(milliseconds: 500),
+        delay: const Duration(milliseconds: 100),
+        child: _buildInfoCard(
+          title: 'INFORMASI AKUN',
+          children: [
+            _buildInfoRow(
+              icon: Ionicons.call_outline,
+              title: 'Nomor HP',
+              subtitle: _userData?['nomor_hp'] ?? 'Belum diatur',
+            ),
+            const Divider(height: 1, indent: 50, endIndent: 16),
+             _buildInfoRow(
+              icon: Ionicons.mail_outline,
+              title: 'Email',
+              subtitle: _userData?['email'] ?? 'Belum diatur',
+            ),
+            const Divider(height: 1, indent: 50, endIndent: 16),
+            _buildInfoRow(
+              icon: Ionicons.location_outline,
+              title: 'Cabang Terdaftar',
+              subtitle: _userData?['cabang']?['nama_cabang'] ?? 'Tidak diketahui',
             ),
           ],
         ),
@@ -235,118 +269,76 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
     );
   }
 
-  Widget _buildAnimatedInfoList() {
-    return SliverList(
-      delegate: SliverChildListDelegate(
-        [
-          FadeInUp(
-            from: 20,
-            delay: const Duration(milliseconds: 300),
-            child: _buildInfoTile(
-              icon: Ionicons.call_outline,
-              title: 'Nomor HP',
-              subtitle: _userData?['nomor_hp'] ?? 'Belum diatur',
+  Widget _buildActionsSection() {
+    return SliverToBoxAdapter(
+      child: FadeInUp(
+        duration: const Duration(milliseconds: 500),
+        delay: const Duration(milliseconds: 200),
+        child: _buildInfoCard(
+          title: 'PENGATURAN',
+          children: [
+            _buildActionRow(
+              icon: Ionicons.create_outline,
+              title: 'Edit Profil',
+              onTap: _navigateToEdit,
+              color: Theme.of(context).colorScheme.primary,
             ),
-          ),
-          FadeInUp(
-            from: 20,
-            delay: const Duration(milliseconds: 400),
-            child: _buildInfoTile(
-              icon: Ionicons.mail_outline,
-              title: 'Email',
-              subtitle: _userData?['email'] ?? 'Belum diatur',
+            const Divider(height: 1, indent: 50, endIndent: 16),
+            _buildActionRow(
+              icon: Ionicons.log_out_outline,
+              title: 'Logout',
+              onTap: _logout,
+              color: Colors.red.shade700,
             ),
-          ),
-          FadeInUp(
-            from: 20,
-            delay: const Duration(milliseconds: 500),
-            child: _buildInfoTile(
-              icon: Ionicons.location_outline,
-              title: 'Cabang Terdaftar',
-              subtitle: _userData?['cabang']?['nama_cabang'] ?? 'Tidak diketahui',
-            ),
-          ),
-          const SizedBox(height: 32),
-          FadeInUp(
-            from: 20,
-            delay: const Duration(milliseconds: 600),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                icon: const Icon(Ionicons.create_outline, size: 18),
-                label: const Text('Edit Profil'),
-                onPressed: _navigateToEdit,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          FadeInUp(
-            from: 20,
-            delay: const Duration(milliseconds: 700),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton.icon(
-                icon: const Icon(Ionicons.log_out_outline, size: 18),
-                label: const Text('Logout'),
-                onPressed: _logout,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }
   
-  Widget _buildInfoTile({required IconData icon, required String title, required String subtitle}) {
+  Widget _buildInfoCard({required String title, required List<Widget> children}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade500,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({required IconData icon, required String title, required String subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-          ),
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -356,7 +348,7 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
                   title,
                   style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 14),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black87),
@@ -365,6 +357,36 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
             ),
           )
         ],
+      ),
+    );
+  }
+
+   Widget _buildActionRow({required IconData icon, required String title, required Color color, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: color,
+                  ),
+                ),
+              ),
+              Icon(Ionicons.chevron_forward, color: Colors.grey.shade400, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -389,5 +411,24 @@ class _ViewProfilPageState extends State<ViewProfilPage> {
         ),
       ),
     );
+  }
+}
+
+// Custom Clipper untuk membuat bentuk kurva pada AppBar
+class AppBarClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+    path.lineTo(0, size.height - 50);
+    path.quadraticBezierTo(
+        size.width / 2, size.height, size.width, size.height - 50);
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) {
+    return false;
   }
 }
