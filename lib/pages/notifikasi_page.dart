@@ -109,11 +109,26 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     }
   }
 
+  // Fungsi baru untuk mendapatkan ikon berdasarkan tipe notifikasi
+  IconData _getNotificationIcon(String? type) {
+    switch (type) {
+      case 'lapor_foto_water_meter_status':
+        return Icons.water_drop_outlined;
+      case 'pengaduan_status_update':
+        return Icons.campaign_outlined;
+      case 'informasi_umum':
+        return Icons.info_outline;
+      default:
+        return Icons.notifications_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riwayat Notifikasi'),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -139,7 +154,9 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     }
 
     if (_error != null) {
-      return Center(child: Text('Gagal memuat data: $_error'));
+      return Center(
+          child: Text('Gagal memuat data: $_error',
+              style: const TextStyle(color: Colors.red)));
     }
 
     if (_notifikasiList.isEmpty) {
@@ -150,7 +167,8 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
             Icon(Icons.notifications_off_outlined,
                 size: 80, color: Colors.grey),
             SizedBox(height: 16),
-            Text('Belum ada notifikasi', style: TextStyle(fontSize: 18)),
+            Text('Belum ada notifikasi',
+                style: TextStyle(fontSize: 18, color: Colors.grey)),
           ],
         ),
       );
@@ -159,7 +177,7 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     // Tampilkan list jika data sudah ada
     return AnimationLimiter(
       child: ListView.separated(
-        padding: const EdgeInsets.only(top: 100),
+        padding: const EdgeInsets.only(top: 100, bottom: 24),
         itemCount: _notifikasiList.length,
         separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
@@ -179,70 +197,87 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
                       children: [
                         SlidableAction(
                           onPressed: (context) => _handleDelete(notif),
-                          backgroundColor: Colors.red,
+                          backgroundColor: Colors.red.shade600,
                           foregroundColor: Colors.white,
-                          icon: Icons.delete,
+                          icon: Icons.delete_forever,
                           label: 'Hapus',
                           borderRadius: BorderRadius.circular(15.0),
                         ),
                       ],
                     ),
                     child: Card(
-                      elevation: 6,
+                      elevation: notif.isRead ? 2 : 6,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18.0),
                       ),
                       margin: EdgeInsets.zero,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Icon(
-                            Icons.notifications,
-                            color: Theme.of(context).primaryColor,
-                            size: 24,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8.0, horizontal: 8.0),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: notif.isRead
+                                ? Colors.blue.shade50
+                                : Colors.blue.shade200,
+                            child: Icon(
+                              _getNotificationIcon(notif.type),
+                              color: Theme.of(context).primaryColor,
+                              size: 24,
+                            ),
                           ),
-                        ),
-                        title: Text(
-                          notif.title,
-                          style: TextStyle(
-                            fontWeight: notif.isRead
-                                ? FontWeight.normal
-                                : FontWeight.bold,
-                            color: Colors.grey.shade800,
+                          title: Text(
+                            notif.title,
+                            style: TextStyle(
+                              fontWeight: notif.isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                              color: notif.isRead
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade800,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          notif.body,
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                        trailing: Text(
-                          timeago.format(notif.createdAt, locale: 'id'),
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        onTap: () {
-                          // ... Logika onTap Anda tetap sama
-                          log('Notifikasi di-tap: ${notif.title}');
-                          final notifType = notif.type;
-                          final notifStatus = notif.status;
-                          final notifRefId = notif.referenceId;
+                          subtitle: Text(
+                            notif.body,
+                            style: TextStyle(
+                              color: notif.isRead
+                                  ? Colors.grey.shade500
+                                  : Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Text(
+                            timeago.format(notif.createdAt, locale: 'id'),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                          onTap: () {
+                            // ... Logika onTap Anda tetap sama
+                            log('Notifikasi di-tap: ${notif.title}');
+                            final notifType = notif.type;
+                            final notifStatus = notif.status;
+                            final notifRefId = notif.referenceId;
 
-                          if (notifType == 'lapor_foto_water_meter_status') {
-                            if (notifStatus == 'ditolak') {
-                              Navigator.pushNamed(context, '/lapor_foto_meter');
+                            if (notifType == 'lapor_foto_water_meter_status') {
+                              if (notifStatus == 'ditolak') {
+                                Navigator.pushNamed(
+                                    context, '/lapor_foto_meter');
+                              }
+                            } else if (notif.referenceId != null) {
+                              final int? pengaduanId =
+                                  int.tryParse(notif.referenceId!);
+                              if (pengaduanId != null) {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/lacak_laporan_saya',
+                                  arguments: {'pengaduan_id': pengaduanId},
+                                );
+                              }
                             }
-                          } else if (notif.referenceId != null) {
-                            final int? pengaduanId =
-                                int.tryParse(notif.referenceId!);
-                            if (pengaduanId != null) {
-                              Navigator.pushNamed(
-                                context,
-                                '/lacak_laporan_saya',
-                                arguments: {'pengaduan_id': pengaduanId},
-                              );
-                            }
-                          }
-                        },
+                          },
+                        ),
                       ),
                     ),
                   ),

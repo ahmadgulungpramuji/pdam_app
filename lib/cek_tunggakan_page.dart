@@ -41,7 +41,7 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
   }
 
   // ========================================================================
-  // == SEMUA FUNGSI LOGIC (fetch, add, dll) TETAP SAMA (TIDAK DIUBAH)  ==
+  // == SEMUA FUNGSI LOGIC (fetch, add, dll) TETAP SAMA (TIDAK DIUBAH)  ==
   // ========================================================================
   Future<void> _fetchUserPdamIdsFromApi() async {
     if (!mounted) return;
@@ -180,162 +180,137 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
   }
   
   // =========================================================================
-  // == BAGIAN BUILD WIDGET (UI) YANG DIDESAIN ULANG ==
+  // == BAGIAN BUILD WIDGET (UI) YANG DIDESAIN ULANG (TEMA BIRU & PUTIH) ==
   // =========================================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: _isLoadingApiPdamIds
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                _buildHeader(),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildIdManagementSection(),
-                        const SizedBox(height: 24),
-                        _buildArrearsInfoSection(),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return SliverAppBar(
-      expandedHeight: 180.0,
-      pinned: true,
-      backgroundColor: const Color(0xFF004D40),
-      foregroundColor: Colors.white,
-      elevation: 2,
-      flexibleSpace: FlexibleSpaceBar(
+      backgroundColor: Colors.white, // Latar belakang putih
+      appBar: AppBar(
+        title: Text(
+          'Cek Tagihan PDAM',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            color: Colors.blue.shade800,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
-        title: Text('Cek Tagihan',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF00695C), Color(0xFF004D40)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Opacity(
-            opacity: 0.1,
-            child: Icon(Ionicons.receipt_outline,
-                size: 150, color: Colors.white),
-          ),
-        ),
       ),
+      body: _isLoadingApiPdamIds
+          ? Center(child: CircularProgressIndicator(color: Colors.blue.shade700))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FadeInDown(
+                    delay: const Duration(milliseconds: 100),
+                    child: _buildIdManagementSection(),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 200),
+                    child: _buildArrearsInfoSection(),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildSectionCard(
-      {required String title,
-      required IconData icon,
-      required Widget child,
-      required int delay}) {
-    return FadeInUp(
-      from: 20,
-      duration: const Duration(milliseconds: 500),
-      delay: Duration(milliseconds: delay),
-      child: Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 2,
-                blurRadius: 10,
-                offset: const Offset(0, 4)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF00695C), size: 22),
-                const SizedBox(width: 8),
-                Text(title,
-                    style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87)),
-              ],
-            ),
-            const Divider(height: 24),
-            child,
-          ],
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.blue.shade800,
         ),
       ),
     );
   }
 
   Widget _buildIdManagementSection() {
-    return _buildSectionCard(
-      title: 'Kelola ID Pelanggan',
-      icon: Ionicons.person_add_outline,
-      delay: 100,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.05),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tambahkan atau pilih ID Pelanggan yang terdaftar di akun Anda.',
-              style: GoogleFonts.lato(color: Colors.grey[600])),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _pdamIdController,
-                  decoration: InputDecoration(
-                    labelText: 'ID PDAM Baru',
-                    hintText: 'Masukkan ID...',
-                    prefixIcon: const Icon(Ionicons.person_circle_outline),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+          _buildSectionTitle('Kelola ID Pelanggan'),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _pdamIdController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: 'Masukkan ID PDAM baru...',
+              prefixIcon: const Icon(Ionicons.person_outline, color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.blue.shade50,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_isLoadingApiPdamIds || _isLoadingTunggakan)
+                  ? null
+                  : _addAndSelectPdamId,
+              icon: const Icon(Ionicons.add_circle_outline, size: 20),
+              label: const Text("TAMBAH ID"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: (_isLoadingApiPdamIds || _isLoadingTunggakan)
-                    ? null
-                    : _addAndSelectPdamId,
-                style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(16),
-                    backgroundColor: const Color(0xFF00695C)),
-                child: const Icon(Ionicons.add, color: Colors.white),
-              ),
-            ],
+            ),
           ),
           if (_pdamIdsFromApi.isNotEmpty) ...[
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: 'Pilih ID Tersimpan',
-                prefixIcon: const Icon(Ionicons.bookmark_outline),
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Ionicons.bookmark_outline, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.blue.shade50,
               ),
               value: _pdamIdsFromApi.any((item) => item['nomor'].toString() == _selectedPdamId)
                   ? _selectedPdamId
                   : null,
               items: _pdamIdsFromApi.map((item) {
                 final id = item['nomor']?.toString() ?? '';
-                return DropdownMenuItem(value: id, child: Text(id));
+                return DropdownMenuItem(
+                  value: id,
+                  child: Text(id, style: GoogleFonts.lato()),
+                );
               }).toList(),
               onChanged: (_isLoadingTunggakan)
                   ? null
@@ -353,16 +328,38 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
   }
 
   Widget _buildArrearsInfoSection() {
-    return _buildSectionCard(
-      title: 'Informasi Tagihan',
-      icon: Ionicons.receipt_outline,
-      delay: 200,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        child: _isLoadingTunggakan
-            ? const Center(heightFactor: 3, child: CircularProgressIndicator())
-            : _buildArrearsContent(),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.05),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Informasi Tagihan'),
+          const Divider(height: 24),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            child: _isLoadingTunggakan
+                ? Center(
+                    key: const ValueKey('loading'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: CircularProgressIndicator(color: Colors.blue.shade700),
+                    ),
+                  )
+                : _buildArrearsContent(),
+          ),
+        ],
       ),
     );
   }
@@ -371,71 +368,98 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
     if (_errorMessage != null) {
       bool isSuccessMessage = _errorMessage!.contains("Selamat!");
       return Center(
-        heightFactor: 2.5,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(isSuccessMessage ? Ionicons.checkmark_circle_outline : Ionicons.information_circle_outline,
-                size: 40, color: isSuccessMessage ? Colors.green : Colors.orange),
-            const SizedBox(height: 8),
-            Text(_errorMessage!,
+        key: const ValueKey('message'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Column(
+            children: [
+              Icon(
+                isSuccessMessage ? Ionicons.checkmark_circle_outline : Ionicons.information_circle_outline,
+                size: 50,
+                color: isSuccessMessage ? Colors.green.shade600 : Colors.orange.shade600,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.lato(fontSize: 16, color: Colors.grey[700])),
-          ],
+                style: GoogleFonts.lato(fontSize: 16, color: Colors.grey.shade700),
+              ),
+            ],
+          ),
         ),
       );
     }
     if (_tunggakanData != null && _tunggakanData!.isNotEmpty) {
       return FadeIn(
-        duration: const Duration(milliseconds: 400),
+        key: const ValueKey('data'),
+        duration: const Duration(milliseconds: 500),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildInfoRow(Ionicons.person_circle_outline, 'ID Pelanggan',
-                _tunggakanData!['id_pdam']?.toString() ?? '-'),
-            _buildInfoRow(Ionicons.calendar_outline, 'Periode Tagihan',
-                _tunggakanData!['bulan']?.toString() ?? '-'),
-            _buildInfoRow(Ionicons.alarm_outline, 'Jatuh Tempo',
-                _tunggakanData!['jatuh_tempo']?.toString() ?? '-'),
-            const Divider(height: 24),
+            _buildInfoRow('ID Pelanggan', _tunggakanData!['id_pdam']?.toString() ?? '-'),
+            _buildInfoRow('Nama', _tunggakanData!['nama']?.toString() ?? '-'),
+            _buildInfoRow('Periode', _tunggakanData!['bulan']?.toString() ?? '-'),
+            _buildInfoRow('Jatuh Tempo', _tunggakanData!['jatuh_tempo']?.toString() ?? '-'),
+            const SizedBox(height: 20),
             _buildTotalAmountRow(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             if ((_tunggakanData!['jumlah'] ?? 0) > 0)
-              ElevatedButton.icon(
-                onPressed: () => _showSnackbar(
-                    "Fitur pembayaran akan segera tersedia.",
-                    isError: false),
-                icon: const Icon(Ionicons.wallet_outline, color: Colors.white),
-                label: const Text("BAYAR SEKARANG"),
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 45),
-                    backgroundColor: const Color(0xFF00C853),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showSnackbar(
+                      "Fitur pembayaran akan segera tersedia.",
+                      isError: false),
+                  icon: const Icon(Ionicons.wallet_outline, size: 20),
+                  label: Text(
+                    'BAYAR SEKARANG',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    textStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
           ],
         ),
       );
     }
     return Center(
-      heightFactor: 3,
-      child: Text('Pilih atau tambahkan ID untuk melihat tagihan.',
-          style: GoogleFonts.lato(fontSize: 16, color: Colors.grey[700])),
+      key: const ValueKey('empty'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Text(
+          'Pilih atau tambahkan ID untuk melihat tagihan.',
+          style: GoogleFonts.lato(fontSize: 16, color: Colors.grey.shade700),
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          Text('$label:', style: GoogleFonts.lato(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          Text(value,
-              style: GoogleFonts.lato(fontSize: 15, color: Colors.black87)),
+          Text(
+            label,
+            style: GoogleFonts.lato(
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
         ],
       ),
     );
@@ -443,22 +467,30 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
 
   Widget _buildTotalAmountRow() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: const Color(0xFF00695C).withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12)),
+        color: Colors.blue.shade700,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Total Tagihan',
-              style: GoogleFonts.poppins(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
           Text(
-              'Rp ${(_tunggakanData!['jumlah'] ?? 0).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
-              style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF00695C))),
+            'Total Tagihan',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            'Rp ${(_tunggakanData!['jumlah'] ?? 0).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue.shade200,
+            ),
+          ),
         ],
       ),
     );
