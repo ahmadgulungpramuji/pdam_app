@@ -533,11 +533,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             Navigator.pushNamed(context, '/cek_tunggakan');
             break;
           case 3:
-            if (_userData != null) {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(userData: _userData!)));
-            }
-            break;
-          case 4:
             Navigator.pushNamed(context, '/view_profil');
             break;
         }
