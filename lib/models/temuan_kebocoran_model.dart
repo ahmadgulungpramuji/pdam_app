@@ -14,15 +14,13 @@ class TemuanKebocoran {
   final String? fotoSebelum;
   final String? fotoSesudah;
   final String? trackingCode;
-  // DIUBAH: Mengganti satu rating menjadi tiga
   final int? ratingKecepatan;
   final int? ratingPelayanan;
   final int? ratingHasil;
   final String? komentarRating;
   final List<PetugasSimple>? petugasDitugaskan;
-
-  // BARU: Menambahkan properti cabang untuk data yang lebih lengkap
   final dynamic cabang;
+  final String? keteranganPenolakan; // <-- TAMBAHKAN INI
 
   TemuanKebocoran({
     required this.id,
@@ -37,13 +35,13 @@ class TemuanKebocoran {
     this.fotoSebelum,
     this.fotoSesudah,
     this.trackingCode,
-    // DIUBAH: Tambahkan field baru di constructor
     this.ratingKecepatan,
     this.ratingPelayanan,
     this.ratingHasil,
     this.komentarRating,
     this.petugasDitugaskan,
-    this.cabang, // BARU
+    this.cabang,
+    this.keteranganPenolakan, // <-- TAMBAHKAN INI
   });
 
   factory TemuanKebocoran.fromJson(Map<String, dynamic> json) {
@@ -60,22 +58,20 @@ class TemuanKebocoran {
       fotoSebelum: json['foto_sebelum'] as String?,
       fotoSesudah: json['foto_sesudah'] as String?,
       trackingCode: json['tracking_code'] as String?,
-      // DIUBAH: Ambil data rating yang baru dari JSON
       ratingKecepatan: _tryParseInt(json['rating_kecepatan']),
       ratingPelayanan: _tryParseInt(json['rating_pelayanan']),
       ratingHasil: _tryParseInt(json['rating_hasil']),
       komentarRating: json['komentar_rating'] as String?,
       petugasDitugaskan:
-          json['petugas_ditugaskan'] != null &&
-                  json['petugas_ditugaskan'] is List
+          json['petugas_ditugaskan'] != null && json['petugas_ditugaskan'] is List
               ? List<PetugasSimple>.from(
-                (json['petugas_ditugaskan'] as List<dynamic>).map(
-                  (x) => PetugasSimple.fromJson(x),
-                ),
-              )
+                  (json['petugas_ditugaskan'] as List<dynamic>).map(
+                    (x) => PetugasSimple.fromJson(x),
+                  ),
+                )
               : null,
-      // BARU: Ambil data cabang jika ada dari JSON
       cabang: json['cabang'],
+      keteranganPenolakan: json['keterangan_penolakan'] as String?, // <-- TAMBAHKAN INI
     );
   }
 
@@ -99,6 +95,7 @@ class TemuanKebocoran {
       'komentar_rating': komentarRating,
       'petugas_ditugaskan': petugasDitugaskan?.map((e) => e.toJson()).toList(),
       'cabang': cabang,
+      'keterangan_penolakan': keteranganPenolakan, // <-- TAMBAHKAN INI
     };
   }
 
@@ -133,6 +130,8 @@ class TemuanKebocoran {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
+      case 'ditolak': // <-- TAMBAHKAN INI
+        return 'Ditolak';
       default:
         return status.replaceAll('_', ' ').toUpperCase();
     }

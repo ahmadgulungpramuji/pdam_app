@@ -9,7 +9,7 @@ class Pengaduan {
   final double? latitude;
   final double? longitude;
   final String kategori;
-  final String? kategoriLainnya; 
+  final String? kategoriLainnya;
   final String lokasiMaps;
   final String deskripsiLokasi;
   final String deskripsi;
@@ -27,21 +27,22 @@ class Pengaduan {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<PetugasSimple>? petugasDitugaskan;
+  final String? keteranganPenolakan;
 
   factory Pengaduan.fallback() => Pengaduan(
-    id: 0,
-    idPdam: 0,
-    idPelanggan: 0,
-    idCabang: 0,
-    kategori: 'N/A',
-    lokasiMaps: 'N/A',
-    deskripsiLokasi: 'N/A',
-    deskripsi: 'Data tidak ditemukan.',
-    tanggalPengaduan: DateTime.now().toIso8601String(),
-    status: 'error',
-    createdAt: DateTime.now(),
-    updatedAt: DateTime.now(),
-  );
+        id: 0,
+        idPdam: 0,
+        idPelanggan: 0,
+        idCabang: 0,
+        kategori: 'N/A',
+        lokasiMaps: 'N/A',
+        deskripsiLokasi: 'N/A',
+        deskripsi: 'Data tidak ditemukan.',
+        tanggalPengaduan: DateTime.now().toIso8601String(),
+        status: 'error',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
   Pengaduan({
     required this.id,
@@ -69,6 +70,7 @@ class Pengaduan {
     required this.createdAt,
     required this.updatedAt,
     this.petugasDitugaskan,
+    this.keteranganPenolakan,
   });
 
   factory Pengaduan.fromJson(Map<String, dynamic> json) {
@@ -97,15 +99,15 @@ class Pengaduan {
       komentarRating: json['komentar_rating'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      petugasDitugaskan:
-          json['petugas_ditugaskan'] != null &&
-                  json['petugas_ditugaskan'] is List
-              ? List<PetugasSimple>.from(
-                (json['petugas_ditugaskan'] as List<dynamic>).map(
-                  (x) => PetugasSimple.fromJson(x),
-                ),
-              )
-              : null,
+      petugasDitugaskan: json['petugas_ditugaskan'] != null &&
+              json['petugas_ditugaskan'] is List
+          ? List<PetugasSimple>.from(
+              (json['petugas_ditugaskan'] as List<dynamic>).map(
+                (x) => PetugasSimple.fromJson(x),
+              ),
+            )
+          : null,
+      keteranganPenolakan: json['keterangan_penolakan'] as String?,
     );
   }
 
@@ -115,6 +117,7 @@ class Pengaduan {
     int? ratingHasil,
     String? komentarRating,
     DateTime? updatedAt,
+    String? keteranganPenolakan,
   }) {
     return Pengaduan(
       id: id,
@@ -141,6 +144,7 @@ class Pengaduan {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       petugasDitugaskan: petugasDitugaskan,
+      keteranganPenolakan: keteranganPenolakan ?? this.keteranganPenolakan,
     );
   }
 
@@ -168,9 +172,11 @@ class Pengaduan {
   }
 
   String get friendlyKategori {
-    if (kategori == 'lain_lain' && kategoriLainnya != null && kategoriLainnya!.isNotEmpty) {
+    if (kategori == 'lain_lain' &&
+        kategoriLainnya != null &&
+        kategoriLainnya!.isNotEmpty) {
       return 'Lain-lain: $kategoriLainnya';
-    } 
+    }
     switch (kategori) {
       case 'air_tidak_mengalir':
         return 'Air Tidak Mengalir';
@@ -184,7 +190,7 @@ class Pengaduan {
         return 'Water Meter Tidak Sesuai';
       case 'tagihan_membengkak':
         return 'Tagihan Membengkak';
-        case 'lain_lain': // Fallback jika kategori_lainnya kosong
+      case 'lain_lain': // Fallback jika kategori_lainnya kosong
         return 'Lain-lain';
       default:
         return kategori.replaceAll('_', ' ').toUpperCase();
@@ -207,6 +213,8 @@ class Pengaduan {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
+      case 'ditolak':
+        return 'Ditolak';
       default:
         return status.replaceAll('_', ' ').toUpperCase();
     }

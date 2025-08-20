@@ -113,32 +113,32 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
 
   @override
   Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text(
-        'Laporan #${_currentTemuan.trackingCode ?? _currentTemuan.id}',
-      ),
-    ),
-    body: RefreshIndicator(
-      onRefresh: _refreshData,
-      // TAMBAHKAN AlwaysScrollableScrollPhysics di sini
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // <--- Tambahan
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailCard(),
-            if (_currentTemuan.status.toLowerCase() == 'selesai')
-              _buildRatingSection(),
-            // OPSIONAL: Tambahkan SizedBox kosong untuk memastikan scroll bisa dilakukan
-            // const SizedBox(height: 100), 
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Laporan #${_currentTemuan.trackingCode ?? _currentTemuan.id}',
         ),
       ),
-    ),
-  );
-}
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        // TAMBAHKAN AlwaysScrollableScrollPhysics di sini
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // <--- Tambahan
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailCard(),
+              if (_currentTemuan.status.toLowerCase() == 'selesai')
+                _buildRatingSection(),
+              // OPSIONAL: Tambahkan SizedBox kosong untuk memastikan scroll bisa dilakukan
+              // const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildDetailCard() {
     return Card(
@@ -177,6 +177,45 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
               _currentTemuan.deskripsiLokasi,
               isMultiline: true,
             ),
+            
+            // ================== MULAI KODE TAMBAHAN ==================
+            if ((_currentTemuan.status.toLowerCase() == 'dibatalkan' ||
+                    _currentTemuan.status.toLowerCase() == 'ditolak') &&
+                _currentTemuan.keteranganPenolakan != null &&
+                _currentTemuan.keteranganPenolakan!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Alasan Dibatalkan/Ditolak:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _currentTemuan.keteranganPenolakan!,
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            // =================== AKHIR KODE TAMBAHAN ===================
 
             // Tampilkan foto-foto jika ada
             _buildPhotoDisplay(_currentTemuan.fotoBukti, "Foto Bukti Awal"),
@@ -230,14 +269,15 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
     bool isAlreadyRated = _currentTemuan.ratingHasil != null;
     bool ratingsChanged =
         _ratingKecepatan != (_currentTemuan.ratingKecepatan?.toDouble() ?? 0) ||
-        _ratingPelayanan != (_currentTemuan.ratingPelayanan?.toDouble() ?? 0) ||
-        _ratingHasil != (_currentTemuan.ratingHasil?.toDouble() ?? 0) ||
-        _komentarRatingController.text.trim() !=
-            (_currentTemuan.komentarRating ?? '');
+            _ratingPelayanan !=
+                (_currentTemuan.ratingPelayanan?.toDouble() ?? 0) ||
+            _ratingHasil != (_currentTemuan.ratingHasil?.toDouble() ?? 0) ||
+            _komentarRatingController.text.trim() !=
+                (_currentTemuan.komentarRating ?? '');
 
     bool canSubmit =
         (_ratingKecepatan > 0 && _ratingPelayanan > 0 && _ratingHasil > 0) &&
-        (isAlreadyRated ? ratingsChanged : true);
+            (isAlreadyRated ? ratingsChanged : true);
 
     return Card(
       elevation: 2,
@@ -255,25 +295,23 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-
             _buildRatingBar(
               title: "Kecepatan Respon",
               currentRating: _ratingKecepatan,
-              onRatingUpdate:
-                  (rating) => setState(() => _ratingKecepatan = rating),
+              onRatingUpdate: (rating) =>
+                  setState(() => _ratingKecepatan = rating),
             ),
             _buildRatingBar(
               title: "Pelayanan Petugas",
               currentRating: _ratingPelayanan,
-              onRatingUpdate:
-                  (rating) => setState(() => _ratingPelayanan = rating),
+              onRatingUpdate: (rating) =>
+                  setState(() => _ratingPelayanan = rating),
             ),
             _buildRatingBar(
               title: "Hasil Penanganan",
               currentRating: _ratingHasil,
               onRatingUpdate: (rating) => setState(() => _ratingHasil = rating),
             ),
-
             const SizedBox(height: 16),
             TextField(
               controller: _komentarRatingController,
@@ -293,7 +331,9 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
             else
               ElevatedButton.icon(
                 icon: Icon(
-                  isAlreadyRated ? Icons.edit_note_rounded : Icons.send_rounded,
+                  isAlreadyRated
+                      ? Icons.edit_note_rounded
+                      : Icons.send_rounded,
                 ),
                 label: Text(
                   isAlreadyRated ? 'Update Penilaian' : 'Kirim Penilaian',
@@ -326,9 +366,8 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
             itemCount: 5,
             itemSize: 36.0,
             itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
-            itemBuilder:
-                (context, _) =>
-                    Icon(Icons.star_rounded, color: Colors.amber.shade700),
+            itemBuilder: (context, _) =>
+                Icon(Icons.star_rounded, color: Colors.amber.shade700),
             onRatingUpdate: onRatingUpdate,
             ignoreGestures: _isSubmittingRating,
           ),
@@ -408,6 +447,7 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
       case 'selesai':
         return Colors.green.shade700;
       case 'dibatalkan':
+      case 'ditolak': // <-- TAMBAHKAN INI
         return Colors.red.shade700;
       case 'pending':
         return Colors.blue.shade700;

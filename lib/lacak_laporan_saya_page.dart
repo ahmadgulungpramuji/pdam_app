@@ -607,10 +607,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     );
   }
 
-  // --- UNMODIFIED LOGIC & HELPER WIDGETS ---
-  // Kode di bawah ini sebagian besar tidak diubah secara fungsional,
-  // hanya beberapa penyesuaian gaya agar konsisten.
-
   void _showDetailAndRatingSheet(Pengaduan laporan) {
     _dialogRatingKecepatan = laporan.ratingKecepatan?.toDouble() ?? 0;
     _dialogRatingPelayanan = laporan.ratingPelayanan?.toDouble() ?? 0;
@@ -681,7 +677,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
-                            Center(child: _buildStatusBadge(laporan.status)),
+                            Center(
+                                child: _buildStatusBadge(
+                                    laporan.friendlyStatus)), // Perbaikan nama status
                             const SizedBox(height: 24),
                             _buildDetailRowSheet(
                               'Kategori',
@@ -698,6 +696,59 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               laporan.deskripsi,
                               isMultiline: true,
                             ),
+
+                            // ================== KODE UNTUK MENAMPILKAN ALASAN ==================
+                            if ((laporan.status.toLowerCase() == 'dibatalkan' ||
+                                    laporan.status.toLowerCase() ==
+                                        'ditolak') &&
+                                laporan.keteranganPenolakan != null &&
+                                laporan.keteranganPenolakan!.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.info_outline_rounded,
+                                            color: Colors.red.shade700,
+                                            size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Alasan Dibatalkan/Ditolak',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.red.shade800,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      laporan.keteranganPenolakan!,
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 15,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            // ================================================================
+
                             const Divider(height: 32, thickness: 1),
                             _buildContactButtons(laporan),
                             if (laporan.status.toLowerCase() ==
