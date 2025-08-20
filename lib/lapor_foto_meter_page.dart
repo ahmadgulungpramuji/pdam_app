@@ -4,7 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart'; // Sesuaikan path
 import 'package:pdam_app/models/cabang_model.dart'; // Pastikan Anda punya model ini
-import 'package:google_fonts/google_fonts.dart'; // Tambahkan ini untuk font yang lebih modern
+import 'package:google_fonts/google_fonts.dart';
+
+// --- DEFINISI TEMA WARNA ELEGAN ---
+const Color elegantPrimaryColor = Color(0xFF2C3E50); // Biru Gelap Keabuan
+const Color elegantSecondaryColor = Color(0xFF3498DB); // Biru Terang
+const Color elegantBackgroundColor = Color(0xFFF8F9FA); // Putih Gading
+const Color elegantTextColor = Color(0xFF34495E); // Abu-abu Tua
+const Color elegantBorderColor = Color(0xFFEAECEF); // Abu-abu Sangat Terang
 
 class LaporFotoMeterPage extends StatefulWidget {
   const LaporFotoMeterPage({super.key});
@@ -14,6 +21,7 @@ class LaporFotoMeterPage extends StatefulWidget {
 }
 
 class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTickerProviderStateMixin {
+  // --- Blok Variabel & Controller (TIDAK BERUBAH) ---
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
   final _komentarController = TextEditingController();
@@ -29,10 +37,10 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
   bool _isFetchingInitialData = true;
   String? _fetchError;
 
-  // Animasi untuk tombol 'Ambil Foto'
   late AnimationController _cameraButtonAnimationController;
   late Animation<double> _scaleAnimation;
 
+  // --- Blok Logika & State Management (TIDAK BERUBAH) ---
   @override
   void initState() {
     super.initState();
@@ -54,7 +62,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
   void dispose() {
     _komentarController.dispose();
     _cabangController.dispose();
-    _cameraButtonAnimationController.dispose(); // Dispose controller animasi
+    _cameraButtonAnimationController.dispose();
     super.dispose();
   }
 
@@ -100,32 +108,15 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     int? idCabang;
 
     switch (duaDigit) {
-      case '10':
-        idCabang = 1;
-        break;
-      case '12':
-        idCabang = 2;
-        break;
-      case '15':
-        idCabang = 3;
-        break;
-      case '20':
-        idCabang = 4;
-        break;
-      case '30':
-        idCabang = 5;
-        break;
-      case '40':
-        idCabang = 6;
-        break;
-      case '50':
-        idCabang = 7;
-        break;
-      case '60':
-        idCabang = 8;
-        break;
-      default:
-        idCabang = null;
+      case '10': idCabang = 1; break;
+      case '12': idCabang = 2; break;
+      case '15': idCabang = 3; break;
+      case '20': idCabang = 4; break;
+      case '30': idCabang = 5; break;
+      case '40': idCabang = 6; break;
+      case '50': idCabang = 7; break;
+      case '60': idCabang = 8; break;
+      default: idCabang = null;
     }
 
     setState(() {
@@ -160,9 +151,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
 
   Future<void> _submitLaporan() async {
     if (!_formKey.currentState!.validate()) return;
-
     if (_imageFile == null) {
-      _showSnackbar('Mohon pilih foto water meter.', isError: true);
+      _showSnackbar('Mohon unggah foto water meter.', isError: true);
       return;
     }
     if (_selectedCabangId == null) {
@@ -200,113 +190,143 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+        content: Text(message, style: GoogleFonts.poppins(color: Colors.white)),
+        backgroundColor: isError ? Colors.red.shade800 : const Color(0xFF27AE60),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       ),
     );
   }
 
+  // --- Blok UI (YANG DIMODIFIKASI LEBIH ELEGAN) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Lapor Foto Water Meter',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onPrimary,
-          ),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-        elevation: 0,
-      ),
+      backgroundColor: elegantBackgroundColor,
+      appBar: _buildElegantAppBar(),
       body: _isFetchingInitialData
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: elegantPrimaryColor))
           : _fetchError != null
-              ? Center(child: Text(_fetchError!))
+              ? Center(
+                  child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Text(
+                    _fetchError!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(color: Colors.red.shade800),
+                  ),
+                ))
               : _buildForm(),
+    );
+  }
+
+  AppBar _buildElegantAppBar() {
+    return AppBar(
+      title: Text(
+        'Lapor Foto Meter',
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w500,
+          color: elegantTextColor,
+        ),
+      ),
+      backgroundColor: Colors.white,
+      elevation: 0, // Desain flat
+      iconTheme: const IconThemeData(color: elegantTextColor),
+      // Garis bawah tipis sebagai pemisah
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: elegantBorderColor,
+          height: 1.0,
+        ),
+      ),
     );
   }
 
   Widget _buildForm() {
     return Form(
       key: _formKey,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0), // Padding lebih besar
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Detail Pelaporan',
+      child: ListView(
+        padding: const EdgeInsets.all(24.0),
+        children: [
+          // Grup 1: Informasi Pelanggan
+          _buildSectionHeader(
+            icon: Icons.person_outline_rounded,
+            title: 'Informasi Pelanggan',
+          ),
+          _buildDropdownPdamId(),
+          const SizedBox(height: 16),
+          _buildCabangDisplayField(),
+          const SizedBox(height: 32),
+
+          // Grup 2: Unggah Foto
+          _buildSectionHeader(
+            icon: Icons.camera_alt_outlined,
+            title: 'Foto Water Meter',
+          ),
+          _buildImageUploadSection(),
+          const SizedBox(height: 32),
+
+          // Grup 3: Catatan
+          _buildSectionHeader(
+            icon: Icons.edit_outlined,
+            title: 'Catatan Tambahan',
+            subtitle: '(Opsional)',
+          ),
+          _buildKomentarField(),
+          const SizedBox(height: 40),
+
+          // Tombol Submit
+          _buildSubmitButton(),
+        ],
+      ),
+    );
+  }
+  
+  // Widget baru untuk header seksi, lebih ringan dari Card
+  Widget _buildSectionHeader({required IconData icon, required String title, String? subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: elegantPrimaryColor, size: 22),
+          const SizedBox(width: 12),
+          Text(title,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: elegantTextColor,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(width: 8),
+            Text(subtitle,
               style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: Colors.grey.shade600,
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Dropdown untuk memilih ID PDAM
-            _buildDropdownPdamId(),
-            const SizedBox(height: 20),
-
-            // Text field untuk menampilkan Cabang yang terpilih (read-only)
-            _buildCabangDisplayField(),
-            const SizedBox(height: 30),
-
-            // Section: Upload Foto Meteran
-            Text(
-              'Foto Water Meter',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 15),
-            _buildImageUploadSection(), // Bagian ini yang kita fokuskan
-            const SizedBox(height: 30),
-
-            // Section: Catatan
-            Text(
-              'Catatan Tambahan',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 15),
-            _buildKomentarField(),
-            const SizedBox(height: 40),
-
-            // Tombol Submit
-            _buildSubmitButton(),
-          ],
-        ),
+          ]
+        ],
       ),
     );
   }
 
-  // --- Widget Builders untuk Form yang Lebih Bersih ---
+  // --- Widget Builders untuk Form dengan Style Elegan ---
 
   Widget _buildDropdownPdamId() {
     return DropdownButtonFormField<String>(
       value: _selectedPdamId,
-      hint: const Text('Pilih Nomor ID Pelanggan PDAM'),
-      items: _pdamIds
-          .map((id) => DropdownMenuItem(value: id, child: Text(id)))
-          .toList(),
+      hint: Text('Pilih Nomor ID Pelanggan Anda', style: GoogleFonts.poppins()),
+      items: _pdamIds.map((id) => DropdownMenuItem(value: id, child: Text(id, style: GoogleFonts.poppins()))).toList(),
       onChanged: _updateCabangOtomatis,
       validator: (value) => value == null ? 'Mohon pilih ID PDAM' : null,
-      decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        prefixIcon: const Icon(Icons.confirmation_number_outlined),
-        filled: true,
-        fillColor: Colors.grey.shade50,
+      decoration: _elegantInputDecoration(
         labelText: 'Nomor ID Pelanggan PDAM',
+        prefixIcon: Icons.person_search_outlined,
       ),
       isExpanded: true,
     );
@@ -316,15 +336,16 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     return TextFormField(
       controller: _cabangController,
       readOnly: true,
-      decoration: InputDecoration(
+      decoration: _elegantInputDecoration(
         labelText: 'Cabang Terdeteksi',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        prefixIcon: const Icon(Icons.business_outlined),
-        filled: true,
-        fillColor: Colors.blue.shade50, // Warna latar belakang yang berbeda
-        labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        prefixIcon: Icons.location_on_outlined,
+      ).copyWith(
+        fillColor: Colors.grey.shade100, // Sedikit berbeda untuk status read-only
       ),
-      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+      style: GoogleFonts.poppins(
+        fontWeight: FontWeight.w600,
+        color: elegantPrimaryColor,
+      ),
     );
   }
 
@@ -332,118 +353,127 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     return Column(
       children: [
         Container(
-          height: 250, // Lebih tinggi
+          height: 250,
           width: double.infinity,
+          clipBehavior: Clip.antiAlias, // Penting untuk border radius pada child
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: _imageFile == null ? Colors.red.shade300 : Colors.green.shade400,
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: elegantBorderColor, width: 1.5),
           ),
           child: _imageFile != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(13),
-                  child: Image.file(_imageFile!, fit: BoxFit.cover),
-                )
+              ? Image.file(_imageFile!, fit: BoxFit.cover)
               : Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.camera_alt_outlined, // Icon lebih spesifik
-                        size: 70, // Lebih besar
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Ketuk tombol di bawah untuk mengambil foto meteran',
-                        style: GoogleFonts.poppins(color: Colors.grey.shade600),
-                        textAlign: TextAlign.center,
-                      ),
+                      Icon(Icons.photo_camera_back_outlined, size: 60, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      Text('Belum ada foto yang diunggah', style: GoogleFonts.poppins(color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
         ),
-        const SizedBox(height: 20),
-        ScaleTransition(
-          scale: _scaleAnimation,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _cameraButtonAnimationController.forward().then((_) {
-                _cameraButtonAnimationController.reverse();
-              });
-              _pickImage(ImageSource.camera); // Hanya dari kamera
-            },
-            icon: const Icon(Icons.camera_alt_rounded),
-            label: Text(
-              _imageFile == null ? 'Ambil Foto Meteran' : 'Ganti Foto Meteran',
-              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.secondary,
-              foregroundColor: Theme.of(context).colorScheme.onSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                _cameraButtonAnimationController.forward().then((_) => _cameraButtonAnimationController.reverse());
+                _pickImage(ImageSource.camera);
+              },
+              icon: Icon(_imageFile == null ? Icons.camera_alt_outlined : Icons.sync_outlined),
+              label: Text(
+                _imageFile == null ? 'Buka Kamera' : 'Ambil Foto Ulang',
+                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
               ),
-              elevation: 5,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: elegantPrimaryColor,
+                side: const BorderSide(color: elegantPrimaryColor, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
         ),
       ],
     );
   }
-
+  
   Widget _buildKomentarField() {
     return TextFormField(
       controller: _komentarController,
-      decoration: InputDecoration(
-        hintText: 'Misalnya: Meteran di samping pintu belakang, terhalang tanaman.',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        prefixIcon: const Icon(Icons.notes),
-        filled: true,
-        fillColor: Colors.grey.shade50,
+      decoration: _elegantInputDecoration(
+        hintText: 'Tulis catatan jika ada...',
+        prefixIcon: Icons.notes_outlined,
+      ).copyWith(
         alignLabelWithHint: true,
       ),
-      maxLines: 4, // Lebih banyak baris
+      maxLines: 4,
       keyboardType: TextInputType.multiline,
+      style: GoogleFonts.poppins(),
     );
   }
 
   Widget _buildSubmitButton() {
-    return ElevatedButton.icon(
-      onPressed: _isLoading ? null : _submitLaporan,
-      icon: _isLoading
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
-              ),
-            )
-          : const Icon(Icons.cloud_upload_outlined), // Icon yang lebih modern
-      label: Text(
-        _isLoading ? 'Mengirim Laporan...' : 'Kirim Laporan',
-        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 18), // Padding lebih besar
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15), // Sudut lebih membulat
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [elegantSecondaryColor, elegantPrimaryColor],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
-        elevation: 8, // Shadow lebih dalam
+        boxShadow: [
+          BoxShadow(
+            color: elegantSecondaryColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : _submitLaporan,
+        icon: _isLoading
+            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            : const Icon(Icons.cloud_upload_outlined, color: Colors.white),
+        label: Text(
+          _isLoading ? 'Mengirim...' : 'Kirim Laporan',
+          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+    );
+  }
+  
+  // Helper untuk standardisasi decoration input field
+  InputDecoration _elegantInputDecoration({String? labelText, String? hintText, IconData? prefixIcon}) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      labelStyle: GoogleFonts.poppins(color: Colors.grey.shade700),
+      hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400),
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.grey.shade500) : null,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none, // Hilangkan border default
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: elegantBorderColor, width: 1.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: elegantPrimaryColor, width: 2),
       ),
     );
   }
