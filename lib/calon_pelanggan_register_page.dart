@@ -42,6 +42,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   final _deskripsiAlamatController =
       TextEditingController(); // Ini akan dipakai untuk alamat detail manual
   final _noWaController = TextEditingController();
+  final _pekerjaanController = TextEditingController();
+  final _jumlahJiwaController = TextEditingController();
 
   // Tambahan Controller untuk Provinsi dan Kabupaten/Kota yang otomatis dan read-only
   final _provinsiController = TextEditingController(text: 'JAWA BARAT');
@@ -216,6 +218,8 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     _noWaController.dispose();
     _provinsiController.dispose();
     _kabupatenKotaController.dispose();
+    _pekerjaanController.dispose();
+    _jumlahJiwaController.dispose();
     super.dispose();
   }
 
@@ -607,91 +611,86 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
   }
 
   Future<void> _submitRegistration() async {
-    // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
-    // Ini adalah baris KUNCI untuk memastikan validasi WA berjalan
-    final noWa = _noWaController.text;
-    if (noWa.isEmpty) {
-      _showSnackbar('Nomor WA wajib diisi.', isError: true);
-      return;
-    }
-    if (noWa.length < 10) {
-      _showSnackbar('Nomor WA minimal 10 digit.', isError: true);
-      return;
-    }
-    if (noWa.length > 14) {
-      _showSnackbar('Nomor WA tidak valid/terlalu banyak.', isError: true);
-      return;
-    }
+  // === VALIDASI NOMOR WHATSAPP SECARA MANUAL ===
+  final noWa = _noWaController.text;
+  if (noWa.isEmpty) {
+    _showSnackbar('Nomor WA wajib diisi.', isError: true);
+    return;
+  }
+  if (noWa.length < 10) {
+    _showSnackbar('Nomor WA minimal 10 digit.', isError: true);
+    return;
+  }
+  if (noWa.length > 14) {
+    _showSnackbar('Nomor WA tidak valid/terlalu banyak.', isError: true);
+    return;
+  }
 
-    // === Lanjutkan dengan validasi form dan validasi lainnya ===
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
-      return;
-    }
+  // === Lanjutkan dengan validasi form dan validasi lainnya ===
+  if (!(_formKey.currentState?.validate() ?? false)) {
+    _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
+    return;
+  }
+  if (_imageFileKtp == null) {
+    _showSnackbar('Foto KTP wajib diunggah.');
+    return;
+  }
+  if (_imageFileRumah == null) {
+    _showSnackbar('Foto Rumah wajib diunggah.');
+    return;
+  }
+  if (_gpsCoordinates == null) {
+    _showSnackbar(
+        'Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.',
+        isError: true);
+    return;
+  }
+  if (_selectedCabangId == null) {
+    _showSnackbar(
+        _nearestBranchError ??
+            'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.',
+        isError: true);
+    return;
+  }
 
-    // === Lanjutkan dengan validasi form dan validasi lainnya ===
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      _showSnackbar('Harap lengkapi semua data yang wajib diisi.');
-      return;
-    }
-    if (_imageFileKtp == null) {
-      _showSnackbar('Foto KTP wajib diunggah.');
-      return;
-    }
-    if (_imageFileRumah == null) {
-      _showSnackbar('Foto Rumah wajib diunggah.');
-      return;
-    }
-    if (_gpsCoordinates == null) {
-      _showSnackbar(
-          'Lokasi GPS belum didapatkan. Pastikan izin lokasi diberikan dan coba lagi.',
-          isError: true);
-      return;
-    }
-    if (_selectedCabangId == null) {
-      _showSnackbar(
-          _nearestBranchError ??
-              'Tidak dapat menentukan cabang terdekat. Mohon cek lokasi Anda.',
-          isError: true);
-      return;
-    }
+  setState(() => _isSubmitting = true);
 
-    setState(() => _isSubmitting = true);
+  try {
+    final data = {
+      'id_cabang': _selectedCabangId?.toString() ?? '',
+      'nama_lengkap': _namaController.text,
+      'no_ktp': _noKtpController.text,
+      'provinsi': _provinsiController.text,
+      'kabupaten_kota': _kabupatenKotaController.text,
+      'kecamatan': _selectedKecamatanName ?? '',
+      'desa_kelurahan': _selectedDesaName ?? '',
+      'alamat': _gpsCoordinates!,
+      'alamat_ktp': _alamatKtpController.text,
+      'deskripsi_alamat': _deskripsiAlamatController.text,
+      'no_wa': _noWaController.text,
+      'pekerjaan': _pekerjaanController.text,
+      'jumlah_jiwa': _jumlahJiwaController.text,
+    };
 
-    try {
-      final data = {
-        'id_cabang': _selectedCabangId?.toString() ?? '',
-        'nama_lengkap': _namaController.text,
-        'no_ktp': _noKtpController.text,
-        'provinsi': _provinsiController.text,
-        'kabupaten_kota': _kabupatenKotaController.text,
-        'kecamatan': _selectedKecamatanName ?? '',
-        'desa_kelurahan': _selectedDesaName ?? '',
-        'alamat': _gpsCoordinates!,
-        'alamat_ktp': _alamatKtpController.text,
-        'deskripsi_alamat': _deskripsiAlamatController.text,
-        'no_wa': _noWaController.text,
-      };
+    final responseData = await _apiService.registerCalonPelanggan(
+      data: data,
+      imagePathKtp: _imageFileKtp!.path,
+      imagePathRumah: _imageFileRumah!.path,
+    );
 
-      final responseData = await _apiService.registerCalonPelanggan(
-        data: data,
-        imagePathKtp: _imageFileKtp!.path,
-        imagePathRumah: _imageFileRumah!.path,
-      );
-
-      final trackingCode = responseData['data']?['tracking_code'] as String?;
-      _showSuccessDialog(trackingCode);
-    } catch (e) {
-      _showSnackbar(
-        'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    final trackingCode = responseData['data']?['tracking_code'] as String?;
+    _showSuccessDialog(trackingCode);
+  } catch (e) {
+    _showSnackbar(
+      'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
+      isError: true,
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -761,48 +760,96 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  Widget _buildPersonalDataCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader('Data Pribadi', Ionicons.person_outline),
-            const SizedBox(height: 16),
-            _buildTitledTextField(
-              controller: _namaController,
-              title: 'Nama Lengkap (sesuai KTP) *',
-              hint: 'Masukkan nama lengkap sesuai KTP',
-              prefixIcon: Ionicons.person_outline,
-            ),
-            const SizedBox(height: 16),
-            _buildKtpField(),
-            const SizedBox(height: 16),
-            _buildTitledTextField(
-              controller: _noWaController,
-              title: 'Nomor WhatsApp Aktif *',
-              hint: 'Contoh: 08123456789',
-              prefixIcon: Ionicons.logo_whatsapp,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 16),
-            _buildTitledTextField(
-              controller: _alamatKtpController,
-              title: 'Alamat Lengkap Sesuai KTP *',
-              hint: 'Masukkan alamat lengkap sesuai KTP',
-              prefixIcon: Ionicons.home_outline,
-              maxLines: 3,
-              showCounter: true,
-              maxLength: 500,
-            ),
-          ],
-        ),
+ Widget _buildPersonalDataCard() {
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('Data Pribadi', Ionicons.person_outline),
+          const SizedBox(height: 16),
+          _buildTitledTextField(
+            controller: _namaController,
+            title: 'Nama Lengkap (sesuai KTP) *',
+            hint: 'Masukkan nama lengkap sesuai KTP',
+            prefixIcon: Ionicons.person_outline,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Nama Lengkap wajib diisi';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildKtpField(),
+          const SizedBox(height: 16),
+          _buildTitledTextField(
+            controller: _noWaController,
+            title: 'Nomor WhatsApp Aktif *',
+            hint: 'Contoh: 08123456789',
+            prefixIcon: Ionicons.logo_whatsapp,
+            keyboardType: TextInputType.phone,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Nomor WhatsApp wajib diisi';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTitledTextField(
+            controller: _pekerjaanController,
+            title: 'Pekerjaan *',
+            hint: 'Contoh: Karyawan Swasta, Pelajar, dll',
+            prefixIcon: Ionicons.briefcase_outline,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Pekerjaan wajib diisi';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTitledTextField(
+            controller: _jumlahJiwaController,
+            title: 'Jumlah Jiwa dalam Satu Rumah *',
+            hint: 'Contoh: 4',
+            prefixIcon: Ionicons.people_outline,
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Jumlah jiwa wajib diisi';
+              }
+              if (int.tryParse(value) == null || int.parse(value) < 1) {
+                return 'Harap masukkan angka yang valid (minimal 1)';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTitledTextField(
+            controller: _alamatKtpController,
+            title: 'Alamat Lengkap Sesuai KTP *',
+            hint: 'Masukkan alamat lengkap sesuai KTP',
+            prefixIcon: Ionicons.home_outline,
+            maxLines: 3,
+            showCounter: true,
+            maxLength: 500,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Alamat KTP wajib diisi';
+              }
+              return null;
+            },
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAddressInfoCard() {
     return Card(
@@ -910,83 +957,79 @@ class _CalonPelangganRegisterPageState extends State<CalonPelangganRegisterPage>
     );
   }
 
-  Widget _buildTitledTextField({
-    required TextEditingController controller,
-    required String title,
-    String? hint,
-    IconData? prefixIcon,
-    TextInputType? keyboardType,
-    int? maxLines = 1,
-    bool readOnly = false,
-    bool isReadOnlyField = false,
-    bool showCounter = false,
-    int? maxLength,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
+ Widget _buildTitledTextField({
+  required TextEditingController controller,
+  required String title,
+  String? hint,
+  IconData? prefixIcon,
+  TextInputType? keyboardType,
+  int? maxLines = 1,
+  bool readOnly = false,
+  bool isReadOnlyField = false,
+  bool showCounter = false,
+  int? maxLength,
+  String? Function(String?)? validator, // Parameter untuk validasi custom
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
         ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          readOnly: readOnly,
-          maxLines: maxLines,
-          maxLength: maxLength,
-          keyboardType: keyboardType,
-          buildCounter: showCounter
-              ? (context,
-                  {required currentLength, required isFocused, maxLength}) {
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '$currentLength/$maxLength',
-                      style: GoogleFonts.poppins(color: Colors.grey.shade600),
-                    ),
-                  );
-                }
+      ),
+      const SizedBox(height: 8),
+      TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        keyboardType: keyboardType,
+        buildCounter: showCounter
+            ? (context,
+                {required currentLength, required isFocused, maxLength}) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '$currentLength/$maxLength',
+                    style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                  ),
+                );
+              }
+            : null,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: prefixIcon != null
+              ? Icon(prefixIcon, color: Colors.blue[900])
               : null,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: Colors.blue[900])
-                : null,
-            filled: true,
-            fillColor: isReadOnlyField ? Colors.grey.shade100 : Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[900]!, width: 2.0),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16.0,
-              horizontal: 16.0,
-            ),
+          filled: true,
+          fillColor: isReadOnlyField ? Colors.grey.shade100 : Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
           ),
-          style: GoogleFonts.poppins(),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return '$title wajib diisi';
-            }
-            return null;
-          },
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.blue[900]!, width: 2.0),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16.0,
+            horizontal: 16.0,
+          ),
         ),
-      ],
-    );
-  }
+        style: GoogleFonts.poppins(),
+        validator: validator, // Menggunakan validator yang dilewatkan
+      ),
+    ],
+  );
+}
 
   Widget _buildKtpField() {
     return Column(
