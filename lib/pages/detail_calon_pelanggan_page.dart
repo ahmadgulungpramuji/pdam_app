@@ -91,8 +91,97 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
+  Future<Map<String, String>?> _showRecommendationDialog() async {
+    String? rekomendasi;
+    final catatanController = TextEditingController();
+
+    return showDialog<Map<String, String>?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        // Gunakan StatefulWidget dan Builder agar bisa update state di dalam dialog
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Rekomendasi Survey'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Text(
+                        'Apakah lokasi calon pelanggan direkomendasikan untuk pemasangan?'),
+                    const SizedBox(height: 16),
+                    RadioListTile<String>(
+                      title: const Text('Direkomendasikan'),
+                      value: 'direkomendasikan',
+                      groupValue: rekomendasi,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          rekomendasi = value;
+                        });
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Tidak Direkomendasikan'),
+                      value: 'tidak_direkomendasikan',
+                      groupValue: rekomendasi,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          rekomendasi = value;
+                        });
+                      },
+                    ),
+                    // Tampilkan field catatan jika tidak direkomendasikan
+                    if (rekomendasi == 'tidak_direkomendasikan')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: TextField(
+                          controller: catatanController,
+                          decoration: const InputDecoration(
+                            labelText: 'Alasan (Wajib diisi)',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Kirim'),
+                  onPressed: () {
+                    // Validasi sebelum menutup dialog
+                    if (rekomendasi == null) {
+                      _showSnackbar('Silakan pilih salah satu rekomendasi.',
+                          isError: true);
+                      return;
+                    }
+                    if (rekomendasi == 'tidak_direkomendasikan' &&
+                        catatanController.text.trim().isEmpty) {
+                      _showSnackbar(
+                          'Alasan wajib diisi jika tidak merekomendasikan.',
+                          isError: true);
+                      return;
+                    }
+                    // Tutup dialog dan kirimkan data kembali
+                    Navigator.of(context).pop({
+                      'rekomendasi': rekomendasi!,
+                      'catatan': catatanController.text.trim(),
+                    });
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleStatusUpdate(String newStatus, bool photoRequired) async {
     String? imagePath;
+    Map<String, String>? recommendationData; // Untuk menyimpan hasil dialog
 
     if (photoRequired) {
       final picker = ImagePicker();
@@ -114,6 +203,14 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           final XFile watermarkedImage =
               await watermarkService.addWatermark(originalImage);
           imagePath = watermarkedImage.path;
+
+          // --- PANGGIL DIALOG REKOMENDASI SETELAH FOTO SIAP ---
+          _setLoading(false); // Matikan loading sementara dialog muncul
+          recommendationData = await _showRecommendationDialog();
+          if (recommendationData == null) {
+            _showSnackbar('Pemberian rekomendasi dibatalkan.', isError: true);
+            return; // User membatalkan dialog
+          }
         } catch (e) {
           _setLoading(false);
           _showSnackbar("Gagal menambahkan watermark: ${e.toString()}",
@@ -131,6 +228,9 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         idCalon: _currentTugas.idTugas,
         newStatus: newStatus,
         imagePath: imagePath,
+        // --- KIRIM DATA REKOMENDASI KE API SERVICE ---
+        rekomendasi: recommendationData?['rekomendasi'],
+        catatan: recommendationData?['catatan'],
       );
 
       final updatedTugasJson = result['tugas_terbaru'];
@@ -357,7 +457,8 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
     // *** PERBAIKAN FORMAT URL GOOGLE MAPS YANG BENAR DAN UNIVERSAL ***
     // Ini akan membuka Google Maps di browser atau aplikasi jika terinstal
-    final Uri mapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');
+    final Uri mapsUrl = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');
 
     try {
       if (await canLaunchUrl(mapsUrl)) {
@@ -366,10 +467,11 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         throw 'Could not launch $mapsUrl';
       }
     } catch (e) {
-      _showSnackbar('Tidak dapat membuka Google Maps: ${e.toString()}', isError: true);
+      _showSnackbar('Tidak dapat membuka Google Maps: ${e.toString()}',
+          isError: true);
     }
   }
-  
+
   void _showSnackbar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

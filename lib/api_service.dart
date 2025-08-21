@@ -18,7 +18,7 @@ import 'package:pdam_app/models/berita_model.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pdam-production.up.railway.app/api';
+  final String baseUrl = 'http://10.66.9.148:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -27,7 +27,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pdam-production.up.railway.app/api',
+            baseUrl: 'http://10.66.9.148:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -2156,50 +2156,60 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> updateStatusCalonPelanggan({
-    //
-    required int idCalon, //
-    required String newStatus, //
+    required int idCalon,
+    required String newStatus,
     String? imagePath, // Path ke file foto, nullable
+    // --- TAMBAHKAN PARAMETER BARU ---
+    String? rekomendasi,
+    String? catatan,
   }) async {
-    final token = await getToken(); //
+    final token = await getToken();
     final url = Uri.parse(
-      //
-      '$baseUrl/petugas/calon-pelanggan/$idCalon/update-status', //
+      '$baseUrl/petugas/calon-pelanggan/$idCalon/update-status',
     );
 
-    var request = http.MultipartRequest('POST', url); //
+    var request = http.MultipartRequest('POST', url);
     if (token != null) {
-      //
-      request.headers['Authorization'] = 'Bearer $token'; //
+      request.headers['Authorization'] = 'Bearer $token';
     }
-    request.headers['Accept'] = 'application/json'; //
+    request.headers['Accept'] = 'application/json';
 
-    request.fields['status'] = newStatus; //
+    request.fields['status'] = newStatus;
+
+    // --- TAMBAHKAN FIELD BARU KE REQUEST ---
+    if (rekomendasi != null) {
+      request.fields['rekomendasi_survey'] = rekomendasi;
+    }
+    if (catatan != null) {
+      request.fields['catatan_survey'] = catatan;
+    }
 
     // Tambahkan file foto jika ada path-nya
     if (imagePath != null && imagePath.isNotEmpty) {
-      //
       request.files.add(
         await http.MultipartFile.fromPath('foto', imagePath),
-      ); //
+      );
     }
 
-    final streamedResponse = await request.send(); //
-    final response = await http.Response.fromStream(streamedResponse); //
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      //
-      return jsonDecode(response.body) as Map<String, dynamic>; //
+      return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
       print(
-        //
-        'Error updateStatusCalonPelanggan (${response.statusCode}): ${response.body}', //
+        'Error updateStatusCalonPelanggan (${response.statusCode}): ${response.body}',
       );
-      final errorBody = jsonDecode(response.body); //
+      final errorBody = jsonDecode(response.body);
+      // --- PERBAIKI PARSING ERROR DARI VALIDATOR ---
+      if (response.statusCode == 422 && errorBody.containsKey('errors')) {
+        final errors = errorBody['errors'] as Map<String, dynamic>;
+        // Ambil pesan error pertama dari daftar
+        final firstError = errors.entries.first.value[0];
+        throw Exception(firstError ?? 'Data yang dikirim tidak valid.');
+      }
       throw Exception(
-        //
-        errorBody['message'] ??
-            'Gagal update status tugas: ${response.body}', //
+        errorBody['message'] ?? 'Gagal update status tugas: ${response.body}',
       );
     }
   }
