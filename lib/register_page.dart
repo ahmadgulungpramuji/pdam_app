@@ -449,11 +449,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     () => setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
-            validator:
-                (value) =>
-                    value != null && value.length < 6
-                        ? 'Password minimal 6 karakter'
-                        : null,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Password wajib diisi';
+              }
+              if (value.length < 8) {
+                return 'Password minimal 8 karakter'; // Pesan diubah
+              }
+              return null;
+            },
           ),
         ],
       ),
