@@ -144,6 +144,11 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               ),
               const Divider(height: 30),
               _buildStatusCard(status),
+              if ((_currentData['status'] ?? '').toLowerCase().contains('ditolak') &&
+                  _currentData['alasan_penolakan'] != null &&
+                  _currentData['alasan_penolakan'].isNotEmpty)
+                _buildAlasanPenolakanCard(_currentData['alasan_penolakan']),
+
               const SizedBox(height: 24),
               _buildInfoRow(
                   icon: Ionicons.calendar_outline,
@@ -286,6 +291,56 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       ),
     );
   }
+
+
+
+   Widget _buildAlasanPenolakanCard(String alasan) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      color: Colors.red.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.red.shade200),
+      ),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Ionicons.close_circle_outline, color: Colors.red.shade700, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  "Pendaftaran Ditolak",
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade800,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Text(
+              "Alasan:",
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              alasan,
+              style: GoogleFonts.poppins(fontSize: 15, color: Colors.black87),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   // === WIDGET BARU UNTUK MENAMPILKAN GAMBAR DALAM DIALOG ===
   void _showImageDialog(BuildContext context, String imageUrl) {
