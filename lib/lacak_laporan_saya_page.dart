@@ -478,7 +478,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                              Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade500),
                             const SizedBox(width: 6),
                             Text(
-                              DateFormat('d MMM yyyy, HH:mm').format(laporan.createdAt),
+                              DateFormat('d MMM yyyy, HH:mm').format(laporan.createdAt.toLocal()),
                               style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
                             ),
                             const Spacer(),
@@ -675,7 +675,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                             ),
                             const SizedBox(height: 24),
                             _buildDetailRowSheet('Kategori', laporan.friendlyKategori),
-                            _buildDetailRowSheet('Tanggal Lapor', DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt)),
+                            _buildDetailRowSheet(
+                                  'Tanggal Lapor',
+                                  // TAMBAHKAN .toLocal() DI SINI
+                                  DateFormat('d MMMM yyyy, HH:mm').format(laporan.createdAt.toLocal())
+                                ),
                             _buildDetailRowSheet('Deskripsi', laporan.deskripsi, isMultiline: true),
                             
                             if ((laporan.status.toLowerCase() == 'dibatalkan' ||

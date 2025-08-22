@@ -724,7 +724,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Penggunaan Air Bulan Ini",
+                "Penggunaan Air Bulan Lalu",
                 style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
               ),
               Icon(Ionicons.water, color: Colors.white.withOpacity(0.8), size: 28),
@@ -750,10 +750,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            "Target: 30 m³",
-            style: GoogleFonts.manrope(color: Colors.white.withOpacity(0.8), fontSize: 14),
-          ),
+           
           const Divider(color: Colors.white30, height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
