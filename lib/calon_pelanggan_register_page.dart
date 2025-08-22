@@ -888,6 +888,8 @@ class _CalonPelangganRegisterPageState
     );
   }
 
+  // Ganti di dalam widget _buildCabangSelectionField
+
   Widget _buildCabangSelectionField() {
     return TextFormField(
       controller: _cabangController,
@@ -898,7 +900,8 @@ class _CalonPelangganRegisterPageState
           suffixIcon: const Icon(Icons.arrow_drop_down)),
       onTap: () {
         if (_allCabangs.isNotEmpty && _selectedKecamatanName != null) {
-          _showCabangSelectionDialog();
+          // --- PERUBAHAN DI SINI ---
+          _showCabangSelectionSheet(); // Panggil fungsi bottom sheet yang baru
         } else {
           _showSnackbar(
               'Harap pilih Kecamatan untuk melihat rekomendasi cabang.',
@@ -909,77 +912,119 @@ class _CalonPelangganRegisterPageState
     );
   }
 
-  Future<void> _showCabangSelectionDialog() async {
-    showDialog(
+  // --- UI HELPER WIDGETS (Letakkan di dekat widget builder lainnya) ---
+
+// BARU: Fungsi untuk menampilkan pilihan cabang dengan Modal Bottom Sheet
+  Future<void> _showCabangSelectionSheet() async {
+    await showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Pilih Cabang Pemasangan',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade100),
-                ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true, // Penting untuk konten dinamis
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6, // Mulai dari 60% tinggi layar
+          minChildSize: 0.4, // Minimal 40%
+          maxChildSize: 0.9, // Maksimal 90%
+          expand: false,
+          builder: (_, scrollController) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('REKOMENDASI SISTEM',
-                        style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Colors.blue.shade800)),
-                    const Divider(),
-                    if (_cabangByGpsName != null)
-                      Text('• Menurut Lokasi: $_cabangByGpsName',
-                          style: GoogleFonts.manrope(fontSize: 13)),
-                    if (_cabangByKecamatanName != null)
-                      Text('• Menurut Kecamatan: $_cabangByKecamatanName',
-                          style: GoogleFonts.manrope(
-                              fontSize: 13, fontWeight: FontWeight.bold)),
+                    // Header dengan handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Pilih Cabang Pemasangan',
+                      style: GoogleFonts.manrope(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bagian Rekomendasi Sistem (Sama seperti sebelumnya)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('REKOMENDASI SISTEM',
+                              style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.blue.shade800)),
+                          const Divider(height: 12),
+                          if (_cabangByGpsName != null)
+                            Text('• Menurut Lokasi GPS: $_cabangByGpsName',
+                                style: GoogleFonts.manrope(fontSize: 14)),
+                          if (_cabangByKecamatanName != null)
+                            Text('• Menurut Kecamatan: $_cabangByKecamatanName',
+                                style: GoogleFonts.manrope(
+                                    fontSize: 14, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Daftar Cabang yang bisa di-scroll
+                    Expanded(
+                      child: ListView.separated(
+                        controller: scrollController,
+                        itemCount: _allCabangs.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final cabang = _allCabangs[index];
+                          final bool isSelected =
+                              cabang.id == _selectedCabangId;
+                          return ListTile(
+                            title: Text(cabang.namaCabang,
+                                style: GoogleFonts.manrope(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal)),
+                            trailing: isSelected
+                                ? Icon(Icons.check_circle,
+                                    color: Theme.of(context).primaryColor)
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedCabangId = cabang.id;
+                                _cabangController.text = cabang.namaCabang;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Text('Pilih Cabang Manual:', style: GoogleFonts.manrope()),
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _allCabangs.length,
-                  itemBuilder: (context, index) {
-                    final cabang = _allCabangs[index];
-                    return ListTile(
-                      title:
-                          Text(cabang.namaCabang, style: GoogleFonts.manrope()),
-                      selected: cabang.id == _selectedCabangId,
-                      selectedTileColor: Colors.blue.shade100,
-                      onTap: () {
-                        setState(() {
-                          _selectedCabangId = cabang.id;
-                          _cabangController.text = cabang.namaCabang;
-                        });
-                        Navigator.of(context).pop();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Batal'))
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

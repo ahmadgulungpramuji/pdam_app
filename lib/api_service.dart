@@ -188,6 +188,30 @@ class ApiService {
     await prefs.remove('pdam_ids'); //
   }
 
+  Future<Map<String, dynamic>> getBranchAdminInfoByCabangId(
+      String cabangId) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Autentikasi diperlukan.');
+
+    // Memanggil endpoint baru dengan ID Cabang dari parameter
+    final url = Uri.parse('$baseUrl/chat/branch-admin-info/$cabangId');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 20));
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['data']; // Kembalikan hanya bagian 'data'
+    } else {
+      throw Exception(
+          data['message'] ?? 'Gagal mendapatkan info admin cabang.');
+    }
+  }
+
   Future<http.Response> getBranchAdminInfo(String token) async {
     final url = Uri.parse('$baseUrl/chat/branch-admin-info');
     try {

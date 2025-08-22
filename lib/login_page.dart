@@ -1,22 +1,104 @@
-// ignore_for_file: unused_import
+// lib/login_page.dart
+// ignore_for_file: unused_import, use_build_context_synchronously
 
 import 'dart:convert';
+import 'dart:developer';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/detail_calon_pelanggan_page.dart';
+import 'package:pdam_app/models/temuan_kebocoran_model.dart';
 import 'package:pdam_app/register_page.dart';
-import 'package:pdam_app/temuan_kebocoran_page.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:developer';
 import 'package:pdam_app/services/notification_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/widgets.dart';
-import 'api_service.dart';
-import 'models/temuan_kebocoran_model.dart';
+import 'package:pdam_app/temuan_kebocoran_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+// --- WIDGET ANIMASI (Disalin dari home_pelanggan_page.dart) ---
+
+// 1. Animasi Fade-in dan Slide-up.
+class FadeInAnimation extends StatefulWidget {
+  final int delay;
+  final Widget child;
+
+  const FadeInAnimation({super.key, this.delay = 0, required this.child});
+
+  @override
+  State<FadeInAnimation> createState() => _FadeInAnimationState();
+}
+
+class _FadeInAnimationState extends State<FadeInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _position;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _position,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+// 2. Widget untuk animasi staggered pada list/grid.
+class StaggeredFadeIn extends StatelessWidget {
+  final List<Widget> children;
+  final int delay;
+
+  const StaggeredFadeIn({
+    super.key,
+    required this.children,
+    this.delay = 100,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(children.length, (index) {
+        return FadeInAnimation(
+          delay: delay * index,
+          child: children[index],
+        );
+      }),
+    );
+  }
+}
+
+// --- END WIDGET ANIMASI ---
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -32,6 +114,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
 
+  // Controller untuk PageView
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -42,14 +125,10 @@ class _LoginPageState extends State<LoginPage> {
   final String _checkBillUrl =
       'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
 
+  // Listener di initState sudah tidak diperlukan lagi
   @override
   void initState() {
     super.initState();
-    _trackCodeController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   @override
@@ -65,18 +144,17 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: GoogleFonts.manrope()),
         backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
   Future<void> _trackReportFromLogin() async {
-    final code =
-        _trackCodeController.text.trim().toUpperCase(); // Gunakan uppercase
+    final code = _trackCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
       _showSnackbar('Masukkan kode tracking terlebih dahulu.');
       return;
@@ -84,21 +162,14 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isTrackingReport = true);
 
     try {
-      // LOGIKA PENCARIAN TERPADU
       if (code.startsWith('TK-')) {
-        // Lacak Temuan Kebocoran
         final TemuanKebocoran temuan = await _apiService.trackReport(code);
-        if (!mounted) return;
         _trackCodeController.clear();
-        // Arahkan ke halaman detail temuan
         Navigator.pushNamed(context, '/detail_temuan_page', arguments: temuan);
       } else if (code.startsWith('CP-')) {
-        // Lacak Calon Pelanggan
         final Map<String, dynamic> dataPendaftaran =
             await _apiService.trackCalonPelanggan(code);
-        if (!mounted) return;
         _trackCodeController.clear();
-        // Arahkan ke halaman detail pendaftaran BARU
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -107,12 +178,10 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       } else {
-        // Kode tidak dikenali
         throw Exception(
             'Format kode tracking tidak valid. Pastikan kode diawali "TK-" atau "CP-".');
       }
     } catch (e) {
-      if (!mounted) return;
       String errorMessage = e.toString().replaceFirst("Exception: ", "");
       _showSnackbar(errorMessage, isError: true);
     } finally {
@@ -133,7 +202,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       log('[LoginPage] Re-otentikasi Firebase GAGAL: $e');
-      // Lempar kembali error agar bisa ditangkap oleh blok catch di _login
       rethrow;
     }
   }
@@ -149,8 +217,6 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      if (!mounted) return;
-
       final String token = responseData['token'] as String;
       final String userType = responseData['user_type'] as String;
       final Map<String, dynamic> userData =
@@ -160,25 +226,19 @@ class _LoginPageState extends State<LoginPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_data', jsonEncode(userData));
 
-      // --- TAMBAHKAN KODE INI ---
-      // Panggil NotificationService untuk mengirim FCM Token ke server
-      // setelah login berhasil.
       log("Mencoba mengirim FCM token ke server setelah login...");
       await NotificationService().sendFcmTokenToServer();
       await _reauthenticateWithFirebase();
 
-      if (!mounted) return;
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
 
       if (userType == 'pelanggan') {
-        if (!mounted) return;
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/home_pelanggan',
           (route) => false,
         );
       } else if (userType == 'petugas') {
-        if (!mounted) return;
         final int petugasId = userData['id'] as int;
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -187,11 +247,9 @@ class _LoginPageState extends State<LoginPage> {
           arguments: {'idPetugasLoggedIn': petugasId},
         );
       } else {
-        if (!mounted) return;
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }
     } catch (e) {
-      if (!mounted) return;
       String errorMessage = e.toString().replaceFirst("Exception: ", "");
       _showSnackbar(errorMessage, isError: true);
     } finally {
@@ -202,126 +260,173 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _launchBillUrl() async {
     final Uri url = Uri.parse(_checkBillUrl);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
       _showSnackbar(
-        'Tidak dapat membuka tautan cek tagihan. Pastikan Anda memiliki aplikasi browser.',
+        'Tidak dapat membuka tautan. Pastikan Anda memiliki aplikasi browser.',
         isError: true,
       );
     }
   }
 
+  void _navigateTo(Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+  }
+
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+    const Color textColor = Color(0xFF212529);
+
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.blue.shade50],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 30),
-              Image.asset('assets/images/logo.png', height: 100),
-              const SizedBox(height: 15),
-              Text(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            FadeInAnimation(
+              delay: 100,
+              child: Image.asset('assets/images/logo.png', height: 80),
+            ),
+            const SizedBox(height: 16),
+            FadeInAnimation(
+              delay: 200,
+              child: Text(
                 'Selamat Datang',
-                style: GoogleFonts.lato(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0D47A1),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
                 ),
               ),
-              const SizedBox(height: 8),
-              Column(
+            ),
+            const SizedBox(height: 8),
+            FadeInAnimation(
+              delay: 300,
+              child: Text(
+                _currentPage == 0
+                    ? "Login atau daftar sambungan baru."
+                    : "Lacak laporan atau akses layanan cepat.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FadeInAnimation(
+              delay: 400,
+              child: _buildSwipeHint(primaryColor),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (int page) {
+                  setState(() {
+                    _currentPage = page;
+                  });
+                },
                 children: [
-                  Text(
-                    _currentPage == 0
-                        ? "Login untuk mengakses layanan PDAM"
-                        : "Lacak atau buat laporan kebocoran baru",
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.lato(
-                      fontSize: 16,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // WIDGET YANG DIUBAH ADA DI SINI
-                  _buildSwipeHint(),
+                  _buildLoginPageContent(primaryColor),
+                  _buildTrackingPageContent(primaryColor),
                 ],
               ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (int page) {
-                    setState(() {
-                      _currentPage = page;
-                    });
-                  },
-                  children: [
-                    Center(
-                      child: SingleChildScrollView(
-                        key: const PageStorageKey('loginPage'),
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: _buildLoginForm(),
-                      ),
-                    ),
-                    Center(
-                      child: SingleChildScrollView(
-                        key: const PageStorageKey('trackingPage'),
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: _buildTrackingSection(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _buildPageIndicator(),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+            _buildPageIndicator(primaryColor),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildLoginForm() {
+  Widget _buildLoginPageContent(Color primaryColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+      child: Column(
+        children: [
+          FadeInAnimation(
+            delay: 500,
+            child: _buildLoginForm(primaryColor),
+          ),
+          const SizedBox(height: 24),
+          FadeInAnimation(delay: 600, child: _buildSectionDivider()),
+          const SizedBox(height: 24),
+          FadeInAnimation(
+            delay: 700,
+            child: _buildActionCard(
+              icon: Ionicons.person_add_outline,
+              iconColor: Colors.blue.shade700,
+              title: "Daftar Sambungan Baru",
+              subtitle: "Ajukan pemasangan untuk pelanggan baru.",
+              onTap: () => _navigateTo(const CalonPelangganRegisterPage()),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FadeInAnimation(
+            delay: 800,
+            child: _buildRegisterFooter(primaryColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackingPageContent(Color primaryColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+      child: StaggeredFadeIn(
+        delay: 150,
+        children: [
+          _buildTrackingForm(primaryColor),
+          const SizedBox(height: 24),
+          _buildActionCard(
+            icon: Ionicons.create_outline,
+            iconColor: Colors.orange.shade700,
+            title: "Buat Laporan Kebocoran",
+            subtitle: "Laporkan jika menemukan kebocoran air.",
+            onTap: () => _navigateTo(const TemuanKebocoranPage()),
+          ),
+          const SizedBox(height: 12),
+          _buildActionCard(
+            icon: Ionicons.wallet_outline,
+            iconColor: Colors.green.shade700,
+            title: "Cek Tagihan Anda",
+            subtitle: "Lihat informasi tagihan rekening air.",
+            onTap: _launchBillUrl,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginForm(Color primaryColor) {
     return Form(
       key: _formKey,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TextFormField(
             controller: _identifierController,
-            decoration: _inputDecoration(
-              "ID PDAM / No. HP / Email",
-              Ionicons.person_circle_outline,
-            ),
+            decoration: _inputDecoration("ID PDAM / No. HP / Email",
+                Ionicons.person_circle_outline, primaryColor),
             keyboardType: TextInputType.text,
-            validator: (val) {
-              if (val == null || val.isEmpty) {
-                return 'Kolom ini tidak boleh kosong';
-              }
-              return null;
-            },
+            validator: (val) => val == null || val.isEmpty
+                ? 'Kolom ini tidak boleh kosong'
+                : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _passwordController,
             decoration: _inputDecoration(
-              "Password",
-              Ionicons.lock_closed_outline,
-            ).copyWith(
+                    "Password", Ionicons.lock_closed_outline, primaryColor)
+                .copyWith(
               suffixIcon: IconButton(
                 icon: Icon(
                   _passwordVisible
                       ? Ionicons.eye_outline
                       : Ionicons.eye_off_outline,
-                  color: Colors.blue.shade700,
+                  color: primaryColor,
                 ),
                 onPressed: () =>
                     setState(() => _passwordVisible = !_passwordVisible),
@@ -333,193 +438,119 @@ class _LoginPageState extends State<LoginPage> {
                 : null,
           ),
           const SizedBox(height: 28),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF005A9C),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-              onPressed: _isLoading || _isTrackingReport ? null : _login,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                  : const Text(
-                      'LOGIN',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                "Belum punya akun?",
-                style: TextStyle(color: Colors.grey.shade800, fontSize: 16),
-              ),
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterPage(),
-                          ),
-                        );
-                      },
-                child: const Text(
-                  'Daftar di sini',
-                  style: TextStyle(
-                    color: Color(0xFF005A9C),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Color(0xFF005A9C),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _isLoading || _isTrackingReport
-                  ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const CalonPelangganRegisterPage(),
-                        ),
-                      );
-                    },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green.shade700,
-                side: BorderSide(color: Colors.green.shade700, width: 1.5),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'DAFTAR PELANGGAN PDAM BARU',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
+          _GradientButton(
+            onPressed: _isLoading || _isTrackingReport ? null : _login,
+            isLoading: _isLoading,
+            text: 'LOGIN',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrackingSection() {
+  Widget _buildTrackingForm(Color primaryColor) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         TextFormField(
           controller: _trackCodeController,
-          decoration: _inputDecoration(
-            "Masukkan Kode Tracking",
-            Ionicons.search_outline,
-          ),
+          // PENAMBAHAN onChanged DI LOKASI YANG BENAR
+          onChanged: (text) {
+            setState(() {
+              // Biarkan kosong, tujuannya hanya untuk memicu rebuild
+            });
+          },
+          decoration: _inputDecoration("Masukkan Kode Lacak (TK- atau CP-)",
+              Ionicons.search_outline, primaryColor),
           textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF005A9C),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-            ),
-            onPressed: (_trackCodeController.text.trim().isEmpty ||
-                    _isTrackingReport ||
-                    _isLoading)
-                ? null
-                : _trackReportFromLogin,
-            child: _isTrackingReport
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  )
-                : const Text(
-                    "LACAK LAPORAN",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
+          style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Ionicons.create_outline, size: 20),
-            label: const Text("BUAT LAPORAN BARU"),
-            onPressed: _isLoading || _isTrackingReport
-                ? null
-                : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TemuanKebocoranPage(),
-                      ),
-                    ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF005A9C),
-              side: const BorderSide(color: Color(0xFF005A9C), width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        _GradientButton(
+          onPressed: (_trackCodeController.text.trim().isEmpty ||
+                  _isTrackingReport ||
+                  _isLoading)
+              ? null
+              : _trackReportFromLogin,
+          isLoading: _isTrackingReport,
+          text: 'LACAK LAPORAN',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200, width: 1)),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: GoogleFonts.manrope(
+                            color: Colors.grey.shade700, fontSize: 13)),
+                  ],
+                ),
+              ),
+              const Icon(Ionicons.chevron_forward,
+                  color: Colors.grey, size: 20),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Ionicons.wallet_outline, size: 20),
-            label: const Text("CEK TAGIHAN"),
-            onPressed: _isLoading || _isTrackingReport ? null : _launchBillUrl,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.green.shade700,
-              side: BorderSide(color: Colors.green.shade700, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterFooter(Color primaryColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          "Sudah jadi pelanggan?",
+          style: GoogleFonts.manrope(color: Colors.grey.shade800, fontSize: 15),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          onPressed:
+              _isLoading ? null : () => _navigateTo(const RegisterPage()),
+          child: Text(
+            'Aktifkan Akun',
+            style: GoogleFonts.manrope(
+              color: primaryColor,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -527,13 +558,88 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  Widget _buildSectionDivider() {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            "ATAU",
+            style: GoogleFonts.manrope(
+                color: Colors.grey.shade500, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+      ],
+    );
+  }
+
+  Widget _buildPageIndicator(Color primaryColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(2, (index) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          height: 8.0,
+          width: _currentPage == index ? 24.0 : 8.0,
+          decoration: BoxDecoration(
+            color: _currentPage == index ? primaryColor : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildSwipeHint(Color primaryColor) {
+    return InkWell(
+      onTap: () {
+        _pageController.animateToPage(
+          _currentPage == 0 ? 1 : 0,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      },
+      borderRadius: BorderRadius.circular(30.0),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: 8.0,
+          horizontal: 16.0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _currentPage == 0 ? 'Layanan Cepat' : 'Login Pelanggan',
+              style: GoogleFonts.manrope(
+                color: primaryColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Ionicons.swap_horizontal,
+              size: 22,
+              color: primaryColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+      String label, IconData icon, Color primaryColor) {
     return InputDecoration(
       hintText: label,
-      hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+      hintStyle: GoogleFonts.manrope(color: Colors.grey.shade600, fontSize: 15),
       prefixIcon: Padding(
         padding: const EdgeInsets.only(left: 18.0, right: 12.0),
-        child: Icon(icon, color: Colors.blue.shade700, size: 22),
+        child: Icon(icon, color: primaryColor, size: 22),
       ),
       filled: true,
       fillColor: Colors.white,
@@ -548,76 +654,75 @@ class _LoginPageState extends State<LoginPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+        borderSide: BorderSide(color: primaryColor, width: 2),
       ),
     );
   }
+}
 
-  Widget _buildPageIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(2, (index) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 5.0),
-          height: 10.0,
-          width: _currentPage == index ? 25.0 : 10.0,
-          decoration: BoxDecoration(
-            color: _currentPage == index
-                ? const Color(0xFF005A9C)
-                : Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(12),
+// Widget Bantuan untuk Tombol Gradien
+class _GradientButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final String text;
+  final bool isLoading;
+
+  const _GradientButton({
+    required this.onPressed,
+    required this.text,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color secondaryColor = Color(0xFF00B4D8);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : Text(
+                      text,
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
           ),
-        );
-      }),
-    );
-  }
-
-  // == START PERUBAHAN ==
-  Widget _buildSwipeHint() {
-    return InkWell(
-      // onTap sekarang menangani logika perpindahan halaman.
-      onTap: () {
-        // Menganimasikan transisi ke halaman berikutnya berdasarkan halaman saat ini.
-        _pageController.animateToPage(
-          _currentPage == 0 ? 1 : 0,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-        );
-      },
-      borderRadius: BorderRadius.circular(
-        30.0,
-      ), // Memberi efek ripple yang membulat.
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 10.0,
-          horizontal: 20.0,
-        ), // Padding untuk area klik yang lebih besar.
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize:
-              MainAxisSize.min, // Memastikan Row tidak melebar sia-sia.
-          children: [
-            Icon(
-              Ionicons.swap_horizontal,
-              size: 32, // Ukuran ikon diperbesar.
-              color: const Color(0xFF005A9C),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              // Teks diperbarui untuk mencerminkan fungsionalitas klik.
-              'Klik atau Geser untuk Opsi Lain',
-              style: TextStyle(
-                color: Colors.grey.shade800,
-                fontSize: 16, // Ukuran font diperbesar.
-                fontWeight: FontWeight.w600, // Font dibuat lebih tebal.
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
-
-  // == AKHIR PERUBAHAN ==
 }

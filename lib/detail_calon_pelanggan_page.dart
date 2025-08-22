@@ -4,7 +4,66 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:pdam_app/api_service.dart'; // Pastikan import ini benar
+import 'package:pdam_app/api_service.dart';
+
+// --- WIDGET ANIMASI (Disalin dari halaman lain) ---
+
+class FadeInAnimation extends StatefulWidget {
+  final int delay;
+  final Widget child;
+  const FadeInAnimation({super.key, this.delay = 0, required this.child});
+  @override
+  State<FadeInAnimation> createState() => _FadeInAnimationState();
+}
+
+class _FadeInAnimationState extends State<FadeInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _position;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(position: _position, child: widget.child));
+  }
+}
+
+class StaggeredFadeIn extends StatelessWidget {
+  final List<Widget> children;
+  final int delay;
+  const StaggeredFadeIn({super.key, required this.children, this.delay = 100});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+        children: List.generate(children.length, (index) {
+      return FadeInAnimation(delay: delay * index, child: children[index]);
+    }));
+  }
+}
+// --- END WIDGET ANIMASI ---
 
 class DetailCalonPelangganPage extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -54,8 +113,11 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: GoogleFonts.manrope()),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -84,9 +146,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           'Harap isi semua aspek penilaian (kecepatan, pelayanan, dan hasil).');
       return;
     }
-
     setState(() => _isSubmittingRating = true);
-
     try {
       await _apiService.submitRating(
         tipeLaporan: 'calon_pelanggan',
@@ -96,7 +156,6 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         ratingHasil: _ratingHasil.toInt(),
         komentar: _komentarRatingController.text.trim(),
       );
-
       if (mounted) {
         _showSnackbar('Penilaian berhasil dikirim!', isError: false);
         await _refreshData();
@@ -110,6 +169,9 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+
     final String status = _currentData['status'] ?? 'Status Tidak Diketahui';
     final String namaLengkap =
         _currentData['nama_lengkap'] ?? 'Nama Tidak Tersedia';
@@ -117,48 +179,53 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     final String namaCabang = _currentData['nama_cabang'] ?? '-';
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Status Pendaftaran'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        title: Text('Status Pendaftaran',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black87,
       ),
       body: RefreshIndicator(
-      onRefresh: _refreshData,
-      child: SingleChildScrollView(
-        // TAMBAHKAN LINE INI
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Detail Pendaftaran Anda',
-              style: GoogleFonts.poppins(
-                  fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+        onRefresh: _refreshData,
+        color: primaryColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: StaggeredFadeIn(
+            delay: 100,
+            children: [
+              Text(
+                'Detail Pendaftaran Anda',
+                style: GoogleFonts.manrope(
+                    fontSize: 26, fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 8),
               Text(
                 namaLengkap,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.manrope(
                     fontSize: 18, color: Colors.grey.shade700),
               ),
-              const Divider(height: 30),
+              const SizedBox(height: 24),
               _buildStatusCard(status),
-              if ((_currentData['status'] ?? '').toLowerCase().contains('ditolak') &&
+              if ((_currentData['status'] ?? '')
+                      .toLowerCase()
+                      .contains('ditolak') &&
                   _currentData['alasan_penolakan'] != null &&
                   _currentData['alasan_penolakan'].isNotEmpty)
                 _buildAlasanPenolakanCard(_currentData['alasan_penolakan']),
-
-              const SizedBox(height: 24),
-              _buildInfoRow(
-                  icon: Ionicons.calendar_outline,
-                  label: 'Tanggal Pendaftaran',
-                  value: tglDaftar),
-              _buildInfoRow(
-                  icon: Ionicons.business_outline,
-                  label: 'Cabang Pendaftaran',
-                  value: namaCabang),
-
+              const SizedBox(height: 16),
+              _buildInfoCard([
+                _buildInfoRow(
+                    icon: Ionicons.calendar_outline,
+                    label: 'Tanggal Pendaftaran',
+                    value: tglDaftar),
+                _buildInfoRow(
+                    icon: Ionicons.business_outline,
+                    label: 'Cabang Pendaftaran',
+                    value: namaCabang),
+              ]),
               _buildPhotoCard(
                 title: '📸 Foto Hasil Survey',
                 imageUrl: _currentData['foto_survey'],
@@ -167,49 +234,46 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                 title: '🛠️ Foto Hasil Pemasangan',
                 imageUrl: _currentData['foto_pemasangan'],
               ),
-              
-
               if (_currentData['rating_hasil'] != null) ...[
-                const Divider(height: 24, thickness: 1),
-                Text(
-                  "Penilaian Anda:",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
+                const SizedBox(height: 16),
+                Text("Penilaian Anda:",
+                    style: GoogleFonts.manrope(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                _buildInfoRow(
-                    icon: Ionicons.speedometer_outline,
-                    label: 'Kecepatan',
-                    value: '${_currentData['rating_kecepatan']}/5 ★'),
-                _buildInfoRow(
-                    icon: Ionicons.people_outline,
-                    label: 'Pelayanan',
-                    value: '${_currentData['rating_pelayanan']}/5 ★'),
-                _buildInfoRow(
-                    icon: Ionicons.checkmark_done_outline,
-                    label: 'Hasil',
-                    value: '${_currentData['rating_hasil']}/5 ★'),
-                if (_currentData['komentar_rating'] != null &&
-                    _currentData['komentar_rating'].isNotEmpty)
+                _buildInfoCard([
                   _buildInfoRow(
-                      icon: Ionicons.chatbox_ellipses_outline,
-                      label: 'Komentar',
-                      value: _currentData['komentar_rating']),
+                      icon: Ionicons.speedometer_outline,
+                      label: 'Kecepatan',
+                      value: '${_currentData['rating_kecepatan']}/5 ★'),
+                  _buildInfoRow(
+                      icon: Ionicons.people_outline,
+                      label: 'Pelayanan',
+                      value: '${_currentData['rating_pelayanan']}/5 ★'),
+                  _buildInfoRow(
+                      icon: Ionicons.checkmark_done_outline,
+                      label: 'Hasil',
+                      value: '${_currentData['rating_hasil']}/5 ★'),
+                  if (_currentData['komentar_rating'] != null &&
+                      _currentData['komentar_rating'].isNotEmpty)
+                    _buildInfoRow(
+                        icon: Ionicons.chatbox_ellipses_outline,
+                        label: 'Komentar',
+                        value: _currentData['komentar_rating']),
+                ]),
               ],
-              
               if (status.toLowerCase() == 'terpasang') _buildRatingSection(),
-
               const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.all(12.0),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Text(
                   'Harap hubungi cabang terkait atau datang langsung ke kantor cabang untuk informasi lebih lanjut mengenai status pendaftaran Anda.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                  style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: Colors.blue.shade800,
                       fontStyle: FontStyle.italic),
                 ),
               ),
@@ -220,16 +284,16 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-  // === WIDGET BARU UNTUK MENAMPILKAN KARTU FOTO ===
   Widget _buildPhotoCard({required String title, String? imageUrl}) {
     if (imageUrl == null || imageUrl.isEmpty) {
-      return const SizedBox.shrink(); // Jangan tampilkan apapun jika URL tidak ada
+      return const SizedBox.shrink();
     }
-
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade300)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _showImageDialog(context, imageUrl),
@@ -238,13 +302,9 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Text(
-                title,
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text(title,
+                  style: GoogleFonts.manrope(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             Image.network(
               imageUrl,
@@ -254,10 +314,9 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
                 return Container(
-                  height: 200,
-                  alignment: Alignment.center,
-                  child: const CircularProgressIndicator(),
-                );
+                    height: 200,
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator());
               },
               errorBuilder: (context, error, stackTrace) {
                 return Container(
@@ -267,7 +326,8 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Ionicons.warning_outline, color: Colors.red, size: 40),
+                      Icon(Ionicons.warning_outline,
+                          color: Colors.red, size: 40),
                       SizedBox(height: 8),
                       Text('Gagal Memuat Gambar'),
                     ],
@@ -280,7 +340,8 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text('Ketuk untuk perbesar', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('Ketuk untuk perbesar',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
                   SizedBox(width: 4),
                   Icon(Ionicons.expand_outline, color: Colors.grey, size: 16),
                 ],
@@ -292,14 +353,12 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     );
   }
 
-
-
-   Widget _buildAlasanPenolakanCard(String alasan) {
+  Widget _buildAlasanPenolakanCard(String alasan) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 16),
       color: Colors.red.shade50,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.red.shade200),
       ),
       elevation: 0,
@@ -310,39 +369,32 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           children: [
             Row(
               children: [
-                Icon(Ionicons.close_circle_outline, color: Colors.red.shade700, size: 24),
+                Icon(Ionicons.close_circle_outline,
+                    color: Colors.red.shade700, size: 24),
                 const SizedBox(width: 12),
-                Text(
-                  "Pendaftaran Ditolak",
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red.shade800,
-                  ),
-                ),
+                Text("Pendaftaran Ditolak",
+                    style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade800)),
               ],
             ),
             const Divider(height: 20),
-            Text(
-              "Alasan:",
-              style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700),
-            ),
+            Text("Alasan:",
+                style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700)),
             const SizedBox(height: 4),
-            Text(
-              alasan,
-              style: GoogleFonts.poppins(fontSize: 15, color: Colors.black87),
-            ),
+            Text(alasan,
+                style:
+                    GoogleFonts.manrope(fontSize: 15, color: Colors.black87)),
           ],
         ),
       ),
     );
   }
 
-
-  // === WIDGET BARU UNTUK MENAMPILKAN GAMBAR DALAM DIALOG ===
   void _showImageDialog(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -351,64 +403,75 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         insetPadding: const EdgeInsets.all(10),
         child: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
-          child: InteractiveViewer(
-            child: Image.network(imageUrl),
-          ),
+          child: InteractiveViewer(child: Image.network(imageUrl)),
         ),
       ),
     );
   }
 
   Widget _buildStatusCard(String status) {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Icon(_getStatusIcon(status),
-                size: 70, color: _getStatusColor(status)),
-            const SizedBox(height: 16),
-            Text('Status Terkini',
-                style: GoogleFonts.poppins(
-                    fontSize: 16, color: Colors.grey.shade600)),
-            const SizedBox(height: 4),
-            Text(
-              status.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: _getStatusColor(status)),
-            ),
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color secondaryColor = Color(0xFF00B4D8);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            _getStatusColor(status).withOpacity(0.8),
+            _getStatusColor(status)
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: _getStatusColor(status).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(_getStatusIcon(status), size: 60, color: Colors.white),
+          const SizedBox(height: 16),
+          Text('Status Terkini',
+              style: GoogleFonts.manrope(
+                  fontSize: 16, color: Colors.white.withOpacity(0.9))),
+          const SizedBox(height: 4),
+          Text(status.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
+        ],
       ),
     );
   }
 
   Widget _buildRatingSection() {
     bool isAlreadyRated = _currentData['rating_hasil'] != null;
-
     return Card(
-      elevation: 2,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade300)),
       margin: const EdgeInsets.symmetric(vertical: 16.0),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              isAlreadyRated ? 'Ubah Penilaian Anda:' : 'Beri Penilaian',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              isAlreadyRated ? 'Ubah Penilaian Anda' : 'Beri Penilaian',
+              style: GoogleFonts.manrope(
+                  fontSize: 20, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _buildRatingBar(
                 title: "Kecepatan Proses",
                 currentRating: _ratingKecepatan,
@@ -424,31 +487,20 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
                 currentRating: _ratingHasil,
                 onRatingUpdate: (rating) =>
                     setState(() => _ratingHasil = rating)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             TextField(
               controller: _komentarRatingController,
-              decoration: InputDecoration(
-                labelText: 'Komentar Tambahan (Opsional)',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+              decoration: _inputDecoration("Komentar Tambahan (Opsional)",
+                  Ionicons.chatbox_ellipses_outline),
               maxLines: 3,
               readOnly: _isSubmittingRating,
             ),
-            const SizedBox(height: 20),
-            if (_isSubmittingRating)
-              const Center(child: CircularProgressIndicator())
-            else
-              ElevatedButton.icon(
-                icon: Icon(isAlreadyRated
-                    ? Icons.edit_note_rounded
-                    : Icons.send_rounded),
-                label: Text(
-                    isAlreadyRated ? 'Update Penilaian' : 'Kirim Penilaian'),
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12)),
-                onPressed: _isSubmittingRating ? null : _submitRating,
-              ),
+            const SizedBox(height: 24),
+            _GradientButton(
+              onPressed: _isSubmittingRating ? null : _submitRating,
+              text: isAlreadyRated ? 'Update Penilaian' : 'Kirim Penilaian',
+              isLoading: _isSubmittingRating,
+            )
           ],
         ),
       ),
@@ -463,20 +515,36 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 4),
+          Text(title,
+              style: GoogleFonts.manrope(
+                  fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
           RatingBar.builder(
             initialRating: currentRating,
             minRating: 1,
             itemCount: 5,
-            itemSize: 36.0,
+            itemSize: 40.0,
             itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
             itemBuilder: (context, _) =>
-                Icon(Icons.star_rounded, color: Colors.amber.shade700),
+                Icon(Ionicons.star, color: Colors.amber.shade700),
             onRatingUpdate: onRatingUpdate,
             ignoreGestures: _isSubmittingRating,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(List<Widget> children) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade300)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(children: children),
       ),
     );
   }
@@ -488,23 +556,52 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey.shade500, size: 22),
+          Icon(icon, color: Colors.grey.shade600, size: 20),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: GoogleFonts.poppins(
-                        fontSize: 14, color: Colors.grey.shade600)),
+                    style: GoogleFonts.manrope(
+                        fontSize: 14, color: Colors.grey.shade700)),
                 const SizedBox(height: 2),
                 Text(value,
-                    style: GoogleFonts.poppins(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
+                    style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87)),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    const Color primaryColor = Color(0xFF0077B6);
+    return InputDecoration(
+      hintText: label,
+      hintStyle: GoogleFonts.manrope(color: Colors.grey.shade600, fontSize: 15),
+      prefixIcon: Padding(
+        padding: const EdgeInsets.only(left: 18.0, right: 12.0),
+        child: Icon(icon, color: primaryColor, size: 22),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 2),
       ),
     );
   }
@@ -533,5 +630,69 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
     if (status.contains('ditolak') || status.contains('dibatalkan'))
       return Ionicons.close_circle_outline;
     return Ionicons.information_circle_outline;
+  }
+}
+
+// Widget Bantuan untuk Tombol Gradien
+class _GradientButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final String text;
+  final bool isLoading;
+
+  const _GradientButton(
+      {required this.onPressed, required this.text, this.isLoading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color secondaryColor = Color(0xFF00B4D8);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : Text(
+                      text,
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

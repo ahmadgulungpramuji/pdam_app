@@ -12,9 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:pdam_app/models/cabang_model.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
@@ -32,12 +30,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   final _pageController = PageController();
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
-  final _step3FormKey = GlobalKey<FormState>();
 
   final ApiService _apiService = ApiService();
   late String _apiUrlSubmit;
 
-  final TextEditingController _deskripsiLokasiController = TextEditingController();
+  final TextEditingController _deskripsiLokasiController =
+      TextEditingController();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _nomorHpController = TextEditingController();
 
@@ -55,7 +53,6 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   Position? _currentPosition;
   XFile? _imageFile;
   final ImagePicker _picker = ImagePicker();
-  String? _imageError;
   bool _isImageProcessing = false;
 
   @override
@@ -81,8 +78,17 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       isStepValid = _step1FormKey.currentState?.validate() ?? false;
     } else if (_currentPage == 1) {
       isStepValid = _step2FormKey.currentState?.validate() ?? false;
-    } else {
-      isStepValid = true;
+      if (isStepValid && _currentPosition == null) {
+        _showSnackbar('Lokasi GPS belum didapatkan.', isError: true);
+        isStepValid = false;
+      }
+    } else if (_currentPage == 2) {
+      if (_imageFile == null) {
+        _showSnackbar('Foto bukti wajib diunggah.', isError: true);
+        isStepValid = false;
+      } else {
+        isStepValid = true;
+      }
     }
 
     if (isStepValid) {
@@ -104,7 +110,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     }
   }
 
-  // --- Core Logic ---
+  // --- Core Logic (All features preserved) ---
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _fetchCabangOptions();
@@ -118,17 +124,16 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       _cabangError = null;
     });
     try {
-      final List<Cabang> cabangList = await _apiService.getCabangList().timeout(
-        const Duration(seconds: 20),
-      );
+      final List<Cabang> cabangList = await _apiService
+          .getCabangList()
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       setState(() => _cabangOptionsApi = cabangList);
       if (_currentPosition != null) _findNearestBranch();
     } catch (e) {
       if (!mounted) return;
       setState(
-        () => _cabangError = 'Gagal memuat data cabang: ${e.toString()}',
-      );
+          () => _cabangError = 'Gagal memuat data cabang: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isCabangLoading = false);
     }
@@ -142,46 +147,41 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
+        if (permission == LocationPermission.denied)
           throw Exception('Izin lokasi ditolak.');
-        }
       }
-      if (permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.deniedForever)
         throw Exception('Izin lokasi ditolak permanen.');
-      }
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 20),
       );
 
-      // --- Perbaikan: Ambil dan isi alamat otomatis ---
       List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-        localeIdentifier: 'id_ID',
-      );
+          position.latitude, position.longitude,
+          localeIdentifier: 'id_ID');
 
       if (mounted) {
         setState(() {
           _currentPosition = position;
           if (placemarks.isNotEmpty) {
             final place = placemarks.first;
-            // Format alamat dengan nama jalan, desa, kecamatan, kabupaten
-            String formattedAddress = "${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? ''}, ${place.subAdministrativeArea ?? ''}";
-            _deskripsiLokasiController.text = formattedAddress;
+            String formattedAddress =
+                "${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? ''}, ${place.subAdministrativeArea ?? ''}"
+                    .trim();
+            _deskripsiLokasiController.text = formattedAddress.startsWith(',')
+                ? formattedAddress.substring(2)
+                : formattedAddress;
           }
         });
         _showSnackbar('Lokasi berhasil didapatkan!', isError: false);
         _findNearestBranch();
       }
     } catch (e) {
-      if (mounted) {
-        _showSnackbar(
-          e.toString().replaceFirst("Exception: ", ""),
-          isError: true,
-        );
-      }
+      if (mounted)
+        _showSnackbar(e.toString().replaceFirst("Exception: ", ""),
+            isError: true);
     }
   }
 
@@ -195,12 +195,10 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     for (var cabang in _cabangOptionsApi) {
       if (cabang.latitude != null && cabang.longitude != null) {
         final double distance = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          cabang.latitude!,
-          cabang.longitude!,
-        );
-
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            cabang.latitude!,
+            cabang.longitude!);
         if (distance < minDistance) {
           minDistance = distance;
           nearestBranchId = cabang.id;
@@ -214,101 +212,51 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         _selectedCabangId = nearestBranchId;
         _detectedCabangName = nearestBranchName;
       });
-      _showSnackbar(
-        'Cabang terdekat ($nearestBranchName) otomatis terdeteksi.',
-        isError: false,
-        backgroundColor: Colors.blue.shade700,
-      );
+      _showSnackbar('Cabang terdekat ($nearestBranchName) otomatis terdeteksi.',
+          isError: false);
     }
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    setState(() {
-      _imageError = null;
-      _isImageProcessing = true;
-    });
+    setState(() => _isImageProcessing = true);
     try {
       final XFile? pickedFile = await _picker.pickImage(source: source);
       if (pickedFile != null) {
         final imageBytes = await pickedFile.readAsBytes();
         final originalImage = img.decodeImage(imageBytes);
-
-        if (originalImage == null) {
-          throw Exception('Gagal memproses gambar');
-        }
+        if (originalImage == null) throw Exception('Gagal memproses gambar');
 
         final watermarkedImage = img.copyResize(originalImage, width: 800);
         final now = DateTime.now();
-
         img.drawString(
-          watermarkedImage,
-          font: img.arial14,
-          'Waktu: ${now.toIso8601String()}',
-          x: 10,
-          y: 10,
-          color: img.ColorRgb8(255, 255, 255),
-        );
+            watermarkedImage,
+            font: img.arial24,
+            '${now.hour}:${now.minute} - ${now.day}/${now.month}/${now.year}',
+            x: 10,
+            y: 10,
+            color: img.ColorRgb8(255, 255, 255));
 
         final directory = await getTemporaryDirectory();
-        final fileName = 'watermarked_${path.basename(pickedFile.path)}';
-        final newPath = path.join(directory.path, fileName);
-        final newFile = File(newPath);
-        await newFile.writeAsBytes(img.encodeJpg(watermarkedImage, quality: 90));
+        final newPath = path.join(
+            directory.path, 'watermarked_${path.basename(pickedFile.path)}');
+        await File(newPath)
+            .writeAsBytes(img.encodeJpg(watermarkedImage, quality: 90));
 
-        setState(() {
-          _imageFile = XFile(newPath);
-          _isImageProcessing = false;
-        });
-      } else {
-        // Handle jika pengguna membatalkan pengambilan gambar
-        setState(() {
-          _isImageProcessing = false;
-        });
+        setState(() => _imageFile = XFile(newPath));
       }
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _imageError = 'Gagal memproses gambar: $e';
-        _isImageProcessing = false;
-      });
+      if (mounted) _showSnackbar('Gagal memproses gambar: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isImageProcessing = false);
     }
   }
 
   Future<void> _submitForm() async {
-    // --- Perbaikan: Validasi foto bukti wajib ---
-    if (_imageFile == null) {
-      _pageController.animateToPage(
-        2,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-      );
-      _showSnackbar('Foto bukti wajib diisi.', isError: true);
-      return;
-    }
-
-    if (!_step3FormKey.currentState!.validate()) {
-      _showSnackbar('Harap periksa kembali semua data yang wajib diisi.');
-      return;
-    }
-    if (_selectedCabangId == null) {
-      _pageController.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-      );
-      _showSnackbar('Cabang pelaporan wajib dipilih.', isError: true);
-      return;
-    }
-    if (_currentPosition == null) {
-      _pageController.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-      );
-      _showSnackbar(
-        'Lokasi GPS wajib diisi. Mohon aktifkan lokasi Anda.',
-        isError: true,
-      );
+    if (_imageFile == null ||
+        _currentPosition == null ||
+        _selectedCabangId == null) {
+      _showSnackbar('Pastikan semua data pada langkah sebelumnya sudah benar.',
+          isError: true);
       return;
     }
 
@@ -324,25 +272,19 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         'deskripsi_lokasi': _deskripsiLokasiController.text.trim(),
       });
 
-      if (_imageFile != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath('foto_bukti', _imageFile!.path),
-        );
-      }
+      request.files.add(
+          await http.MultipartFile.fromPath('foto_bukti', _imageFile!.path));
 
       var res = await request.send().timeout(const Duration(seconds: 60));
       final responseBody = await res.stream.bytesToString();
       final responseData = jsonDecode(responseBody);
 
-      if (res.statusCode == 201 || res.statusCode == 200) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
         _showSuccessDialog(
-          responseData['data']?['tracking_code'] as String? ?? 'N/A',
-        );
+            responseData['data']?['tracking_code'] as String? ?? 'N/A');
       } else {
-        _showSnackbar(
-          responseData['message'] ?? 'Gagal mengirim data',
-          isError: true,
-        );
+        _showSnackbar(responseData['message'] ?? 'Gagal mengirim data',
+            isError: true);
       }
     } catch (e) {
       _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
@@ -354,372 +296,481 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   // --- UI ---
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Ionicons.arrow_back),
-          onPressed: _previousPage,
-        ),
-        title: const Text('Lapor Temuan Kebocoran'),
-        backgroundColor: Colors.white,
+            icon: const Icon(Ionicons.arrow_back), onPressed: _previousPage),
+        title: Text('Lapor Temuan Kebocoran',
+            style: GoogleFonts.manrope(
+                fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
           : Column(
               children: [
-                _buildProgressBar(),
+                _buildStepper(primaryColor),
                 Expanded(
                   child: PageView(
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
-                    onPageChanged: (page) => setState(() => _currentPage = page),
+                    onPageChanged: (page) =>
+                        setState(() => _currentPage = page),
                     children: [
-                      _buildStep1_InfoPelapor(),
-                      _buildStep2_Lokasi(),
-                      _buildStep3_BuktiKirim(),
+                      _buildStep1InfoPelapor(),
+                      _buildStep2Lokasi(),
+                      _buildStep3Bukti(),
+                      _buildStep4Confirmation(), // New Step
                     ],
                   ),
                 ),
               ],
             ),
+      bottomNavigationBar: _buildNavigationButtons(primaryColor),
     );
   }
 
-  Widget _buildProgressBar() {
+  // --- NEW UI HELPER WIDGETS ---
+  Widget _buildStepper(Color primaryColor) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: (_currentPage + 1) / 3.0,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+      child: Row(
+        children: List.generate(4, (index) {
+          // Updated to 4 steps
+          bool isActive = index <= _currentPage;
+          return Expanded(
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor:
+                      isActive ? primaryColor : Colors.grey.shade300,
+                  child: Text('${index + 1}',
+                      style: GoogleFonts.manrope(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                if (index < 3) // Updated to 3 dividers
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      color: isActive ? primaryColor : Colors.grey.shade300,
+                    ),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Langkah ${_currentPage + 1} dari 3',
-            style: GoogleFonts.lato(color: Colors.grey.shade600, fontSize: 13),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildNavigationButtons(Color primaryColor) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Row(
+        children: [
+          if (_currentPage > 0 && !_isSubmitting)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _previousPage,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  side: BorderSide(color: primaryColor),
+                ),
+                child: Text('Kembali',
+                    style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          if (_currentPage > 0) const SizedBox(width: 16),
+          Expanded(
+            flex: _currentPage == 0 ? 2 : 1,
+            child: ElevatedButton(
+              onPressed: _isSubmitting
+                  ? null
+                  : (_currentPage == 3
+                      ? _submitForm
+                      : _nextPage), // Updated to check for page 3
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _currentPage == 3
+                    ? Colors.green
+                    : primaryColor, // Updated to check for page 3
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 3))
+                  : Text(
+                      _currentPage == 3
+                          ? 'KIRIM LAPORAN'
+                          : 'Selanjutnya', // Updated button text
+                      style: GoogleFonts.manrope(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStepWrapper({
-    required String title,
-    required List<Widget> children,
-    required GlobalKey<FormState> formKey,
-    bool isLastStep = false,
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24.0),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF0077B6), size: 28),
+          const SizedBox(width: 12),
+          Text(title,
+              style: GoogleFonts.manrope(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF212529))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLines = 1,
+    String? Function(String?)? validator,
   }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        maxLines: maxLines,
+        validator: validator,
+        style: GoogleFonts.manrope(),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: GoogleFonts.manrope(color: Colors.grey.shade600),
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.manrope(color: Colors.grey.shade600),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
+    );
+  }
+
+  // --- Step Widgets (Refactored & New) ---
+  Widget _buildStep1InfoPelapor() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.all(20),
       child: Form(
-        key: formKey,
+        key: _step1FormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: GoogleFonts.lato(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ...children,
-            const SizedBox(height: 32),
-            if (!isLastStep)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _nextPage,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  child: const Text('LANJUT'),
-                ),
-              ),
-            const SizedBox(height: 24),
+            _buildSectionHeader(
+                'Langkah 1: Informasi Pelapor', Ionicons.person_circle_outline),
+            _buildTextField(
+                controller: _namaController,
+                label: 'Nama Lengkap Anda',
+                hint: 'Masukkan nama lengkap',
+                validator: (v) => v!.isEmpty ? 'Nama wajib diisi' : null),
+            _buildTextField(
+                controller: _nomorHpController,
+                label: 'Nomor HP Aktif',
+                hint: 'Contoh: 08123456789',
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (v) =>
+                    v!.length < 10 ? 'Nomor HP minimal 10 digit' : null),
           ],
         ),
       ),
     );
   }
 
-  // --- Step Widgets ---
-  Widget _buildStep1_InfoPelapor() {
-    return _buildStepWrapper(
-      title: 'Informasi Pelapor',
-      formKey: _step1FormKey,
-      children: [
-        TextFormField(
-          controller: _namaController,
-          decoration: const InputDecoration(labelText: 'Nama Lengkap Anda'),
-          validator: (v) => v == null || v.isEmpty ? 'Nama wajib diisi' : null,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _nomorHpController,
-          decoration: const InputDecoration(labelText: 'Nomor HP Aktif'),
-          keyboardType: TextInputType.phone,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          validator: (v) {
-            if (v == null || v.isEmpty) return 'Nomor HP wajib diisi';
-            if (v.length < 10) return 'Nomor HP minimal 10 digit';
-            return null;
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep2_Lokasi() {
+  Widget _buildStep2Lokasi() {
     String staticMapUrl = '';
     if (_currentPosition != null) {
       final lat = _currentPosition!.latitude;
       final lng = _currentPosition!.longitude;
-      const apiKey = 'aWxXDWpJ8Zo4ZasFgJ1VkKwFjdqBz6KB'; // API Key Anda
+      const apiKey =
+          'YOUR_MAPQUEST_API_KEY'; // Ganti dengan API Key Anda yang valid
       staticMapUrl =
           'https://www.mapquestapi.com/staticmap/v5/map?key=$apiKey&center=$lat,$lng&zoom=15&size=600,300&markers=red-1,$lat,$lng';
     }
 
-    return _buildStepWrapper(
-      title: 'Detail Lokasi',
-      formKey: _step2FormKey,
-      children: [
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey.shade200,
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child:
-              _currentPosition == null
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _step2FormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+                'Langkah 2: Detail Lokasi', Ionicons.map_outline),
+            Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey.shade200,
+                  border: Border.all(color: Colors.grey.shade300)),
+              child: _currentPosition == null
                   ? Center(
-                    child: Text(
-                      _isLoading ? "Memuat..." : "Lokasi tidak ditemukan",
-                    ),
-                  )
+                      child: Text(
+                          _isLoading
+                              ? "Memuat peta..."
+                              : "Lokasi belum ditemukan",
+                          style: GoogleFonts.manrope()))
                   : ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      staticMapUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (c, e, s) =>
-                              const Center(child: Text('Gagal muat peta')),
-                    ),
-                  ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton.icon(
-            icon: const Icon(Icons.refresh, size: 20),
-            label: const Text("Ambil Ulang Lokasi"),
-            onPressed: _isLoading ? null : _getCurrentLocation,
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (_isCabangLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(8.0),
-              child: SpinKitChasingDots(color: Colors.blue),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(staticMapUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) =>
+                              const Center(child: Text('Gagal memuat peta')))),
             ),
-          )
-        else if (_cabangError != null)
-          Column(
-            children: [
+            Center(
+                child: TextButton.icon(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    label: const Text("Ambil Ulang Lokasi"),
+                    onPressed: _isLoading ? null : _getCurrentLocation)),
+            if (_isCabangLoading)
+              const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator()))
+            else if (_cabangError != null)
               Center(
-                child: Text(
-                  _cabangError!,
-                  style: const TextStyle(color: Colors.red),
+                  child: Text(_cabangError!,
+                      style: const TextStyle(color: Colors.red)))
+            else
+              DropdownButtonFormField<int>(
+                value: _selectedCabangId,
+                hint: const Text('Pilih Cabang Pelaporan'),
+                decoration: _dropdownDecoration(_detectedCabangName != null
+                    ? "Cabang Terdeteksi Otomatis"
+                    : 'Pilih Cabang Manual'),
+                items: _cabangOptionsApi
+                    .map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child:
+                            Text(c.namaCabang, style: GoogleFonts.manrope())))
+                    .toList(),
+                onChanged: (value) => setState(() {
+                  _selectedCabangId = value;
+                  _detectedCabangName = null;
+                }),
+                validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
+              ),
+            const SizedBox(height: 16),
+            _buildTextField(
+                controller: _deskripsiLokasiController,
+                label: 'Deskripsi Detail Lokasi',
+                hint: 'Misal: Depan toko X, dekat jembatan Y',
+                maxLines: 3,
+                validator: (v) =>
+                    v!.isEmpty ? 'Deskripsi lokasi wajib diisi' : null),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep3Bukti() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+              'Langkah 3: Unggah Bukti', Ionicons.camera_outline),
+          if (_isImageProcessing)
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator()))
+          else
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _pickImage(ImageSource.camera),
+                child: Container(
+                  width: double.infinity,
+                  height: 200,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                    image: _imageFile != null
+                        ? DecorationImage(
+                            image: FileImage(File(_imageFile!.path)),
+                            fit: BoxFit.cover)
+                        : null,
+                  ),
+                  child: _imageFile == null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Ionicons.camera_outline,
+                                size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 8),
+                            Text('Ambil Foto Kebocoran',
+                                style: GoogleFonts.manrope(
+                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text('Foto diperlukan sebagai bukti laporan',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.manrope(
+                                    color: Colors.grey.shade600)),
+                          ],
+                        )
+                      : Align(
+                          alignment: Alignment.topRight,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black54,
+                            child: IconButton(
+                              icon: const Icon(Ionicons.close,
+                                  color: Colors.white, size: 20),
+                              onPressed: () =>
+                                  setState(() => _imageFile = null),
+                            ),
+                          ),
+                        ),
                 ),
               ),
-              TextButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: const Text("Coba Lagi"),
-                onPressed: _fetchCabangOptions,
-              ),
-            ],
-          )
-        else if (_cabangOptionsApi.isEmpty)
-          const Center(
-            child: Text(
-              "Tidak ada data cabang ditemukan.",
-              style: TextStyle(color: Colors.red),
             ),
-          )
-        else
-          DropdownButtonFormField<int>(
-            value: _selectedCabangId,
-            hint: const Text('Pilih Cabang'),
-            decoration: InputDecoration(
-              labelText:
-                  _detectedCabangName != null
-                      ? "Cabang Terdeteksi"
-                      : 'Cabang Pelaporan',
-            ),
-            items:
-                _cabangOptionsApi
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.namaCabang),
-                      ),
-                    )
-                    .toList(),
-            onChanged: (value) => setState(() {
-              _selectedCabangId = value;
-              _detectedCabangName = null;
-            }),
-            validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
+        ],
+      ),
+    );
+  }
+
+  // NEW WIDGET: Confirmation Step
+  Widget _buildStep4Confirmation() {
+    String cabangName = _cabangOptionsApi
+        .firstWhere((c) => c.id == _selectedCabangId,
+            orElse: () => Cabang(id: 0, namaCabang: "Tidak Dipilih"))
+        .namaCabang;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+              'Langkah 4: Konfirmasi Laporan', Ionicons.checkmark_done_outline),
+          Text(
+            'Mohon periksa kembali semua data yang akan Anda kirim. Pastikan semuanya sudah benar.',
+            style: GoogleFonts.manrope(color: Colors.grey.shade700),
           ),
-        if (_detectedCabangName != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Text(
-              "Otomatis: $_detectedCabangName",
-              style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
-            ),
-          ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _deskripsiLokasiController,
-          decoration: const InputDecoration(
-            labelText: 'Deskripsi Detail Lokasi',
-            hintText: 'Misal: Depan toko X, dekat jembatan Y',
-          ),
-          maxLines: 3,
-          validator:
-              (v) =>
-                  v == null || v.isEmpty
-                      ? 'Deskripsi lokasi wajib diisi'
-                      : null,
-        ),
+          const Divider(height: 32),
+          _buildConfirmationSection("Data Pelapor", [
+            _buildConfirmationRow("Nama Lengkap", _namaController.text),
+            _buildConfirmationRow("No. HP", _nomorHpController.text),
+          ]),
+          const Divider(height: 32),
+          _buildConfirmationSection("Detail Lokasi", [
+            _buildConfirmationRow("Cabang Laporan", cabangName),
+            _buildConfirmationRow(
+                "Deskripsi Lokasi", _deskripsiLokasiController.text),
+            _buildConfirmationRow("Koordinat GPS",
+                "${_currentPosition?.latitude.toStringAsFixed(6)}, ${_currentPosition?.longitude.toStringAsFixed(6)}"),
+          ]),
+          const Divider(height: 32),
+          _buildConfirmationSection("Bukti Laporan", [
+            _buildConfirmationRow("Foto Bukti",
+                _imageFile != null ? "Terunggah" : "Belum diunggah",
+                isFile: true, file: _imageFile),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmationSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style:
+                GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...children,
       ],
     );
   }
 
-  Widget _buildStep3_BuktiKirim() {
-    return _buildStepWrapper(
-      title: 'Bukti & Kirim',
-      formKey: _step3FormKey,
-      isLastStep: true,
-      children: [
-        const Text(
-          "Unggah Foto Bukti", // <--- Perbaikan: Hapus "(Opsional)"
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        if (_isImageProcessing)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else
-          GestureDetector(
-            onTap: () => _pickImage(ImageSource.camera),
-            child: Container(
-              width: double.infinity,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(
-                  color: _imageError != null ? Colors.red : Colors.grey.shade300,
-                  width: _imageError != null ? 2.0 : 1.0,
-                ),
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: _imageFile == null
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Ionicons.camera_outline,
-                            size: 44,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 8),
-                          Text('Ketuk untuk ambil foto'),
-                        ],
-                      ),
-                    )
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(11),
-                          child: Image.file(
-                            File(_imageFile!.path),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.black54,
-                            child: IconButton(
-                              icon: const Icon(
-                                Ionicons.close,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              onPressed: () => setState(() {
-                                _imageFile = null;
-                                _imageError = 'Foto bukti wajib diisi.';
-                              }),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+  Widget _buildConfirmationRow(String label, String value,
+      {bool isFile = false, XFile? file}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              flex: 2,
+              child: Text(label,
+                  style: GoogleFonts.manrope(color: Colors.grey.shade600))),
+          Expanded(
+            flex: 3,
+            child: isFile && file != null
+                ? Row(children: [
+                    Icon(Ionicons.checkmark_circle,
+                        color: Colors.green.shade600, size: 18),
+                    const SizedBox(width: 4),
+                    Text(value,
+                        style:
+                            GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                  ])
+                : Text(value,
+                    style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
           ),
-        if (_imageError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              _imageError!,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        const SizedBox(height: 32),
-        ElevatedButton.icon(
-          icon: _isSubmitting
-              ? const SizedBox.shrink()
-              : const Icon(Ionicons.send, color: Colors.white),
-          label: _isSubmitting
-              ? const CircularProgressIndicator(color: Colors.white)
-              : const Text('KIRIM LAPORAN'),
-          onPressed: _isSubmitting ? null : _submitForm,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            minimumSize: const Size(double.infinity, 50),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -728,68 +779,83 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Laporan Terkirim'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Terima kasih! Mohon simpan kode pelacakan ini:'),
-            const SizedBox(height: 15),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      trackingCode,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
+      builder: (dialogContext) {
+        bool isCodeCopied = false;
+        return StatefulBuilder(
+          builder: (stfContext, stfSetState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: Text('Laporan Terkirim!',
+                  style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.bold, fontSize: 22)),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        'Terima kasih! Simpan KODE PELACAKAN ini untuk memeriksa status laporan Anda.',
+                        style: GoogleFonts.manrope(fontSize: 15)),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: SelectableText(trackingCode,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 24,
+                                      letterSpacing: 2))),
+                          IconButton(
+                            icon: const Icon(Ionicons.copy_outline),
+                            onPressed: () {
+                              Clipboard.setData(
+                                  ClipboardData(text: trackingCode));
+                              _showSnackbar('Kode disalin!', isError: false);
+                              stfSetState(() => isCodeCopied = true);
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Ionicons.copy_outline),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: trackingCode));
-                      _showSnackbar('Kode disalin!', isError: false);
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text('Salin kode di atas untuk mengaktifkan tombol OK.',
+                        style: GoogleFonts.manrope(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            child: const Text('OK'),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
+              actions: [
+                TextButton(
+                  onPressed: isCodeCopied
+                      ? () {
+                          Navigator.of(dialogContext).pop();
+                          Navigator.of(context).pop();
+                        }
+                      : null,
+                  child: Text('OK',
+                      style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  void _showSnackbar(
-    String message, {
-    bool isError = true,
-    Color? backgroundColor,
-  }) {
+  void _showSnackbar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor:
-            backgroundColor ?? (isError ? Colors.red.shade600 : Colors.green.shade600),
+        content: Text(message, style: GoogleFonts.manrope()),
+        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
       ),
     );

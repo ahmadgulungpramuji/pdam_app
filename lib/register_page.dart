@@ -4,7 +4,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pdam_app/api_service.dart'; // Pastikan path ini benar
+import 'package:pdam_app/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 
@@ -47,8 +47,45 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   // --- Navigation Logic ---
-  void _nextPage() {
-    if (_currentPage < 3) {
+  void _nextPage() async {
+    bool isStepValid = false;
+    switch (_currentPage) {
+      case 0:
+        if (_step1FormKey.currentState?.validate() ?? false) {
+          if (_otomatisPilihCabang()) {
+            isStepValid = true;
+          } else {
+            _showInvalidIdDialog();
+          }
+        }
+        break;
+      case 1:
+        isStepValid = _step2FormKey.currentState?.validate() ?? false;
+        break;
+      case 2:
+        if (_step3FormKey.currentState?.validate() ?? false) {
+          setState(() => _isLoading = true);
+          try {
+            final nomorSudahAda = await _apiService
+                .checkNomorHpExists(_nomorHpController.text.trim());
+            if (nomorSudahAda) {
+              _showSnackbar(
+                  'Nomor WA ini sudah terdaftar. Silakan gunakan nomor lain.',
+                  isError: true);
+            } else {
+              isStepValid = true;
+            }
+          } catch (e) {
+            _showSnackbar('Gagal memverifikasi nomor: ${e.toString()}',
+                isError: true);
+          } finally {
+            if (mounted) setState(() => _isLoading = false);
+          }
+        }
+        break;
+    }
+
+    if (isStepValid) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -63,7 +100,6 @@ class _RegisterPageState extends State<RegisterPage> {
         curve: Curves.easeInOut,
       );
     } else {
-      // If on the first page, pop the navigator
       Navigator.of(context).pop();
     }
   }
@@ -71,35 +107,20 @@ class _RegisterPageState extends State<RegisterPage> {
   // --- Business Logic ---
   bool _otomatisPilihCabang() {
     final idPdam = _idPelangganController.text.trim();
-    _selectedCabangId = null; // Reset first
+    _selectedCabangId = null;
     if (idPdam.length >= 2) {
       final duaDigit = idPdam.substring(0, 2);
-      switch (duaDigit) {
-        case '10':
-          _selectedCabangId = 1;
-          break;
-        case '12':
-          _selectedCabangId = 2;
-          break;
-        case '15':
-          _selectedCabangId = 3;
-          break;
-        case '20':
-          _selectedCabangId = 4;
-          break;
-        case '30':
-          _selectedCabangId = 5;
-          break;
-        case '40':
-          _selectedCabangId = 6;
-          break;
-        case '50':
-          _selectedCabangId = 7;
-          break;
-        case '60':
-          _selectedCabangId = 8;
-          break;
-      }
+      const Map<String, int> cabangMapping = {
+        '10': 1,
+        '12': 2,
+        '15': 3,
+        '20': 4,
+        '30': 5,
+        '40': 6,
+        '50': 7,
+        '60': 8
+      };
+      _selectedCabangId = cabangMapping[duaDigit];
     }
     return _selectedCabangId != null;
   }
@@ -107,7 +128,6 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     setState(() => _isLoading = true);
     try {
-      // Panggil API
       final response = await _apiService.registerPelanggan(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
@@ -116,66 +136,40 @@ class _RegisterPageState extends State<RegisterPage> {
         idCabang: _selectedCabangId!,
       );
 
-      // Langkah 1: Cek status kode TERLEBIH DAHULU
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Jika sukses, BARU decode JSON
-        final responseData = jsonDecode(response.body);
-        final idPelangganBaru = responseData['user']?['id'] as int?;
+      final responseData = jsonDecode(response.body);
 
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final idPelangganBaru = responseData['user']?['id'] as int?;
         if (idPelangganBaru == null) {
-          _showSnackbar(
-            'Registrasi gagal: ID pelanggan tidak diterima dari server.',
-            isError: true,
-          );
-          return; // Hentikan proses jika ID tidak ada
+          throw Exception('Registrasi gagal: ID pelanggan tidak diterima.');
         }
 
-        // Lanjutkan proses membuat ID PDAM
         final pdamRes = await _apiService.createIdPdam(
           nomor: _idPelangganController.text.trim(),
           idPelanggan: idPelangganBaru,
         );
 
-        if (pdamRes.statusCode == 201 || pdamRes.statusCode == 200) {
-          _showSnackbar('Registrasi berhasil!', isError: false);
+        if (pdamRes.statusCode >= 200 && pdamRes.statusCode < 300) {
+          _showSnackbar('Registrasi berhasil! Silakan login.', isError: false);
           Navigator.of(context).pop();
         } else {
-          // Gagal saat membuat ID PDAM
           final pdamErrorData = jsonDecode(pdamRes.body);
-          _showSnackbar(
-            'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamErrorData['message'] ?? 'Error tidak diketahui'}',
-            isError: true,
-          );
+          throw Exception(
+              'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamErrorData['message']}');
         }
       } else {
-        // Jika status kode BUKAN 200/201, tangani sebagai error
-        final responseData = jsonDecode(response.body);
         String errorMessage =
             responseData['message'] ?? 'Terjadi kesalahan pada server.';
-
-        // Cek jika ada pesan validasi spesifik dari Laravel
         if (responseData.containsKey('errors')) {
           final errors = responseData['errors'] as Map<String, dynamic>;
-          if (errors.containsKey('nomor_hp')) {
-            // Ubah pesan dari server menjadi lebih ramah
-            errorMessage =
-                'Nomor HP ini sudah terdaftar. Silakan gunakan nomor yang lain.';
-          } else if (errors.containsKey('email')) {
-            errorMessage =
-                'Email ini sudah terdaftar. Silakan gunakan email yang lain.';
-          } else if (errors.containsKey('username')) {
-            errorMessage =
-                'Username ini sudah digunakan. Silakan pilih username lain.';
-          } else {
-            // Ambil pesan error pertama jika bukan soal nomor HP
-            errorMessage = errors.values.first[0];
-          }
+          errorMessage = errors.values.first[0];
         }
-        _showSnackbar('Registrasi gagal: $errorMessage', isError: true);
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      // Tangani error jaringan atau error saat parsing JSON
-      _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
+      _showSnackbar(
+          'Registrasi Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
+          isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -185,7 +179,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: GoogleFonts.manrope()),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
       ),
@@ -195,412 +189,366 @@ class _RegisterPageState extends State<RegisterPage> {
   void _showInvalidIdDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Nomor Tidak Valid'),
-            content: const Text(
-              'Nomor pelanggan yang Anda masukkan tidak dikenali atau tidak valid. Harap periksa kembali.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+      builder: (context) => AlertDialog(
+        title: Text('Nomor Pelanggan Tidak Valid',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+        content: Text(
+            'Nomor pelanggan yang Anda masukkan tidak dikenali. Harap periksa kembali.',
+            style: GoogleFonts.manrope()),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK')),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Ionicons.arrow_back),
-          onPressed: _previousPage,
-          tooltip: 'Kembali',
-        ),
-        title: const Text('Daftar Baru'),
-        backgroundColor: Colors.white,
+            icon: const Icon(Ionicons.arrow_back), onPressed: _previousPage),
+        title: Text('Daftar Akun Pelanggan',
+            style: GoogleFonts.manrope(
+                fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              _buildProgressBar(),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (page) => setState(() => _currentPage = page),
-                  children: [
-                    _buildStep1(),
-                    _buildStep2(),
-                    _buildStep3(),
-                    _buildStep4Confirmation(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
+          _buildStepper(primaryColor),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              children: [
+                _buildStep1(),
+                _buildStep2(),
+                _buildStep3(),
+                _buildStep4Confirmation(),
+              ],
             ),
+          ),
         ],
       ),
+      bottomNavigationBar: _buildNavigationButtons(primaryColor),
     );
   }
 
-  Widget _buildProgressBar() {
-    final double progress = (_currentPage + 1) / 4.0;
+  // --- UI WIDGETS ---
+  Widget _buildStepper(Color primaryColor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+      child: Row(
+        children: List.generate(4, (index) {
+          bool isActive = index <= _currentPage;
+          return Expanded(
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor:
+                      isActive ? primaryColor : Colors.grey.shade300,
+                  child: Text('${index + 1}',
+                      style: GoogleFonts.manrope(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                if (index < 3)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      color: isActive ? primaryColor : Colors.grey.shade300,
+                    ),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Langkah ${_currentPage + 1} dari 4',
-            style: GoogleFonts.lato(color: Colors.grey.shade600, fontSize: 13),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildNavigationButtons(Color primaryColor) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Row(
+        children: [
+          if (_currentPage > 0 && !_isLoading)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _previousPage,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  side: BorderSide(color: primaryColor),
+                ),
+                child: Text('Kembali',
+                    style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          if (_currentPage > 0) const SizedBox(width: 16),
+          Expanded(
+            flex: _currentPage == 0 ? 2 : 1,
+            child: ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : (_currentPage == 3 ? _register : _nextPage),
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    _currentPage == 3 ? Colors.green : primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isLoading && _currentPage == 3
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 3))
+                  : Text(
+                      _currentPage == 3 ? 'DAFTAR SEKARANG' : 'Selanjutnya',
+                      style: GoogleFonts.manrope(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStepContainer({
-    required String title,
-    required String subtitle,
-    required Widget form,
-    required VoidCallback onContinue,
-    required GlobalKey<FormState> formKey,
-  }) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24.0),
+      child: Row(
         children: [
-          Text(
-            title,
-            style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: GoogleFonts.lato(fontSize: 16, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 32),
-          Form(key: formKey, child: form),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed:
-                  _isLoading
-                      ? null
-                      : onContinue, // Disable button while loading
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(
-                  fontSize: 16,
+          Icon(icon, color: const Color(0xFF0077B6), size: 28),
+          const SizedBox(width: 12),
+          Text(title,
+              style: GoogleFonts.manrope(
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                ),
-              ),
-              child: const Text('LANJUT'),
-            ),
-          ),
+                  color: const Color(0xFF212529))),
         ],
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        obscureText: obscureText,
+        validator: validator,
+        style: GoogleFonts.manrope(),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: GoogleFonts.manrope(color: Colors.grey.shade600),
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          suffixIcon: suffixIcon,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepWrapper(
+      {required Widget child, required GlobalKey<FormState> formKey}) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(key: formKey, child: child),
     );
   }
 
   Widget _buildStep1() {
-    return _buildStepContainer(
-      title: 'Masukkan Nomor Pelanggan',
-      subtitle: 'Gunakan Nomor Sambungan Langganan (NSL) Anda untuk memulai.',
+    return _buildStepWrapper(
       formKey: _step1FormKey,
-      form: TextFormField(
-        controller: _idPelangganController,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(
-          labelText: 'Nomor Pelanggan (NSL)',
-          prefixIcon: Icon(Ionicons.barcode_outline),
-        ),
-        validator:
-            (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
-        onChanged: (_) => setState(() {}),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+              'Langkah 1: Verifikasi Nomor', Ionicons.barcode_outline),
+          _buildTextField(
+              controller: _idPelangganController,
+              label: 'Nomor Pelanggan (NSL)',
+              hint: 'Masukkan Nomor Sambungan Langganan',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: (v) =>
+                  v!.isEmpty ? 'Nomor pelanggan wajib diisi' : null),
+        ],
       ),
-      onContinue: () {
-        if (_step1FormKey.currentState!.validate()) {
-          if (_otomatisPilihCabang()) {
-            _nextPage();
-          } else {
-            _showInvalidIdDialog();
-          }
-        }
-      },
     );
   }
 
   Widget _buildStep2() {
-    return _buildStepContainer(
-      title: 'Pilih Username Anda',
-      subtitle: 'Username ini akan digunakan untuk login ke aplikasi.',
+    return _buildStepWrapper(
       formKey: _step2FormKey,
-      form: TextFormField(
-        controller: _usernameController,
-        decoration: const InputDecoration(
-          labelText: 'Username',
-          prefixIcon: Icon(Ionicons.person_outline),
-        ),
-        validator:
-            (value) =>
-                value == null || value.isEmpty ? 'Username wajib diisi' : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+              'Langkah 2: Atur Akun', Ionicons.person_circle_outline),
+          _buildTextField(
+              controller: _usernameController,
+              label: 'Username',
+              hint: 'Buat username unik Anda',
+              validator: (v) => v!.isEmpty ? 'Username wajib diisi' : null),
+          _buildTextField(
+            controller: _passwordController,
+            label: 'Password',
+            hint: 'Minimal 8 karakter',
+            obscureText: !_passwordVisible,
+            suffixIcon: IconButton(
+              icon: Icon(_passwordVisible
+                  ? Ionicons.eye_outline
+                  : Ionicons.eye_off_outline),
+              onPressed: () =>
+                  setState(() => _passwordVisible = !_passwordVisible),
+            ),
+            validator: (v) =>
+                (v?.length ?? 0) < 8 ? 'Password minimal 8 karakter' : null,
+          ),
+        ],
       ),
-      onContinue: () {
-        if (_step2FormKey.currentState!.validate()) {
-          _nextPage();
-        }
-      },
     );
   }
 
   Widget _buildStep3() {
-    return _buildStepContainer(
-      title: 'Lengkapi Data Diri',
-      subtitle: 'Hampir selesai! Mohon isi data berikut.',
+    return _buildStepWrapper(
       formKey: _step3FormKey,
-      form: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email (Opsional)',
-              prefixIcon: Icon(Ionicons.mail_outline),
-            ),
-            validator: (value) {
-              if (value != null &&
-                  value.isNotEmpty &&
-                  !RegExp(
-                    r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-                  ).hasMatch(value)) {
-                return 'Format email tidak valid';
-              }
-
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _nomorHpController,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              labelText: 'Nomor WA',
-              prefixIcon: Icon(Ionicons.logo_whatsapp),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Nomor WA wajib diisi';
-              }
-              if (value.length < 10) {
-                return 'Nomor WA minimal 10 digit';
-              }
-              // TAMBAHKAN VALIDASI INI
-              if (value.length > 14) {
-                return 'Nomor WA terlalu banyak';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: !_passwordVisible,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Ionicons.lock_closed_outline),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _passwordVisible
-                      ? Ionicons.eye_outline
-                      : Ionicons.eye_off_outline,
-                ),
-                onPressed:
-                    () => setState(() => _passwordVisible = !_passwordVisible),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Password wajib diisi';
-              }
-              if (value.length < 8) {
-                return 'Password minimal 8 karakter'; // Pesan diubah
-              }
-              return null;
-            },
-          ),
+          _buildSectionHeader('Langkah 3: Data Kontak', Ionicons.call_outline),
+          _buildTextField(
+              controller: _nomorHpController,
+              label: 'Nomor WhatsApp Aktif',
+              hint: 'Contoh: 081234567890',
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Nomor WA wajib diisi';
+                if (v.length < 10) return 'Nomor WA minimal 10 digit';
+                return null;
+              }),
+          _buildTextField(
+              controller: _emailController,
+              label: 'Email (Opsional)',
+              hint: 'email@contoh.com',
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                if (v != null &&
+                    v.isNotEmpty &&
+                    !RegExp(r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                        .hasMatch(v)) {
+                  return 'Format email tidak valid';
+                }
+                return null;
+              }),
         ],
       ),
-      onContinue: () async {
-        // 1. Validasi form seperti biasa
-        if (!_step3FormKey.currentState!.validate()) {
-          return;
-        }
-
-        // 2. Tampilkan loading dan mulai pengecekan
-        setState(() => _isLoading = true);
-        try {
-          // Panggil API untuk cek nomor HP
-          final nomorSudahAda = await _apiService.checkNomorHpExists(
-            _nomorHpController.text.trim(),
-          );
-
-          // 3. Logika berdasarkan hasil pengecekan
-          if (nomorSudahAda) {
-            _showSnackbar(
-              'Nomor WA ini sudah terdaftar. Silakan gunakan nomor lain.',
-              isError: true,
-            );
-          } else {
-            // Jika nomor tersedia, baru lanjut ke halaman berikutnya
-            _nextPage();
-          }
-        } catch (e) {
-          // Tangani jika terjadi error saat memanggil API
-          _showSnackbar(
-            'Gagal memverifikasi nomor: ${e.toString()}',
-            isError: true,
-          );
-        } finally {
-          // 4. Selalu sembunyikan loading setelah selesai
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
-        }
-      },
     );
   }
 
   Widget _buildStep4Confirmation() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildSectionHeader(
+              'Langkah 4: Konfirmasi Data', Ionicons.checkmark_done_outline),
           Text(
-            'Konfirmasi Data Anda',
-            style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold),
+            'Mohon periksa kembali semua data yang telah Anda masukkan sebelum mendaftar.',
+            style: GoogleFonts.manrope(color: Colors.grey.shade700),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Pastikan semua data di bawah ini sudah benar sebelum mendaftar.',
-            style: GoogleFonts.lato(fontSize: 16, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 32),
-          Card(
-            elevation: 0,
-            color: Colors.grey.shade100,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  _buildConfirmationTile(
-                    Ionicons.barcode_outline,
-                    'Nomor Pelanggan',
-                    _idPelangganController.text,
-                  ),
-                  _buildConfirmationTile(
-                    Ionicons.person_outline,
-                    'Username',
-                    _usernameController.text,
-                  ),
-
-                  // Tampilkan Email hanya jika diisi
-                  if (_emailController.text.isNotEmpty)
-                    _buildConfirmationTile(
-                      Ionicons.mail_outline,
-                      'Email',
-                      _emailController.text,
-                    ),
-
-                  _buildConfirmationTile(
-                    Ionicons.logo_whatsapp, // Icon diperbarui
-                    'Nomor WA', // Label diperbarui
-
-                    _nomorHpController.text,
-                  ),
-                  _buildConfirmationTile(
-                    Ionicons.lock_closed_outline,
-                    'Password',
-                    '********',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _register,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              child:
-                  _isLoading
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                      : const Text('DAFTAR SEKARANG'),
-            ),
-          ),
+          const Divider(height: 32),
+          _buildConfirmationSection("Data Pelanggan", [
+            _buildConfirmationRow(
+                "Nomor Pelanggan", _idPelangganController.text),
+          ]),
+          const Divider(height: 32),
+          _buildConfirmationSection("Data Akun", [
+            _buildConfirmationRow("Username", _usernameController.text),
+            _buildConfirmationRow("Password", "********"),
+          ]),
+          const Divider(height: 32),
+          _buildConfirmationSection("Data Kontak", [
+            _buildConfirmationRow("Nomor WhatsApp", _nomorHpController.text),
+            _buildConfirmationRow("Email",
+                _emailController.text.isEmpty ? "-" : _emailController.text),
+          ]),
         ],
       ),
     );
   }
 
-  Widget _buildConfirmationTile(IconData icon, String title, String subtitle) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue.shade700),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(
-        subtitle.isEmpty ? '-' : subtitle, // Tampilkan strip jika kosong
-        style: GoogleFonts.lato(fontSize: 15),
+  Widget _buildConfirmationSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style:
+                GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildConfirmationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              flex: 2,
+              child: Text(label,
+                  style: GoogleFonts.manrope(color: Colors.grey.shade600))),
+          Expanded(
+            flex: 3,
+            child: Text(value,
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
-      dense: true,
     );
   }
 }
