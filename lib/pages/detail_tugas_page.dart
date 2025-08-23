@@ -55,7 +55,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     }
   }
 
-  // ... (semua fungsi lain seperti _setLoading, _showSnackbar, _updateStatus, dll. tetap sama persis)
   void _setLoading(bool loading) {
     if (mounted) setState(() => _isLoading = loading);
   }
@@ -173,9 +172,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     }
   }
 
-  // Widget _buildKontakRow yang lama sudah dihapus dan digantikan _buildKontakSection
-
-  // --- WIDGET BARU YANG MENGGANTIKAN _buildKontakRow ---
   Widget _buildKontakSection(KontakInfo kontak) {
     // Logika untuk menentukan apakah tombol chat harus ditampilkan
     final bool canChat = _tugasSaatIni.isPetugasPelapor &&
@@ -245,14 +241,13 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                 },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  foregroundColor: Colors.green.shade700, // Warna ikon dan teks
-                  side:
-                      BorderSide(color: Colors.green.shade700), // Warna border
+                  foregroundColor: Colors.green.shade700,
+                  side: BorderSide(color: Colors.green.shade700),
                   textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
-            const SizedBox(width: 8), // Perkecil jarak antar tombol
+            const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(
@@ -263,9 +258,25 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                 onPressed: !canChat || _isLoading
                     ? null
                     : () async {
+                        // ====================== PERUBAHAN DI SINI ======================
+
+                        // Cek apakah objek cabang dan ID-nya ada.
+                        // Anda mungkin perlu menyesuaikan ini dengan struktur model Tugas Anda.
+                        // Asumsi: _tugasSaatIni.cabang adalah Map<String, dynamic>
+                        final cabangData =
+                            _tugasSaatIni.cabang as Map<String, dynamic>?;
+                        final int? cabangId = cabangData?['id'] as int?;
+
+                        if (cabangId == null) {
+                          _showSnackbar(
+                              'Gagal memulai chat: Informasi cabang untuk tugas ini tidak ditemukan.');
+                          return;
+                        }
+                        // ===============================================================
+
                         _setLoading(true);
                         try {
-                          final otherUser = {
+                          final pelangganInfo = {
                             'id': kontak.id,
                             'nama': kontak.nama,
                             'firebase_uid': kontak.firebaseUid,
@@ -276,7 +287,9 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                             tipeTugas: _tugasSaatIni.tipeTugas,
                             idTugas: _tugasSaatIni.idTugas,
                             currentUser: _currentUserData!,
-                            otherUser: otherUser,
+                            otherUsers: [pelangganInfo],
+                            cabangId:
+                                cabangId, // <-- Gunakan cabangId yang sudah divalidasi
                           );
 
                           if (mounted) {

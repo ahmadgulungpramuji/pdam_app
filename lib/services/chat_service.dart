@@ -166,32 +166,56 @@ class ChatService {
 
   /// Untuk Chat 1-on-1 Pelanggan <-> Petugas
   Future<String> getOrCreateTugasChatThread({
-    required String tipeTugas, // 'pengaduan' atau 'temuan'
+    required String tipeTugas,
     required int idTugas,
-    required Map<String, dynamic> currentUser, // bisa pelanggan atau petugas
-    required Map<String, dynamic> otherUser, // bisa pelanggan atau petugas
+    required Map<String, dynamic> currentUser,
+    // --- UBAH INI ---
+    // Sekarang otherUsers adalah List
+    required List<dynamic> otherUsers,
+    // --- TAMBAHKAN INI ---
+    // Tambahkan parameter untuk cabangId agar bisa disimpan
+    required int cabangId,
   }) async {
+    // ID thread tetap unik berdasarkan tugas/laporan
     final threadId = '${tipeTugas}_$idTugas';
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
     final doc = await threadRef.get();
 
     if (!doc.exists) {
       final currentUserUid = currentUser['firebase_uid'];
-      final otherUserUid = otherUser['firebase_uid'];
       final currentUserName = currentUser['nama'];
+
+      // --- AWAL PERUBAHAN LOGIKA ---
+      // Buat map participants, dimulai dari user saat ini
+      Map<String, bool> participants = {currentUserUid: true};
+      Map<String, dynamic> participantNames = {currentUserUid: currentUserName};
+
+      // Loop melalui daftar otherUsers (sekarang berisi para admin)
+      for (var user in otherUsers) {
+        if (user['firebase_uid'] != null) {
+          participants[user['firebase_uid']] = true;
+          participantNames[user['firebase_uid']] = user['nama'];
+        }
+      }
+      // --- AKHIR PERUBAHAN LOGIKA ---
 
       await threadRef.set({
         'threadInfo': {
-          'title': 'Chat Tugas #$idTugas',
+          'title': 'Chat Laporan #$idTugas',
           'idTugas': idTugas,
           'tipeTugas': tipeTugas,
+          // ===============================================
+          // == INI ADALAH PERBAIKAN UTAMA UNTUK BUG ==
+          // ===============================================
+          'cabangId': cabangId,
+          // ===============================================
+          'initiatorId': currentUser['id'], // Simpan juga info pembuat
+          'initiatorType': 'pelanggan',
         },
-        'participants': {currentUserUid: true, otherUserUid: true},
-        'participantNames': {
-          currentUserUid: currentUserName,
-          otherUserUid: otherUser['nama'],
-        },
-        'lastMessage': 'Chat mengenai tugas #$idTugas dimulai.',
+        'participants':
+            participants, // Simpan map participants yang sudah diisi semua admin
+        'participantNames': participantNames,
+        'lastMessage': 'Chat mengenai laporan #$idTugas dimulai.',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
       });
     }

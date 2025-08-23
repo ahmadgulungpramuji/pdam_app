@@ -455,7 +455,7 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       return;
     }
 
-    // *** PERBAIKAN FORMAT URL GOOGLE MAPS YANG BENAR DAN UNIVERSAL ***
+    // --- FORMAT URL GOOGLE MAPS YANG BENAR DAN UNIVERSAL ---
     // Ini akan membuka Google Maps di browser atau aplikasi jika terinstal
     final Uri mapsUrl = Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}');

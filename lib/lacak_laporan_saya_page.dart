@@ -1081,6 +1081,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
   }
   // GANTI SELURUH FUNGSI _buildContactButtons DENGAN INI
 
+// GANTI SELURUH FUNGSI _buildContactButtons DENGAN INI
   Widget _buildContactButtons(Pengaduan laporan) {
     if (_currentUserData == null) return const SizedBox.shrink();
 
@@ -1118,31 +1119,27 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           child: OutlinedButton.icon(
             icon: const Icon(Icons.support_agent),
             label: const Text('Chat dengan Admin Cabang'),
-            // ========================================================
-            // == AWAL DARI LOGIKA YANG DIPERBARUI ==
-            // ========================================================
             onPressed: () async {
               try {
-                // Menampilkan loading indicator
+                // ... (logika tombol chat admin tidak berubah, sudah benar)
                 setState(() => _isDialogRatingLoading = true);
-
-                // 1. Ambil info admin berdasarkan ID cabang dari laporan yang sedang dilihat
-                final adminInfo =
+                final adminInfoList =
                     await _apiService.getBranchAdminInfoByCabangId(
                   laporan.idCabang.toString(),
                 );
-
-                // 2. Buat thread chat menggunakan info admin yang benar
+                if (adminInfoList.isEmpty) {
+                  throw Exception(
+                      "Tidak ada admin yang dapat dihubungi untuk cabang ini.");
+                }
                 final threadId = await _chatService.getOrCreateTugasChatThread(
-                  // Menggunakan tipe unik agar tidak bentrok dengan chat petugas
                   tipeTugas: 'pengaduan_admin',
                   idTugas: laporan.id,
                   currentUser: _currentUserData!,
-                  otherUser: adminInfo, // <-- Mengirim data admin yang benar
+                  otherUsers: adminInfoList,
+                  cabangId: laporan.idCabang,
                 );
-
                 if (mounted) {
-                  Navigator.pop(context); // Tutup bottom sheet
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1164,14 +1161,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                 }
               } finally {
                 if (mounted) {
-                  // Selalu hentikan loading indicator
                   setState(() => _isDialogRatingLoading = false);
                 }
               }
             },
-            // ========================================================
-            // == AKHIR DARI LOGIKA YANG DIPERBARUI ==
-            // ========================================================
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
@@ -1181,7 +1174,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         ),
         const SizedBox(height: 8),
         if (hasPetugasPelapor && isStatusAktif)
-          // ... (logika tombol chat petugas tidak berubah)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -1200,7 +1192,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                     tipeTugas: 'pengaduan',
                     idTugas: laporan.id,
                     currentUser: _currentUserData!,
-                    otherUser: petugasInfo,
+                    // ===============================================
+                    // == INI ADALAH PERBAIKANNYA ==
+                    // ===============================================
+                    otherUsers: [petugasInfo], // Bungkus dalam List
+                    cabangId: laporan.idCabang, // Tetap kirim cabangId
+                    // ===============================================
                   );
 
                   if (mounted) {

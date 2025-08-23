@@ -188,12 +188,10 @@ class ApiService {
     await prefs.remove('pdam_ids'); //
   }
 
-  Future<Map<String, dynamic>> getBranchAdminInfoByCabangId(
-      String cabangId) async {
+  Future<List<dynamic>> getBranchAdminInfoByCabangId(String cabangId) async {
     final token = await getToken();
     if (token == null) throw Exception('Autentikasi diperlukan.');
 
-    // Memanggil endpoint baru dengan ID Cabang dari parameter
     final url = Uri.parse('$baseUrl/chat/branch-admin-info/$cabangId');
     final response = await http.get(
       url,
@@ -205,7 +203,12 @@ class ApiService {
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200 && data['success'] == true) {
-      return data['data']; // Kembalikan hanya bagian 'data'
+      // Pastikan data yang dikembalikan adalah List
+      if (data['data'] is List) {
+        return data['data']; // Kembalikan list of admins
+      } else {
+        throw Exception('Format data admin tidak valid (bukan List).');
+      }
     } else {
       throw Exception(
           data['message'] ?? 'Gagal mendapatkan info admin cabang.');
