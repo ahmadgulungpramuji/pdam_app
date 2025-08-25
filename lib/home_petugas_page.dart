@@ -599,6 +599,46 @@ class _HistoryPageState extends State<HistoryPage> {
     Color statusColor = _getColorForStatus(tugas.status);
     final bool hasRating = (tugas.ratingHasil ?? 0) > 0;
 
+    String tanggalLabel;
+    switch (tugas.status.toLowerCase()) {
+      case 'survey selesai':
+        tanggalLabel = 'Tgl Survey Selesai:';
+        break;
+      case 'terpasang':
+        tanggalLabel = 'Tgl Pemasangan:';
+        break;
+      case 'dibatalkan':
+      case 'ditolak':
+        tanggalLabel = 'Tgl Dibatalkan:';
+        break;
+      default:
+        tanggalLabel = 'Tgl Selesai:';
+    }
+
+    // ====================================================================
+    // == AWAL PERUBAHAN STYLE HEADER ==
+    // ====================================================================
+    
+    // Default Style
+    Color headerBackgroundColor = statusColor.withOpacity(0.1);
+    Color headerTextColor = statusColor;
+    IconData headerIcon = _getIconForTugas(tugas);
+
+    if (tugas.status.toLowerCase() == 'survey selesai') {
+      headerBackgroundColor = Colors.teal.shade50;
+      headerTextColor = Colors.teal.shade700;
+      headerIcon = Ionicons.map; // Ikon lebih solid
+    } else if (tugas.status.toLowerCase() == 'terpasang') {
+      headerBackgroundColor = Colors.blue.shade50;
+      headerTextColor = Colors.blue.shade800;
+      headerIcon = Ionicons.build; // Ikon lebih solid
+    }
+    
+    // ====================================================================
+    // == AKHIR PERUBAHAN STYLE HEADER ==
+    // ====================================================================
+
+
     return Card(
       elevation: 4,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -612,14 +652,14 @@ class _HistoryPageState extends State<HistoryPage> {
               MaterialPageRoute(
                 builder: (context) => DetailCalonPelangganPage(tugas: tugas),
               ),
-            );
+            ).then((_) => _onRefresh());
           } else {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => DetailTugasPage(tugas: tugas),
               ),
-            );
+            ).then((_) => _onRefresh());
           }
         },
         borderRadius: BorderRadius.circular(16),
@@ -629,7 +669,8 @@ class _HistoryPageState extends State<HistoryPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                // Menggunakan warna yang sudah ditentukan di atas
+                color: headerBackgroundColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -637,7 +678,8 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               child: Row(
                 children: [
-                  Icon(_getIconForTugas(tugas), color: statusColor, size: 20),
+                  // Menggunakan ikon yang sudah ditentukan
+                  Icon(headerIcon, color: headerTextColor, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -645,7 +687,8 @@ class _HistoryPageState extends State<HistoryPage> {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: statusColor,
+                        // Menggunakan warna teks yang sudah ditentukan
+                        color: headerTextColor,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -676,7 +719,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   _buildInfoRow(
                     Ionicons.calendar_outline,
-                    'Tgl Selesai: $formattedDate',
+                    '$tanggalLabel $formattedDate',
                   ),
                   const Divider(height: 24),
                   Row(
