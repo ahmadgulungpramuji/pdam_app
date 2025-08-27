@@ -203,6 +203,11 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
                     icon: Ionicons.person_outline,
                     label: 'Dilaporkan oleh',
                     value: _currentTemuan.namaPelapor),
+                _buildInfoRow( // <-- Perubahan: Menampilkan Deskripsi Laporan
+                    icon: Ionicons.document_text_outline,
+                    label: 'Deskripsi Laporan',
+                    value: _currentTemuan.deskripsi,
+                    isMultiline: true),
                 _buildInfoRow(
                     icon: Ionicons.map_outline,
                     label: 'Deskripsi Lokasi',
@@ -586,6 +591,9 @@ class _DetailTemuanPageState extends State<DetailTemuanPage> {
       case 'ditolak':
         return Colors.red.shade700;
       case 'pending':
+      case 'menunggu_konfirmasi':
+      case 'diterima':
+      case 'dalam_perjalanan':
         return Colors.blue.shade700;
       default:
         return Colors.grey.shade600;

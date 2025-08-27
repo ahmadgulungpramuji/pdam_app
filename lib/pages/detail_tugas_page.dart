@@ -403,11 +403,20 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               'Tgl Kejadian:',
               _formatDate(_tugasSaatIni.tanggalTugas),
             ),
-            _buildInfoRow(
-              Ionicons.time_outline,
-              'Ditugaskan:',
-              '${_formatDate(_tugasSaatIni.tanggalDibuatPenugasan.toIso8601String())}, ${_timeFormatter.format(_tugasSaatIni.tanggalDibuatPenugasan)}',
-            ),
+            
+            // --- PERUBAHAN DI SINI ---
+            // Ambil waktu dari server (asumsi UTC) dan ubah ke waktu lokal
+            () {
+              final DateTime waktuLokalDitugaskan = _tugasSaatIni.tanggalDibuatPenugasan.toLocal();
+              return _buildInfoRow(
+                Ionicons.time_outline,
+                'Ditugaskan:',
+                // Gunakan waktu lokal untuk memformat tanggal dan jam
+                '${_dateFormatter.format(waktuLokalDitugaskan)}, ${_timeFormatter.format(waktuLokalDitugaskan)}',
+              );
+            }(),
+            // --- AKHIR PERUBAHAN ---
+            
             _buildInfoRow(
               Ionicons.locate_outline,
               'Deskripsi Lokasi:',

@@ -8,6 +8,7 @@ class TemuanKebocoran {
   final int idCabang;
   final String lokasiMaps;
   final String deskripsiLokasi;
+  final String deskripsi; // <-- Perubahan
   final String? fotoBukti;
   final String status;
   final DateTime tanggalTemuan;
@@ -20,7 +21,7 @@ class TemuanKebocoran {
   final String? komentarRating;
   final List<PetugasSimple>? petugasDitugaskan;
   final dynamic cabang;
-  final String? keteranganPenolakan; // <-- TAMBAHKAN INI
+  final String? keteranganPenolakan;
 
   TemuanKebocoran({
     required this.id,
@@ -29,6 +30,7 @@ class TemuanKebocoran {
     required this.idCabang,
     required this.lokasiMaps,
     required this.deskripsiLokasi,
+    required this.deskripsi, // <-- Perubahan
     this.fotoBukti,
     required this.status,
     required this.tanggalTemuan,
@@ -41,7 +43,7 @@ class TemuanKebocoran {
     this.komentarRating,
     this.petugasDitugaskan,
     this.cabang,
-    this.keteranganPenolakan, // <-- TAMBAHKAN INI
+    this.keteranganPenolakan,
   });
 
   factory TemuanKebocoran.fromJson(Map<String, dynamic> json) {
@@ -52,6 +54,7 @@ class TemuanKebocoran {
       idCabang: _parseToInt(json['id_cabang'], 'id_cabang'),
       lokasiMaps: json['lokasi_maps'] as String? ?? 'N/A',
       deskripsiLokasi: json['deskripsi_lokasi'] as String? ?? 'N/A',
+      deskripsi: json['deskripsi'] as String? ?? '', // <-- Perubahan
       fotoBukti: json['foto_bukti'] as String?,
       status: json['status'] as String? ?? 'pending',
       tanggalTemuan: DateTime.parse(json['tanggal_temuan'] as String),
@@ -71,7 +74,7 @@ class TemuanKebocoran {
                 )
               : null,
       cabang: json['cabang'],
-      keteranganPenolakan: json['keterangan_penolakan'] as String?, // <-- TAMBAHKAN INI
+      keteranganPenolakan: json['keterangan_penolakan'] as String?,
     );
   }
 
@@ -83,6 +86,7 @@ class TemuanKebocoran {
       'id_cabang': idCabang,
       'lokasi_maps': lokasiMaps,
       'deskripsi_lokasi': deskripsiLokasi,
+      'deskripsi': deskripsi, // <-- Perubahan
       'foto_bukti': fotoBukti,
       'status': status,
       'tanggal_temuan': tanggalTemuan.toIso8601String(),
@@ -95,7 +99,7 @@ class TemuanKebocoran {
       'komentar_rating': komentarRating,
       'petugas_ditugaskan': petugasDitugaskan?.map((e) => e.toJson()).toList(),
       'cabang': cabang,
-      'keterangan_penolakan': keteranganPenolakan, // <-- TAMBAHKAN INI
+      'keterangan_penolakan': keteranganPenolakan,
     };
   }
 
@@ -130,7 +134,7 @@ class TemuanKebocoran {
         return 'Selesai';
       case 'dibatalkan':
         return 'Dibatalkan';
-      case 'ditolak': // <-- TAMBAHKAN INI
+      case 'ditolak':
         return 'Ditolak';
       default:
         return status.replaceAll('_', ' ').toUpperCase();

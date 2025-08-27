@@ -17,6 +17,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
 import 'package:geocoding/geocoding.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TemuanKebocoranPage extends StatefulWidget {
   const TemuanKebocoranPage({super.key});
@@ -30,6 +31,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   final _pageController = PageController();
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
+  final _step3FormKey = GlobalKey<FormState>(); // <-- Perubahan: Key untuk form langkah 3
 
   final ApiService _apiService = ApiService();
   late String _apiUrlSubmit;
@@ -38,6 +40,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       TextEditingController();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _nomorHpController = TextEditingController();
+  final TextEditingController _deskripsiLaporanController =
+      TextEditingController();
 
   // --- State Variables ---
   int _currentPage = 0;
@@ -68,6 +72,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     _deskripsiLokasiController.dispose();
     _namaController.dispose();
     _nomorHpController.dispose();
+    _deskripsiLaporanController.dispose();
     super.dispose();
   }
 
@@ -83,19 +88,21 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         isStepValid = false;
       }
     } else if (_currentPage == 2) {
-      if (_imageFile == null) {
+      // <-- Perubahan: Validasi untuk langkah 3
+      isStepValid = _step3FormKey.currentState?.validate() ?? false;
+      if (isStepValid && _imageFile == null) {
         _showSnackbar('Foto bukti wajib diunggah.', isError: true);
         isStepValid = false;
-      } else {
-        isStepValid = true;
       }
     }
 
     if (isStepValid) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      if (_currentPage < 3) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
     }
   }
 
@@ -110,7 +117,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     }
   }
 
-  // --- Core Logic (All features preserved) ---
+  // --- Core Logic ---
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _fetchCabangOptions();
@@ -147,11 +154,13 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied)
+        if (permission == LocationPermission.denied) {
           throw Exception('Izin lokasi ditolak.');
+        }
       }
-      if (permission == LocationPermission.deniedForever)
+      if (permission == LocationPermission.deniedForever) {
         throw Exception('Izin lokasi ditolak permanen.');
+      }
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -179,9 +188,10 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         _findNearestBranch();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         _showSnackbar(e.toString().replaceFirst("Exception: ", ""),
             isError: true);
+      }
     }
   }
 
@@ -230,11 +240,11 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         final now = DateTime.now();
         img.drawString(
             watermarkedImage,
-            font: img.arial24,
             '${now.hour}:${now.minute} - ${now.day}/${now.month}/${now.year}',
             x: 10,
             y: 10,
-            color: img.ColorRgb8(255, 255, 255));
+            color: img.ColorRgb8(255, 255, 255),
+            font: img.arial24);
 
         final directory = await getTemporaryDirectory();
         final newPath = path.join(
@@ -248,6 +258,20 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       if (mounted) _showSnackbar('Gagal memproses gambar: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isImageProcessing = false);
+    }
+  }
+
+  Future<void> _openGoogleMaps(double latitude, double longitude) async {
+    final String googleMapsUrl =
+        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    final Uri uri = Uri.parse(googleMapsUrl);
+
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        _showSnackbar('Tidak dapat membuka Google Maps: $e', isError: true);
+      }
     }
   }
 
@@ -266,6 +290,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       request.fields.addAll({
         'nama_pelapor': _namaController.text.trim(),
         'nomor_hp_pelapor': _nomorHpController.text.trim(),
+        'deskripsi': _deskripsiLaporanController.text.trim(),
         'id_cabang': _selectedCabangId.toString(),
         'lokasi_maps':
             '${_currentPosition!.latitude},${_currentPosition!.longitude}',
@@ -327,7 +352,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                       _buildStep1InfoPelapor(),
                       _buildStep2Lokasi(),
                       _buildStep3Bukti(),
-                      _buildStep4Confirmation(), // New Step
+                      _buildStep4Confirmation(),
                     ],
                   ),
                 ),
@@ -337,13 +362,11 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     );
   }
 
-  // --- NEW UI HELPER WIDGETS ---
   Widget _buildStepper(Color primaryColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
       child: Row(
         children: List.generate(4, (index) {
-          // Updated to 4 steps
           bool isActive = index <= _currentPage;
           return Expanded(
             child: Row(
@@ -356,7 +379,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                       style: GoogleFonts.manrope(
                           color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
-                if (index < 3) // Updated to 3 dividers
+                if (index < 3)
                   Expanded(
                     child: Container(
                       height: 2,
@@ -397,13 +420,10 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
             child: ElevatedButton(
               onPressed: _isSubmitting
                   ? null
-                  : (_currentPage == 3
-                      ? _submitForm
-                      : _nextPage), // Updated to check for page 3
+                  : (_currentPage == 3 ? _submitForm : _nextPage),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _currentPage == 3
-                    ? Colors.green
-                    : primaryColor, // Updated to check for page 3
+                backgroundColor:
+                    _currentPage == 3 ? Colors.green : primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -416,9 +436,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 3))
                   : Text(
-                      _currentPage == 3
-                          ? 'KIRIM LAPORAN'
-                          : 'Selanjutnya', // Updated button text
+                      _currentPage == 3 ? 'KIRIM LAPORAN' : 'Selanjutnya',
                       style: GoogleFonts.manrope(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
@@ -478,7 +496,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
               borderSide: BorderSide(color: Colors.grey.shade300)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
+              borderSide:
+                  const BorderSide(color: Color(0xFF0077B6), width: 2)),
         ),
       ),
     );
@@ -498,11 +517,11 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           borderSide: BorderSide(color: Colors.grey.shade300)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
+          borderSide:
+              const BorderSide(color: Color(0xFF0077B6), width: 2)),
     );
   }
 
-  // --- Step Widgets (Refactored & New) ---
   Widget _buildStep1InfoPelapor() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -533,16 +552,6 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   }
 
   Widget _buildStep2Lokasi() {
-    String staticMapUrl = '';
-    if (_currentPosition != null) {
-      final lat = _currentPosition!.latitude;
-      final lng = _currentPosition!.longitude;
-      const apiKey =
-          'YOUR_MAPQUEST_API_KEY'; // Ganti dengan API Key Anda yang valid
-      staticMapUrl =
-          'https://www.mapquestapi.com/staticmap/v5/map?key=$apiKey&center=$lat,$lng&zoom=15&size=600,300&markers=red-1,$lat,$lng';
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
@@ -552,26 +561,33 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           children: [
             _buildSectionHeader(
                 'Langkah 2: Detail Lokasi', Ionicons.map_outline),
-            Container(
-              height: 180,
+            SizedBox( // <-- Perubahan: Peta Statis Dihapus
               width: double.infinity,
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade200,
-                  border: Border.all(color: Colors.grey.shade300)),
-              child: _currentPosition == null
-                  ? Center(
-                      child: Text(
-                          _isLoading
-                              ? "Memuat peta..."
-                              : "Lokasi belum ditemukan",
-                          style: GoogleFonts.manrope()))
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(staticMapUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (c, e, s) =>
-                              const Center(child: Text('Gagal memuat peta')))),
+              height: 50,
+              child: ElevatedButton.icon(
+                icon: const Icon(Ionicons.map, color: Colors.white, size: 20),
+                label: Text(
+                  'Buka Detail di Google Maps',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0077B6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _currentPosition == null
+                    ? null
+                    : () {
+                        _openGoogleMaps(
+                          _currentPosition!.latitude,
+                          _currentPosition!.longitude,
+                        );
+                      },
+              ),
             ),
             Center(
                 child: TextButton.icon(
@@ -623,73 +639,84 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   Widget _buildStep3Bukti() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-              'Langkah 3: Unggah Bukti', Ionicons.camera_outline),
-          if (_isImageProcessing)
-            const Center(
-                child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator()))
-          else
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
+      child: Form( // <-- Perubahan: Dibungkus Form
+        key: _step3FormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+                'Langkah 3: Bukti & Deskripsi', Ionicons.camera_outline), // <-- Judul diubah
+            if (_isImageProcessing)
+              const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator()))
+            else
+              Material(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => _pickImage(ImageSource.camera),
-                child: Container(
-                  width: double.infinity,
-                  height: 200,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                    image: _imageFile != null
-                        ? DecorationImage(
-                            image: FileImage(File(_imageFile!.path)),
-                            fit: BoxFit.cover)
-                        : null,
-                  ),
-                  child: _imageFile == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Ionicons.camera_outline,
-                                size: 48, color: Colors.grey.shade400),
-                            const SizedBox(height: 8),
-                            Text('Ambil Foto Kebocoran',
-                                style: GoogleFonts.manrope(
-                                    fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text('Foto diperlukan sebagai bukti laporan',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.manrope(
-                                    color: Colors.grey.shade600)),
-                          ],
-                        )
-                      : Align(
-                          alignment: Alignment.topRight,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.black54,
-                            child: IconButton(
-                              icon: const Icon(Ionicons.close,
-                                  color: Colors.white, size: 20),
-                              onPressed: () =>
-                                  setState(() => _imageFile = null),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _pickImage(ImageSource.camera),
+                  child: Container(
+                    width: double.infinity,
+                    height: 200,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                      image: _imageFile != null
+                          ? DecorationImage(
+                              image: FileImage(File(_imageFile!.path)),
+                              fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: _imageFile == null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Ionicons.camera_outline,
+                                  size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text('Ambil Foto Kebocoran',
+                                  style: GoogleFonts.manrope(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                              Text('Foto diperlukan sebagai bukti laporan',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.manrope(
+                                      color: Colors.grey.shade600)),
+                            ],
+                          )
+                        : Align(
+                            alignment: Alignment.topRight,
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black54,
+                              child: IconButton(
+                                icon: const Icon(Ionicons.close,
+                                    color: Colors.white, size: 20),
+                                onPressed: () =>
+                                    setState(() => _imageFile = null),
+                              ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ),
-            ),
-        ],
+            const SizedBox(height: 24), // Spasi
+            _buildTextField( // <-- Perubahan: TextField dipindahkan ke sini
+                controller: _deskripsiLaporanController,
+                label: 'Deskripsi Laporan',
+                hint: 'Jelaskan secara singkat apa yang terjadi',
+                maxLines: 4,
+                validator: (v) =>
+                    v!.isEmpty ? 'Deskripsi laporan wajib diisi' : null),
+          ],
+        ),
       ),
     );
   }
 
-  // NEW WIDGET: Confirmation Step
   Widget _buildStep4Confirmation() {
     String cabangName = _cabangOptionsApi
         .firstWhere((c) => c.id == _selectedCabangId,
@@ -708,9 +735,11 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
             style: GoogleFonts.manrope(color: Colors.grey.shade700),
           ),
           const Divider(height: 32),
-          _buildConfirmationSection("Data Pelapor", [
+          _buildConfirmationSection("Data Laporan", [
             _buildConfirmationRow("Nama Lengkap", _namaController.text),
             _buildConfirmationRow("No. HP", _nomorHpController.text),
+            _buildConfirmationRow(
+                "Deskripsi Laporan", _deskripsiLaporanController.text),
           ]),
           const Divider(height: 32),
           _buildConfirmationSection("Detail Lokasi", [
@@ -774,7 +803,6 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     );
   }
 
-  // --- Dialogs & Sheets ---
   void _showSuccessDialog(String trackingCode) {
     showDialog(
       context: context,
