@@ -6,12 +6,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pdam_app/models/pdam_id_model.dart';
+
 import 'package:image/image.dart' as img;
 
 class BuatLaporanPage extends StatefulWidget {
@@ -40,8 +43,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
 
   // Data Laporan
   String? _loggedInPelangganId;
-  List<String> _pdamIdNumbersList = [];
-  String? _selectedPdamIdNumber;
+  List<PdamId> _pdamIdList = [];
+  int? _selectedPdamId;
   int? _selectedCabangId;
   String? _selectedJenisLaporan;
   Position? _currentPosition;
@@ -133,11 +136,51 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
 
   Future<void> _fetchPdamIds(String idPelanggan) async {
     try {
-      final pdamNumbers =
-          await _apiService.fetchPdamNumbersByPelanggan(idPelanggan);
-      if (mounted) setState(() => _pdamIdNumbersList = pdamNumbers);
+      // 1. Ambil token terlebih dahulu menggunakan service Anda
+      final token = await _apiService.getToken();
+      if (token == null) {
+        throw Exception("Sesi tidak valid, silakan login ulang.");
+      }
+
+      // 2. Siapkan header dengan token
+      final headers = {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      // 3. Lakukan panggilan API dengan menyertakan header
+      final response = await http.get(
+        Uri.parse('${_apiService.baseUrl}/id-pdam/$idPelanggan'),
+        headers: headers, // <-- SERTAKAN HEADER DI SINI
+      );
+
+      if (response.statusCode == 200) {
+        // Cek apakah responsnya benar-benar JSON sebelum di-decode
+        if (response.body.trim().startsWith('[')) {
+          final List<dynamic> responseData = jsonDecode(response.body);
+          if (mounted) {
+            setState(() {
+              _pdamIdList =
+                  responseData.map((data) => PdamId.fromJson(data)).toList();
+            });
+          }
+        } else {
+          // Jika bukan JSON, lempar error dengan isi responsnya
+          throw FormatException(
+              "Server tidak mengembalikan data JSON yang valid.");
+        }
+      } else {
+        throw Exception(
+            'Gagal mengambil data dari server (Status: ${response.statusCode})');
+      }
     } catch (e) {
+      // Error akan ditampilkan di Snackbar
       _showSnackbar('Gagal mengambil daftar nomor PDAM: $e', isError: true);
+      if (mounted) {
+        setState(() {
+          _pdamIdList = []; // Kosongkan daftar jika gagal
+        });
+      }
     }
   }
 
@@ -177,12 +220,17 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     }
   }
 
-  void _onPdamNumberChanged(String? value) {
+  void _onPdamIdChanged(int? pdamId) {
+    // Ganti parameter ke int?
+    if (pdamId == null) return;
+    final selectedPdam = _pdamIdList.firstWhere((p) => p.id == pdamId);
+    final pdamNumber = selectedPdam.nomor;
+
     setState(() {
-      _selectedPdamIdNumber = value;
+      _selectedPdamId = pdamId;
       _selectedCabangId = null;
-      if (value != null && value.length >= 2) {
-        final duaDigit = value.substring(0, 2);
+      if (pdamNumber.length >= 2) {
+        final duaDigit = pdamNumber.substring(0, 2);
         const Map<String, int> cabangMapping = {
           '10': 1,
           '12': 2,
@@ -251,40 +299,72 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   }
 
   Future<void> _submitLaporan() async {
+    // 1. Validasi awal untuk memastikan semua data yang dibutuhkan ada
+    if (_loggedInPelangganId == null ||
+        _selectedPdamId == null ||
+        _selectedCabangId == null ||
+        _selectedJenisLaporan == null ||
+        _currentPosition == null) {
+      _showSnackbar('Data belum lengkap, mohon periksa kembali.',
+          isError: true);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
+
     try {
+      // 2. Cari nomor PDAM yang sesuai dari daftar berdasarkan ID yang dipilih
+      final String selectedPdamNomor =
+          _pdamIdList.firstWhere((pdam) => pdam.id == _selectedPdamId).nomor;
+
+      // 3. Siapkan data laporan dalam bentuk Map
       Map<String, String> dataLaporan = {
         'id_pelanggan': _loggedInPelangganId!,
-        'id_pdam': _selectedPdamIdNumber!,
+        'id_pdam': selectedPdamNomor, // <-- PERBAIKAN: Kirim nomor, bukan ID
         'id_cabang': _selectedCabangId.toString(),
         'kategori': _selectedJenisLaporan!,
         'latitude': _currentPosition!.latitude.toString(),
         'longitude': _currentPosition!.longitude.toString(),
         'lokasi_maps':
-            'http://maps.google.com/maps?q=${_currentPosition!.latitude},${_currentPosition!.longitude}',
-        'deskripsi_lokasi': _deskripsiLokasiManualController.text,
-        'deskripsi': _deskripsiController.text,
+            'http://maps.google.com/?q=${_currentPosition!.latitude},${_currentPosition!.longitude}',
+        'deskripsi_lokasi': _deskripsiLokasiManualController.text.trim(),
+        'deskripsi': _deskripsiController.text.trim(),
       };
 
+      // Tambahkan field 'kategori_lainnya' jika diperlukan
       if (_selectedJenisLaporan == 'lain_lain') {
-        dataLaporan['kategori_lainnya'] = _kategoriLainnyaController.text;
+        dataLaporan['kategori_lainnya'] =
+            _kategoriLainnyaController.text.trim();
       }
 
-      final response = await _apiService.buatPengaduan(dataLaporan,
-          fotoBukti: _fotoBuktiFile, fotoRumah: _fotoRumahFile);
+      // 4. Panggil ApiService untuk mengirim data (termasuk foto)
+      final response = await _apiService.buatPengaduan(
+        dataLaporan,
+        fotoBukti: _fotoBuktiFile,
+        fotoRumah: _fotoRumahFile,
+      );
 
+      // 5. Proses respons dari server
       if (response.statusCode >= 200 && response.statusCode < 300) {
         _showSuccessDialog();
       } else {
         final responseData = jsonDecode(response.body);
-        throw Exception(responseData['message'] ?? 'Error tidak diketahui');
+        // Ambil pesan error dari server jika ada, jika tidak tampilkan pesan default
+        final errorMessage =
+            responseData['message'] ?? 'Terjadi error yang tidak diketahui.';
+        throw Exception(errorMessage);
       }
     } catch (e) {
+      // Tangani semua jenis error (jaringan, validasi, dll) dan tampilkan di Snackbar
       _showSnackbar(
-          'Gagal mengirim laporan: ${e.toString().replaceFirst("Exception: ", "")}',
-          isError: true);
+        'Gagal mengirim laporan: ${e.toString().replaceFirst("Exception: ", "")}',
+        isError: true,
+      );
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      // Pastikan loading indicator berhenti meskipun terjadi error
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -498,15 +578,19 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           children: [
             _buildSectionHeader(
                 'Langkah 1: Informasi Dasar', Ionicons.document_text_outline),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField<int>(
+              // Ganti ke <int>
               decoration: _dropdownDecoration('Pilih Nomor Pelanggan (NSL)'),
-              items: _pdamIdNumbersList
-                  .map((pdamNum) => DropdownMenuItem(
-                      value: pdamNum,
-                      child: Text(pdamNum, style: GoogleFonts.manrope())))
+              items: _pdamIdList
+                  .map((pdam) => DropdownMenuItem(
+                          value: pdam.id, // Value adalah ID
+                          child: Text(pdam.nomor,
+                              style: GoogleFonts
+                                  .manrope())) // Tampilan adalah NOMOR
+                      )
                   .toList(),
-              value: _selectedPdamIdNumber,
-              onChanged: _onPdamNumberChanged,
+              value: _selectedPdamId,
+              onChanged: _onPdamIdChanged, // Ganti ke method baru
               validator: (v) =>
                   v == null ? 'Nomor Pelanggan wajib dipilih' : null,
             ),
@@ -630,6 +714,19 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       jenisLaporanLabel = 'Lain-lain: ${_kategoriLainnyaController.text}';
     }
 
+    // --- AWAL PERUBAHAN ---
+    String nomorPelangganTerpilih = '-';
+    if (_selectedPdamId != null) {
+      // Cari objek PdamId yang cocok di dalam list berdasarkan ID yang dipilih
+      final selectedPdam = _pdamIdList.firstWhere(
+        (pdam) => pdam.id == _selectedPdamId,
+        // Jika tidak ketemu (seharusnya tidak mungkin), beri nilai default
+        orElse: () => PdamId(id: 0, nomor: 'Tidak ditemukan'),
+      );
+      nomorPelangganTerpilih = selectedPdam.nomor;
+    }
+    // --- AKHIR PERUBAHAN ---
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -643,8 +740,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
           ),
           const Divider(height: 32),
           _buildConfirmationSection("Informasi Laporan", [
-            _buildConfirmationRow(
-                "Nomor Pelanggan", _selectedPdamIdNumber ?? '-'),
+            _buildConfirmationRow("Nomor Pelanggan", nomorPelangganTerpilih),
             _buildConfirmationRow("Jenis Laporan", jenisLaporanLabel),
             _buildConfirmationRow("Deskripsi", _deskripsiController.text),
           ]),

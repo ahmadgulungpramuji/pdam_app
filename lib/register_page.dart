@@ -139,23 +139,32 @@ class _RegisterPageState extends State<RegisterPage> {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        // --- BAGIAN YANG DIPERBARUI ---
         final idPelangganBaru = responseData['user']?['id'] as int?;
-        if (idPelangganBaru == null) {
-          throw Exception('Registrasi gagal: ID pelanggan tidak diterima.');
+        final newToken = responseData['token'] as String?; // <-- Ambil token
+
+        if (idPelangganBaru == null || newToken == null) {
+          throw Exception(
+              'Registrasi gagal: Data token atau ID tidak diterima.');
         }
 
+        // Simpan token SEGERA setelah registrasi berhasil
+        await _apiService.saveToken(newToken);
+        // ---------------------------------
+
+        // Sekarang panggil createIdPdam, yang sudah otomatis menggunakan token
         final pdamRes = await _apiService.createIdPdam(
           nomor: _idPelangganController.text.trim(),
           idPelanggan: idPelangganBaru,
         );
 
+        final pdamData = jsonDecode(pdamRes.body);
         if (pdamRes.statusCode >= 200 && pdamRes.statusCode < 300) {
           _showSnackbar('Registrasi berhasil! Silakan login.', isError: false);
           Navigator.of(context).pop();
         } else {
-          final pdamErrorData = jsonDecode(pdamRes.body);
           throw Exception(
-              'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamErrorData['message']}');
+              'Akun dibuat, tapi gagal menyimpan ID PDAM: ${pdamData['message']}');
         }
       } else {
         String errorMessage =

@@ -910,29 +910,43 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> postPdamId(
-    //
-    String idPdam, //
-    String idPelanggan, //
+    String idPdam,
+    String idPelanggan,
   ) async {
+    // Ambil token untuk autentikasi
+    final token = await getToken();
+    if (token == null) {
+      // Kembalikan map error jika tidak ada token
+      return {'message': 'Sesi berakhir, silakan login ulang.'};
+    }
+
     final response = await http.post(
-      //
-      Uri.parse('$baseUrl/id-pdam'), //
+      Uri.parse('$baseUrl/id-pdam'),
       headers: <String, String>{
-        //
-        'Content-Type': 'application/json; charset=UTF-8', //
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token', // Sertakan token
       },
       body: jsonEncode(<String, String>{
-        //
-        'id_pelanggan': idPelanggan, //
-        'nomor': idPdam, //
+        'id_pelanggan': idPelanggan,
+        'nomor': idPdam,
       }),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      //
-      return jsonDecode(response.body); //
+    final responseData = jsonDecode(response.body);
+
+    // --- BAGIAN UTAMA PERBAIKAN ---
+    if (response.statusCode == 201) {
+      // 201 Created: Sukses
+      return responseData;
+    } else if (response.statusCode == 422) {
+      // 422 Unprocessable Entity: Gagal validasi
+      // Kembalikan detail error agar bisa ditampilkan di UI
+      return responseData;
     } else {
-      throw Exception('Gagal menyimpan ID PDAM ke server'); //
+      // Untuk error lainnya (misal: 500), lempar Exception
+      throw Exception(
+          'Gagal menyimpan ID PDAM ke server (Status: ${response.statusCode})');
     }
   }
 
@@ -1590,18 +1604,22 @@ class ApiService {
   }
 
   Future<http.Response> createIdPdam({
-    //
-    required String nomor, //
-    required int idPelanggan, //
+    required String nomor,
+    required int idPelanggan,
   }) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Autentikasi diperlukan untuk menyimpan ID PDAM.');
+    }
+
     final headers = {
-      //
-      'Content-Type': 'application/json', //
-      'Accept': 'application/json', //
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
     };
-    final url = Uri.parse('$baseUrl/id-pdam'); //
-    final body = jsonEncode({'nomor': nomor, 'id_pelanggan': idPelanggan}); //
-    return await http.post(url, headers: headers, body: body); //
+    final url = Uri.parse('$baseUrl/id-pdam');
+    final body = jsonEncode({'nomor': nomor, 'id_pelanggan': idPelanggan});
+    return await http.post(url, headers: headers, body: body);
   }
 
   Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
