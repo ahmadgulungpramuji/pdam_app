@@ -215,6 +215,44 @@ class ApiService {
     }
   }
 
+  //lupa password
+    Future<Map<String, dynamic>> loginWithFirebaseToken({
+  required String firebaseToken,
+  String? idPdam, // Dibuat opsional
+}) async {
+  final url = Uri.parse('$baseUrl/auth/firebase-login');
+  final Map<String, dynamic> body = {
+    'firebase_token': firebaseToken,
+  };
+  // Hanya tambahkan id_pdam jika nilainya ada
+  if (idPdam != null) {
+    body['id_pdam'] = idPdam;
+  }
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 25));
+
+    final responseData = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && responseData['success'] == true) {
+      return responseData;
+    } else {
+      // Tangani kasus khusus saat backend meminta ID PDAM
+      if (response.statusCode == 422 && responseData['action_required'] == 'request_pdam') {
+        throw Exception('request_pdam');
+      }
+      throw Exception(responseData['message'] ?? 'Gagal login ke server Anda.');
+    }
+  } catch (e) {
+    rethrow;
+  }
+}
+
+
   Future<http.Response> getBranchAdminInfo(String token) async {
     final url = Uri.parse('$baseUrl/chat/branch-admin-info');
     try {

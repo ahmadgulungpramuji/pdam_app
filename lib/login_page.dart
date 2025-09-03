@@ -18,15 +18,11 @@ import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// --- WIDGET ANIMASI (Disalin dari home_pelanggan_page.dart) ---
-
-// 1. Animasi Fade-in dan Slide-up.
+// --- WIDGET ANIMASI ---
 class FadeInAnimation extends StatefulWidget {
   final int delay;
   final Widget child;
-
   const FadeInAnimation({super.key, this.delay = 0, required this.child});
-
   @override
   State<FadeInAnimation> createState() => _FadeInAnimationState();
 }
@@ -36,21 +32,16 @@ class _FadeInAnimationState extends State<FadeInAnimation>
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<Offset> _position;
-
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
+        vsync: this, duration: const Duration(milliseconds: 600));
     final curve =
         CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
     _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
         .animate(curve);
-
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _controller.forward();
     });
@@ -65,39 +56,22 @@ class _FadeInAnimationState extends State<FadeInAnimation>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: _opacity,
-      child: SlideTransition(
-        position: _position,
-        child: widget.child,
-      ),
-    );
+        opacity: _opacity,
+        child: SlideTransition(position: _position, child: widget.child));
   }
 }
 
-// 2. Widget untuk animasi staggered pada list/grid.
 class StaggeredFadeIn extends StatelessWidget {
   final List<Widget> children;
   final int delay;
-
-  const StaggeredFadeIn({
-    super.key,
-    required this.children,
-    this.delay = 100,
-  });
-
+  const StaggeredFadeIn({super.key, required this.children, this.delay = 100});
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: List.generate(children.length, (index) {
-        return FadeInAnimation(
-          delay: delay * index,
-          child: children[index],
-        );
-      }),
-    );
+        children: List.generate(children.length,
+            (index) => FadeInAnimation(delay: delay * index, child: children[index])));
   }
 }
-
 // --- END WIDGET ANIMASI ---
 
 class LoginPage extends StatefulWidget {
@@ -113,23 +87,14 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
-
-  // Controller untuk PageView
   final PageController _pageController = PageController();
   int _currentPage = 0;
-
   bool _isLoading = false;
   bool _isTrackingReport = false;
   bool _passwordVisible = false;
 
   final String _checkBillUrl =
       'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
-
-  // Listener di initState sudah tidak diperlukan lagi
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -257,6 +222,50 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final identifierController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Reset Password"),
+        content: TextField(
+          controller: identifierController,
+          decoration: InputDecoration(hintText: "Masukkan Email Anda"),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: Text("Batal")),
+          ElevatedButton(
+            onPressed: () async {
+              final email = identifierController.text.trim();
+              if (email.isNotEmpty && email.contains('@')) {
+                Navigator.pop(context);
+                setState(() => _isLoading = true);
+                try {
+                  await FirebaseAuth.instance
+                      .sendPasswordResetEmail(email: email);
+                  _showSnackbar(
+                    "Link reset password telah dikirim ke email Anda. Silakan periksa.",
+                    isError: false,
+                  );
+                } on FirebaseAuthException catch (e) {
+                  _showSnackbar("Gagal: ${e.message}", isError: true);
+                } finally {
+                  if (mounted) setState(() => _isLoading = false);
+                }
+              } else {
+                _showSnackbar("Harap masukkan alamat email yang valid.",
+                    isError: true);
+              }
+            },
+            child: Text("Kirim"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _launchBillUrl() async {
     final Uri url = Uri.parse(_checkBillUrl);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
@@ -351,7 +360,7 @@ class _LoginPageState extends State<LoginPage> {
             child: _buildLoginForm(primaryColor),
           ),
           const SizedBox(height: 24),
-          FadeInAnimation(delay: 600, child: _buildSectionDivider()),
+          FadeInAnimation(delay: 600, child: _buildSectionDivider("ATAU")),
           const SizedBox(height: 24),
           FadeInAnimation(
             delay: 700,
@@ -367,6 +376,62 @@ class _LoginPageState extends State<LoginPage> {
           FadeInAnimation(
             delay: 800,
             child: _buildRegisterFooter(primaryColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginForm(Color primaryColor) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _identifierController,
+            decoration: _inputDecoration("ID PDAM / No. HP / Email",
+                Ionicons.person_circle_outline, primaryColor),
+            keyboardType: TextInputType.text,
+            validator: (val) =>
+                val == null || val.isEmpty ? 'Kolom ini tidak boleh kosong' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _passwordController,
+            decoration: _inputDecoration(
+                    "Password", Ionicons.lock_closed_outline, primaryColor)
+                .copyWith(
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _passwordVisible
+                      ? Ionicons.eye_outline
+                      : Ionicons.eye_off_outline,
+                  color: primaryColor,
+                ),
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
+              ),
+            ),
+            obscureText: !_passwordVisible,
+            validator: (val) =>
+                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _isLoading ? null : _forgotPassword,
+              child: Text(
+                'Lupa Password?',
+                style: GoogleFonts.manrope(
+                    color: primaryColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _GradientButton(
+            onPressed: _isLoading || _isTrackingReport ? null : _login,
+            isLoading: _isLoading,
+            text: 'LOGIN',
           ),
         ],
       ),
@@ -401,63 +466,13 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLoginForm(Color primaryColor) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        children: [
-          TextFormField(
-            controller: _identifierController,
-            decoration: _inputDecoration("ID PDAM / No. HP / Email",
-                Ionicons.person_circle_outline, primaryColor),
-            keyboardType: TextInputType.text,
-            validator: (val) => val == null || val.isEmpty
-                ? 'Kolom ini tidak boleh kosong'
-                : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            decoration: _inputDecoration(
-                    "Password", Ionicons.lock_closed_outline, primaryColor)
-                .copyWith(
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _passwordVisible
-                      ? Ionicons.eye_outline
-                      : Ionicons.eye_off_outline,
-                  color: primaryColor,
-                ),
-                onPressed: () =>
-                    setState(() => _passwordVisible = !_passwordVisible),
-              ),
-            ),
-            obscureText: !_passwordVisible,
-            validator: (val) => val == null || val.isEmpty
-                ? 'Password tidak boleh kosong'
-                : null,
-          ),
-          const SizedBox(height: 28),
-          _GradientButton(
-            onPressed: _isLoading || _isTrackingReport ? null : _login,
-            isLoading: _isLoading,
-            text: 'LOGIN',
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTrackingForm(Color primaryColor) {
     return Column(
       children: [
         TextFormField(
           controller: _trackCodeController,
-          // PENAMBAHAN onChanged DI LOKASI YANG BENAR
           onChanged: (text) {
-            setState(() {
-              // Biarkan kosong, tujuannya hanya untuk memicu rebuild
-            });
+            setState(() {});
           },
           decoration: _inputDecoration("Masukkan Kode Lacak (TK- atau CP-)",
               Ionicons.search_outline, primaryColor),
@@ -478,13 +493,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildActionCard({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildActionCard(
+      {required IconData icon,
+      required Color iconColor,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap}) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
@@ -496,19 +510,18 @@ class _LoginPageState extends State<LoginPage> {
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade200, width: 1)),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
@@ -518,13 +531,10 @@ class _LoginPageState extends State<LoginPage> {
                     Text(subtitle,
                         style: GoogleFonts.manrope(
                             color: Colors.grey.shade700, fontSize: 13)),
-                  ],
-                ),
-              ),
-              const Icon(Ionicons.chevron_forward,
-                  color: Colors.grey, size: 20),
-            ],
-          ),
+                  ]),
+            ),
+            const Icon(Ionicons.chevron_forward, color: Colors.grey, size: 20),
+          ]),
         ),
       ),
     );
@@ -558,14 +568,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildSectionDivider() {
+  Widget _buildSectionDivider(String text) {
     return Row(
       children: [
         Expanded(child: Divider(color: Colors.grey.shade300)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            "ATAU",
+            text,
             style: GoogleFonts.manrope(
                 color: Colors.grey.shade500, fontWeight: FontWeight.bold),
           ),
