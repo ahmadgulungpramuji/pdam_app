@@ -472,8 +472,15 @@ class _RegisterPageState extends State<RegisterPage> {
               keyboardType: TextInputType.phone,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Nomor WA wajib diisi';
-                if (v.length < 10) return 'Nomor WA minimal 10 digit';
+                if (v == null || v.isEmpty) {
+                  return 'Nomor WA wajib diisi';
+                }
+                if (v.length < 10) {
+                  return 'Nomor WA terlalu pendek (minimal 10 digit)';
+                }
+                if (v.length > 13) {
+                  return 'Nomor WA terlalu panjang (maksimal 13 digit)';
+                }
                 return null;
               }),
           _buildTextField(

@@ -216,42 +216,48 @@ class ApiService {
   }
 
   //lupa password
-    Future<Map<String, dynamic>> loginWithFirebaseToken({
-  required String firebaseToken,
-  String? idPdam, // Dibuat opsional
-}) async {
-  final url = Uri.parse('$baseUrl/auth/firebase-login');
-  final Map<String, dynamic> body = {
-    'firebase_token': firebaseToken,
-  };
-  // Hanya tambahkan id_pdam jika nilainya ada
-  if (idPdam != null) {
-    body['id_pdam'] = idPdam;
-  }
-
-  try {
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 25));
-
-    final responseData = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && responseData['success'] == true) {
-      return responseData;
-    } else {
-      // Tangani kasus khusus saat backend meminta ID PDAM
-      if (response.statusCode == 422 && responseData['action_required'] == 'request_pdam') {
-        throw Exception('request_pdam');
-      }
-      throw Exception(responseData['message'] ?? 'Gagal login ke server Anda.');
+  Future<Map<String, dynamic>> loginWithFirebaseToken({
+    required String firebaseToken,
+    String? idPdam, // Dibuat opsional
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/firebase-login');
+    final Map<String, dynamic> body = {
+      'firebase_token': firebaseToken,
+    };
+    // Hanya tambahkan id_pdam jika nilainya ada
+    if (idPdam != null) {
+      body['id_pdam'] = idPdam;
     }
-  } catch (e) {
-    rethrow;
-  }
-}
 
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      } else {
+        // Tangani kasus khusus saat backend meminta ID PDAM
+        if (response.statusCode == 422 &&
+            responseData['action_required'] == 'request_pdam') {
+          throw Exception('request_pdam');
+        }
+        throw Exception(
+            responseData['message'] ?? 'Gagal login ke server Anda.');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   Future<http.Response> getBranchAdminInfo(String token) async {
     final url = Uri.parse('$baseUrl/chat/branch-admin-info');
@@ -958,6 +964,25 @@ class ApiService {
       return {'message': 'Sesi berakhir, silakan login ulang.'};
     }
 
+    // === LOGIKA BARU: BATASI JUMLAH ID ===
+    try {
+      final List<dynamic> existingIds = await getAllUserPdamIds();
+      if (existingIds.length >= 3) {
+        // Jika sudah ada 3 atau lebih ID, kembalikan pesan error
+        // Format ini meniru respons validasi dari Laravel agar mudah ditangani di UI
+        return {
+          'message': 'Batas maksimum pendaftaran ID telah tercapai.',
+          'errors': {
+            'id_pdam': ['Anda hanya dapat mendaftarkan maksimal 3 ID PDAM.']
+          }
+        };
+      }
+    } catch (e) {
+      // Jika gagal memeriksa ID yang ada, lempar error agar tidak melanjutkan
+      throw Exception('Gagal memverifikasi jumlah ID terdaftar: $e');
+    }
+    // === AKHIR LOGIKA BARU ===
+
     final response = await http.post(
       Uri.parse('$baseUrl/id-pdam'),
       headers: <String, String>{
@@ -973,13 +998,11 @@ class ApiService {
 
     final responseData = jsonDecode(response.body);
 
-    // --- BAGIAN UTAMA PERBAIKAN ---
     if (response.statusCode == 201) {
       // 201 Created: Sukses
       return responseData;
     } else if (response.statusCode == 422) {
       // 422 Unprocessable Entity: Gagal validasi
-      // Kembalikan detail error agar bisa ditampilkan di UI
       return responseData;
     } else {
       // Untuk error lainnya (misal: 500), lempar Exception

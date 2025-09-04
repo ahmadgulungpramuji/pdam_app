@@ -1,15 +1,68 @@
 // lib/pages/notifikasi_page.dart
-
-// ignore_for_file: depend_on_referenced_packages, unused_local_variable
+// ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously
 
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/notifikasi_model.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+
+// --- WIDGET ANIMASI (Untuk konsistensi) ---
+class FadeInAnimationUI extends StatefulWidget {
+  final int delay;
+  final Widget child;
+
+  const FadeInAnimationUI({super.key, this.delay = 0, required this.child});
+
+  @override
+  State<FadeInAnimationUI> createState() => _FadeInAnimationUIState();
+}
+
+class _FadeInAnimationUIState extends State<FadeInAnimationUI>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _position;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _position,
+        child: widget.child,
+      ),
+    );
+  }
+}
+// --- END WIDGET ANIMASI ---
 
 class NotifikasiPage extends StatefulWidget {
   const NotifikasiPage({super.key});
@@ -21,7 +74,6 @@ class NotifikasiPage extends StatefulWidget {
 class _NotifikasiPageState extends State<NotifikasiPage> {
   final ApiService _apiService = ApiService();
 
-  // 1. Deklarasikan semua variabel state yang dibutuhkan
   List<Notifikasi> _notifikasiList = [];
   bool _isLoading = true;
   String? _error;
@@ -30,13 +82,10 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
   void initState() {
     super.initState();
     timeago.setLocaleMessages('id', timeago.IdMessages());
-
-    // 2. Langsung panggil fungsi untuk memuat data
     _apiService.markNotifikasiAsRead();
     _loadNotifikasi();
   }
 
-  // 3. Fungsi ini sekarang hanya bertugas mengisi variabel state
   Future<void> _loadNotifikasi() async {
     try {
       final List<dynamic> rawData = await _apiService.getNotifikasiSaya();
@@ -62,17 +111,21 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Konfirmasi Hapus'),
-          content: const Text(
-              'Apakah Anda yakin ingin menghapus notifikasi ini secara permanen?'),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Konfirmasi Hapus',
+              style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+          content: Text('Apakah Anda yakin ingin menghapus notifikasi ini?',
+              style: GoogleFonts.manrope()),
           actions: <Widget>[
             TextButton(
-              child: const Text('Batal'),
+              child: Text('Batal', style: GoogleFonts.manrope()),
               onPressed: () => Navigator.of(context).pop(false),
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Hapus'),
+              child: Text('Hapus',
+                  style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
@@ -83,209 +136,284 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     if (shouldDelete == true) {
       try {
         await _apiService.deleteNotifikasi(notifikasi.id);
-
         setState(() {
           _notifikasiList.removeWhere((item) => item.id == notifikasi.id);
         });
-
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Notifikasi berhasil dihapus.'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showSnackbar('Notifikasi berhasil dihapus.', isError: false);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal menghapus: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showSnackbar('Gagal menghapus: ${e.toString()}', isError: true);
         }
       }
     }
   }
 
-  // Fungsi baru untuk mendapatkan ikon berdasarkan tipe notifikasi
+  void _showSnackbar(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: GoogleFonts.manrope()),
+      backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+    ));
+  }
+
   IconData _getNotificationIcon(String? type) {
     switch (type) {
       case 'lapor_foto_water_meter_status':
-        return Icons.water_drop_outlined;
+        return Ionicons.water_outline;
       case 'pengaduan_status_update':
-        return Icons.campaign_outlined;
+        return Ionicons.megaphone_outline;
       case 'informasi_umum':
-        return Icons.info_outline;
+        return Ionicons.information_circle_outline;
       default:
-        return Icons.notifications_outlined;
+        return Ionicons.notifications_outline;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    const Color textColor = Color(0xFF212529);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Riwayat Notifikasi'),
+        title: Text('Riwayat Notifikasi',
+            style: GoogleFonts.manrope(
+                fontWeight: FontWeight.bold, color: textColor)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
-      extendBodyBehindAppBar: true,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue.shade50, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        // 4. Widget build utama hanya memanggil _buildBody
-        child: _buildBody(),
-      ),
+      body: _buildBody(),
     );
   }
 
-  // 5. _buildBody berisi semua logika untuk menampilkan UI
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
-      return Center(
-          child: Text('Gagal memuat data: $_error',
-              style: const TextStyle(color: Colors.red)));
+      return _buildErrorView();
     }
 
     if (_notifikasiList.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_off_outlined,
-                size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Belum ada notifikasi',
-                style: TextStyle(fontSize: 18, color: Colors.grey)),
-          ],
-        ),
-      );
+      return _buildEmptyState();
     }
 
-    // Tampilkan list jika data sudah ada
     return AnimationLimiter(
-      child: ListView.separated(
-        padding: const EdgeInsets.only(top: 100, bottom: 24),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _notifikasiList.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final notif = _notifikasiList[index];
           return AnimationConfiguration.staggeredList(
             position: index,
-            duration: const Duration(milliseconds: 375),
+            duration: const Duration(milliseconds: 400),
             child: SlideAnimation(
               verticalOffset: 50.0,
               child: FadeInAnimation(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Slidable(
-                    key: ValueKey(notif.id),
-                    endActionPane: ActionPane(
-                      motion: const StretchMotion(),
-                      children: [
-                        SlidableAction(
-                          onPressed: (context) => _handleDelete(notif),
-                          backgroundColor: Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          icon: Icons.delete_forever,
-                          label: 'Hapus',
-                          borderRadius: BorderRadius.circular(15.0),
-                        ),
-                      ],
-                    ),
-                    child: Card(
-                      elevation: notif.isRead ? 2 : 6,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18.0),
-                      ),
-                      margin: EdgeInsets.zero,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8.0, horizontal: 8.0),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: notif.isRead
-                                ? Colors.blue.shade50
-                                : Colors.blue.shade200,
-                            child: Icon(
-                              _getNotificationIcon(notif.type),
-                              color: Theme.of(context).primaryColor,
-                              size: 24,
-                            ),
-                          ),
-                          title: Text(
-                            notif.title,
-                            style: TextStyle(
-                              fontWeight: notif.isRead
-                                  ? FontWeight.normal
-                                  : FontWeight.bold,
-                              color: notif.isRead
-                                  ? Colors.grey.shade600
-                                  : Colors.grey.shade800,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Text(
-                            notif.body,
-                            style: TextStyle(
-                              color: notif.isRead
-                                  ? Colors.grey.shade500
-                                  : Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Text(
-                            timeago.format(notif.createdAt, locale: 'id'),
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
-                          ),
-                          onTap: () {
-                            // ... Logika onTap Anda tetap sama
-                            log('Notifikasi di-tap: ${notif.title}');
-                            final notifType = notif.type;
-                            final notifStatus = notif.status;
-                            final notifRefId = notif.referenceId;
-
-                            if (notifType == 'lapor_foto_water_meter_status') {
-                              if (notifStatus == 'ditolak') {
-                                Navigator.pushNamed(
-                                    context, '/lapor_foto_meter');
-                              }
-                            } else if (notif.referenceId != null) {
-                              final int? pengaduanId =
-                                  int.tryParse(notif.referenceId!);
-                              if (pengaduanId != null) {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/lacak_laporan_saya',
-                                  arguments: {'pengaduan_id': pengaduanId},
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _buildNotificationItem(notif),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(Notifikasi notif) {
+    const Color primaryColor = Color(0xFF0077B6);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Slidable(
+        key: ValueKey(notif.id),
+        endActionPane: ActionPane(
+          motion: const BehindMotion(),
+          children: [
+            SlidableAction(
+              onPressed: (context) => _handleDelete(notif),
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              icon: Ionicons.trash_outline,
+              label: 'Hapus',
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+          ],
+        ),
+        child: InkWell(
+          onTap: () {
+            log('Notifikasi di-tap: ${notif.title}');
+            if (notif.type == 'lapor_foto_water_meter_status' &&
+                notif.status == 'ditolak') {
+              Navigator.pushNamed(context, '/lapor_foto_meter');
+            } else if (notif.referenceId != null) {
+              final int? pengaduanId = int.tryParse(notif.referenceId!);
+              if (pengaduanId != null) {
+                Navigator.pushNamed(
+                  context,
+                  '/lacak_laporan_saya',
+                  arguments: {'pengaduan_id': pengaduanId},
+                );
+              }
+            }
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: !notif.isRead
+                  ? Border.all(color: primaryColor.withOpacity(0.5), width: 1.5)
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  backgroundColor: !notif.isRead
+                      ? primaryColor.withOpacity(0.1)
+                      : Colors.grey.shade100,
+                  child: Icon(
+                    _getNotificationIcon(notif.type),
+                    color: !notif.isRead ? primaryColor : Colors.grey.shade600,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notif.title,
+                        style: GoogleFonts.manrope(
+                          fontWeight:
+                              !notif.isRead ? FontWeight.bold : FontWeight.w600,
+                          color: !notif.isRead
+                              ? const Color(0xFF212529)
+                              : Colors.grey.shade700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notif.body,
+                        style: GoogleFonts.manrope(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // --- PERBAIKAN LAYOUT TIMEAGO ---
+                SizedBox(
+                  width: 75,
+                  child: Text(
+                    timeago.format(notif.createdAt, locale: 'id'),
+                    style: GoogleFonts.manrope(
+                        fontSize: 12, color: Colors.grey.shade500),
+                    textAlign: TextAlign.right,
+                    softWrap: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return FadeInAnimationUI(
+      delay: 200,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey.shade200,
+                ),
+                child: Icon(Ionicons.notifications_off_outline,
+                    size: 60, color: Colors.grey.shade400),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Kotak Masuk Kosong',
+                style: GoogleFonts.manrope(
+                    fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Semua notifikasi dan pembaruan penting akan muncul di sini.',
+                style: GoogleFonts.manrope(
+                    fontSize: 15, color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return FadeInAnimationUI(
+      delay: 200,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Ionicons.cloud_offline_outline,
+                  size: 80, color: Colors.grey.shade400),
+              const SizedBox(height: 20),
+              Text("Oops!",
+                  style: GoogleFonts.manrope(
+                      fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text("Gagal memuat data notifikasi.",
+                  textAlign: TextAlign.center, style: GoogleFonts.manrope()),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                icon: const Icon(Ionicons.refresh_outline),
+                label: const Text("Coba Lagi"),
+                onPressed: _loadNotifikasi,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0077B6),
+                  foregroundColor: Colors.white,
+                  textStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

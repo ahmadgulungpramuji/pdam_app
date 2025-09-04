@@ -1,12 +1,10 @@
 // lib/lacak_laporan_saya_page.dart
-// ignore_for_file: unused_element
+// ignore_for_file: use_build_context_synchronously, unused_element
 
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:animate_do/animate_do.dart'; // <<<--- FIX 1: MENAMBAHKAN IMPORT YANG HILANG
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_simple_model.dart';
@@ -14,6 +12,62 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:pdam_app/pages/shared/reusable_chat_page.dart';
 import 'package:pdam_app/services/chat_service.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+
+// --- WIDGET ANIMASI (Disalin dari home_pelanggan_page.dart) ---
+class FadeInAnimation extends StatefulWidget {
+  final int delay;
+  final Widget child;
+
+  const FadeInAnimation({super.key, this.delay = 0, required this.child});
+
+  @override
+  State<FadeInAnimation> createState() => _FadeInAnimationState();
+}
+
+class _FadeInAnimationState extends State<FadeInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _position;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _position,
+        child: widget.child,
+      ),
+    );
+  }
+}
+// --- END WIDGET ANIMASI ---
 
 class LacakLaporanSayaPage extends StatefulWidget {
   const LacakLaporanSayaPage({super.key});
@@ -203,12 +257,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     final String? token = await _getAuthToken();
     if (token == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sesi berakhir, silakan login ulang.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackbar('Sesi berakhir, silakan login ulang.', isError: true);
       }
       setDialogLoadingState(false);
       return;
@@ -239,61 +288,61 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             });
           }
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Penilaian berhasil dikirim! Terima kasih.'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showSnackbar('Penilaian berhasil dikirim! Terima kasih.',
+            isError: false);
+
         if (Navigator.canPop(dialogContext)) {
           Navigator.of(dialogContext).pop();
         }
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                responseData['message'] ?? 'Gagal mengirim penilaian.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Terjadi kesalahan: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        _showSnackbar(
+          responseData['message'] ?? 'Gagal mengirim penilaian.',
+          isError: true,
         );
       }
+    } catch (e) {
+      _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
     } finally {
       setDialogLoadingState(false);
     }
   }
 
+  void _showSnackbar(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: GoogleFonts.manrope()),
+      backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+    ));
+  }
+
   // ==========================================================
-  // --- UI WIDGETS (MODERN & ELEGANT) ---
+  // --- UI WIDGETS (TELAH DIROMBAK) ---
   // ==========================================================
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+    const Color textColor = Color(0xFF212529);
 
     return DefaultTabController(
       length: 4,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          title: Text('Lacak Laporan Saya',
-              style:
-                  textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          title: Text(
+            'Lacak Laporan Saya',
+            style: GoogleFonts.manrope(
+                fontWeight: FontWeight.bold, color: textColor),
+          ),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: backgroundColor,
           elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: textColor),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),
             child: Align(
@@ -303,16 +352,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                 tabAlignment: TabAlignment.start,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 indicator: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(30),
                 ),
                 indicatorPadding: const EdgeInsets.symmetric(vertical: 6),
                 splashBorderRadius: BorderRadius.circular(30),
-                labelColor: Theme.of(context).primaryColor,
+                labelColor: primaryColor,
                 unselectedLabelColor: Colors.grey.shade600,
-                labelStyle:
-                    textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                unselectedLabelStyle: textTheme.bodyMedium,
+                labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+                unselectedLabelStyle: GoogleFonts.manrope(),
                 tabs: [
                   const Tab(text: 'Diproses'),
                   const Tab(text: 'Dikerjakan'),
@@ -334,19 +382,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           ),
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(color: primaryColor))
             : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Text(
-                      _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodyMedium
-                          ?.copyWith(color: Colors.red.shade700),
-                    ),
-                  ))
+                ? _buildErrorView()
                 : RefreshIndicator(
+                    color: primaryColor,
                     onRefresh: () => _fetchLaporan(showLoadingIndicator: false),
                     child: FadeTransition(
                       opacity: _fadeAnimation,
@@ -387,10 +427,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       itemCount: laporanList.length,
       itemBuilder: (context, index) {
         final laporan = laporanList[index];
-        return FadeInUp(
-          from: 20,
-          delay: Duration(milliseconds: 100 * index),
-          duration: const Duration(milliseconds: 500),
+        return FadeInAnimation(
+          delay: 100 * index,
           child: _buildTimelineCard(laporan,
               isLast: index == laporanList.length - 1),
         );
@@ -400,7 +438,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
 
   Widget _buildTimelineCard(Pengaduan laporan, {bool isLast = false}) {
     final statusMeta = _getStatusMeta(laporan.status);
-    final textTheme = GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
 
     return IntrinsicHeight(
       child: Row(
@@ -440,14 +477,21 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 20),
-              child: Material(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey.shade200, width: 1),
-                ),
-                clipBehavior: Clip.antiAlias,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
                 child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
                   onTap: () => _showDetailAndRatingSheet(laporan),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -459,10 +503,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                           children: [
                             _buildStatusBadge(laporan.friendlyStatus),
                             Text(
-                              '#${laporan.id.toString().padLeft(4, '0')}',
-                              style: textTheme.bodySmall?.copyWith(
+                              '#LAP${laporan.id}',
+                              style: GoogleFonts.manrope(
                                 color: Colors.grey.shade500,
                                 fontWeight: FontWeight.bold,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -470,9 +515,10 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                         const SizedBox(height: 12),
                         Text(
                           laporan.friendlyKategori,
-                          style: textTheme.titleMedium?.copyWith(
+                          style: GoogleFonts.manrope(
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1D2A3A),
+                            fontSize: 16,
+                            color: const Color(0xFF212529),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -480,40 +526,40 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                           laporan.deskripsi,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey.shade600),
+                          style: GoogleFonts.manrope(
+                              color: Colors.grey.shade600, height: 1.5),
                         ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Icon(Icons.calendar_today_rounded,
+                            Icon(Ionicons.calendar_outline,
                                 size: 14, color: Colors.grey.shade500),
                             const SizedBox(width: 6),
                             Text(
                               DateFormat('d MMM yyyy, HH:mm')
                                   .format(laporan.createdAt.toLocal()),
-                              style: textTheme.bodySmall
-                                  ?.copyWith(color: Colors.grey.shade600),
+                              style: GoogleFonts.manrope(
+                                  color: Colors.grey.shade600, fontSize: 12),
                             ),
                             const Spacer(),
                             if (laporan.ratingHasil != null)
                               Row(
                                 children: [
-                                  Icon(Icons.star_rounded,
-                                      color: Colors.amber.shade700, size: 18),
+                                  Icon(Ionicons.star,
+                                      color: Colors.amber.shade700, size: 16),
                                   const SizedBox(width: 4),
                                   Text(
                                     laporan.ratingHasil!.toStringAsFixed(1),
-                                    style: textTheme.bodyMedium?.copyWith(
+                                    style: GoogleFonts.manrope(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.amber.shade800,
                                     ),
                                   ),
                                 ],
-                              ),
-                            if (laporan.ratingHasil == null)
-                              Icon(Icons.arrow_forward_ios,
-                                  size: 14, color: Colors.grey.shade400),
+                              )
+                            else
+                              Icon(Ionicons.chevron_forward,
+                                  size: 16, color: Colors.grey.shade400),
                           ],
                         ),
                       ],
@@ -529,8 +575,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
   }
 
   Widget _buildEmptyState(
-      {String message = 'Semua laporan pengaduan Anda akan muncul di sini.'}) {
-    final textTheme = GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
+      {String message = 'Semua laporan Anda akan muncul di sini.'}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -541,22 +586,56 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.grey.shade100,
+                color: Colors.grey.shade200,
               ),
-              child: Icon(Icons.inventory_2_outlined,
+              child: Icon(Ionicons.file_tray_stacked_outline,
                   size: 60, color: Colors.grey.shade400),
             ),
             const SizedBox(height: 24),
             Text(
               'Belum Ada Laporan',
-              style: textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: GoogleFonts.manrope(
+                  fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: textTheme.bodyLarge?.copyWith(color: Colors.grey.shade500),
+              style: GoogleFonts.manrope(
+                  fontSize: 15, color: Colors.grey.shade600),
               textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Ionicons.cloud_offline_outline,
+                size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 20),
+            Text("Oops!",
+                style: GoogleFonts.manrope(
+                    fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text(_errorMessage ?? "Terjadi kesalahan.",
+                textAlign: TextAlign.center, style: GoogleFonts.manrope()),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              icon: const Icon(Ionicons.refresh_outline),
+              label: const Text("Coba Lagi"),
+              onPressed: _fetchLaporan,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0077B6),
+                foregroundColor: Colors.white,
+                textStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -567,30 +646,33 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
   ({Color color, IconData icon}) _getStatusMeta(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
-        return (
-          color: Colors.blue.shade700,
-          icon: Icons.pending_actions_rounded,
-        );
+        return (color: Colors.blue.shade700, icon: Ionicons.time_outline);
       case 'menunggu_pelanggan':
         return (
           color: Colors.purple.shade700,
-          icon: Icons.person_search_rounded,
+          icon: Ionicons.person_circle_outline
         );
       case 'diproses':
       case 'diterima':
       case 'menunggu_konfirmasi':
       case 'dalam_perjalanan':
-        return (
-          color: Colors.orange.shade800,
-          icon: Icons.construction_rounded
-        );
+        return (color: Colors.orange.shade800, icon: Ionicons.build_outline);
       case 'selesai':
-        return (color: Colors.green.shade700, icon: Icons.check_circle_rounded);
+        return (
+          color: Colors.green.shade700,
+          icon: Ionicons.checkmark_circle_outline
+        );
       case 'dibatalkan':
       case 'ditolak':
-        return (color: Colors.red.shade700, icon: Icons.cancel_rounded);
+        return (
+          color: Colors.red.shade700,
+          icon: Ionicons.close_circle_outline
+        );
       default:
-        return (color: Colors.grey.shade600, icon: Icons.help_outline_rounded);
+        return (
+          color: Colors.grey.shade600,
+          icon: Ionicons.help_circle_outline
+        );
     }
   }
 
@@ -608,12 +690,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           Icon(meta.icon, color: meta.color, size: 14),
           const SizedBox(width: 6),
           Text(
-            status.replaceAll('_', ' ').toUpperCase(),
-            style: GoogleFonts.poppins(
+            status,
+            style: GoogleFonts.manrope(
               color: meta.color,
               fontWeight: FontWeight.bold,
               fontSize: 11,
-              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -633,15 +714,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final textTheme =
-            GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
-            // <<<--- FIX 2: MENDEFINISIKAN KEMBALI FUNGSI YANG HILANG ---
             void updateSheetLoadingState(bool isLoading) {
               setSheetState(() => _isDialogRatingLoading = isLoading);
             }
-            // --- -------------------------------------------------- ---
 
             bool allRatingsGiven = _dialogRatingKecepatan > 0 &&
                 _dialogRatingPelayanan > 0 &&
@@ -692,8 +769,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                             const SizedBox(height: 16),
                             Text(
                               'Detail Laporan #${laporan.id}',
-                              style: textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                              style: GoogleFonts.manrope(
+                                  fontSize: 22, fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 24),
@@ -701,7 +778,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                 'Kategori', laporan.friendlyKategori),
                             _buildDetailRowSheet(
                                 'Tanggal Lapor',
-                                // TAMBAHKAN .toLocal() DI SINI
                                 DateFormat('d MMMM yyyy, HH:mm')
                                     .format(laporan.createdAt.toLocal())),
                             _buildDetailRowSheet('Deskripsi', laporan.deskripsi,
@@ -726,16 +802,17 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.info_outline_rounded,
+                                        Icon(
+                                            Ionicons.information_circle_outline,
                                             color: Colors.red.shade700,
                                             size: 20),
                                         const SizedBox(width: 8),
                                         Text(
                                           'Alasan Dibatalkan/Ditolak',
-                                          style:
-                                              textTheme.titleMedium?.copyWith(
+                                          style: GoogleFonts.manrope(
                                             fontWeight: FontWeight.bold,
                                             color: Colors.red.shade800,
+                                            fontSize: 16,
                                           ),
                                         ),
                                       ],
@@ -743,189 +820,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                     const SizedBox(height: 8),
                                     Text(
                                       laporan.keteranganPenolakan!,
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        height: 1.5,
-                                      ),
+                                      style: GoogleFonts.manrope(height: 1.5),
                                     ),
                                   ],
                                 ),
                               ),
                             ],
-                            const Divider(height: 32, thickness: 1),
+                            const Divider(height: 32, thickness: 0.5),
                             _buildContactButtons(laporan),
-                            if (laporan.status.toLowerCase() ==
-                                'menunggu_pelanggan') ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.blue.shade200,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Tindak Lanjut Laporan',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade800,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      'Anda diminta untuk datang ke kantor cabang PDAM untuk diskusi lebih lanjut mengenai laporan tagihan membengkak. Mohon berikan konfirmasi Anda di bawah ini.',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    if (_isDialogRatingLoading)
-                                      const Center(
-                                        child: CircularProgressIndicator(),
-                                      )
-                                    else ...[
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            updateSheetLoadingState(
-                                                true); // SEKARANG VALID
-                                            try {
-                                              await _apiService
-                                                  .respondToComplaint(
-                                                laporan.id,
-                                                'bersedia',
-                                              );
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Konfirmasi berhasil dikirim.',
-                                                    ),
-                                                    backgroundColor:
-                                                        Colors.green,
-                                                  ),
-                                                );
-                                                Navigator.of(context).pop();
-                                              }
-                                              _fetchLaporan(
-                                                showLoadingIndicator: false,
-                                              );
-                                            } catch (e) {
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(e.toString()),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            } finally {
-                                              if (mounted) {
-                                                updateSheetLoadingState(
-                                                    false); // SEKARANG VALID
-                                              }
-                                            }
-                                          },
-                                          child: const Text(
-                                            'Ya, Saya Bersedia Datang',
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(
-                                              color: Colors.orange.shade700,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            updateSheetLoadingState(
-                                                true); // SEKARANG VALID
-                                            try {
-                                              await _apiService
-                                                  .respondToComplaint(
-                                                laporan.id,
-                                                'permohonan_cek_kebocoran',
-                                              );
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Permohonan cek kebocoran berhasil diajukan.',
-                                                    ),
-                                                    backgroundColor:
-                                                        Colors.green,
-                                                  ),
-                                                );
-                                                Navigator.of(context).pop();
-                                              }
-                                              _fetchLaporan(
-                                                showLoadingIndicator: false,
-                                              );
-                                            } catch (e) {
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(e.toString()),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            } finally {
-                                              if (mounted) {
-                                                updateSheetLoadingState(
-                                                    false); // SEKARANG VALID
-                                              }
-                                            }
-                                          },
-                                          child: Text(
-                                            'Saya Ingin Ajukan Cek Kebocoran Persil',
-                                            style: TextStyle(
-                                              color: Colors.orange.shade800,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32),
                               Container(
@@ -941,7 +843,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                       laporan.ratingHasil == null
                                           ? 'Beri Penilaian'
                                           : 'Penilaian Anda',
-                                      style: textTheme.titleLarge?.copyWith(
+                                      style: GoogleFonts.manrope(
+                                          fontSize: 18,
                                           fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 16),
@@ -971,16 +874,22 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                     const SizedBox(height: 16),
                                     TextField(
                                       controller: _komentarRatingController,
-                                      style: textTheme.bodyMedium,
+                                      style: GoogleFonts.manrope(),
                                       decoration: InputDecoration(
                                         hintText:
-                                            'Tulis komentar Anda di sini... (Opsional)',
+                                            'Tulis komentar Anda... (Opsional)',
                                         border: OutlineInputBorder(
                                             borderRadius:
                                                 BorderRadius.circular(12),
-                                            borderSide: BorderSide.none),
+                                            borderSide: BorderSide(
+                                                color: Colors.grey.shade300)),
+                                        enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            borderSide: BorderSide(
+                                                color: Colors.grey.shade300)),
                                         filled: true,
-                                        fillColor: Colors.grey.shade100,
+                                        fillColor: Colors.white,
                                       ),
                                       maxLines: 4,
                                       minLines: 2,
@@ -999,22 +908,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: Icon(laporan.ratingHasil == null
-                                        ? Icons.send_rounded
-                                        : Icons.edit_note_rounded),
+                                        ? Ionicons.send_outline
+                                        : Ionicons.create_outline),
                                     label: Text(laporan.ratingHasil == null
                                         ? 'Kirim Penilaian'
                                         : 'Update Penilaian'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      textStyle: textTheme.titleMedium
-                                          ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold),
-                                    ),
+                                    style: _buttonStyle(),
                                     onPressed: !canSubmit
                                         ? null
                                         : () => _handleRatingSubmission(
@@ -1025,7 +924,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                               _komentarRatingController.text
                                                   .trim(),
                                               context,
-                                              updateSheetLoadingState, // Menggunakan fungsi yang sudah valid
+                                              updateSheetLoadingState,
                                             ),
                                   ),
                                 ),
@@ -1059,7 +958,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           Text(
             title,
             style:
-                GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 16),
+                GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 15),
           ),
           const SizedBox(height: 8),
           Center(
@@ -1070,7 +969,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
               itemSize: 40.0,
               itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
               itemBuilder: (context, _) =>
-                  Icon(Icons.star_rounded, color: Colors.amber.shade600),
+                  const Icon(Ionicons.star, color: Colors.amber),
               onRatingUpdate: onRatingUpdate,
               ignoreGestures: isLoading,
             ),
@@ -1079,9 +978,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       ),
     );
   }
-  // GANTI SELURUH FUNGSI _buildContactButtons DENGAN INI
 
-// GANTI SELURUH FUNGSI _buildContactButtons DENGAN INI
   Widget _buildContactButtons(Pengaduan laporan) {
     if (_currentUserData == null) return const SizedBox.shrink();
 
@@ -1108,20 +1005,16 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       children: [
         Text(
           'Butuh Bantuan?',
-          style: GoogleFonts.poppins(
-              textStyle: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+          style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            icon: const Icon(Icons.support_agent),
+            icon: const Icon(Ionicons.headset_outline),
             label: const Text('Chat dengan Admin Cabang'),
             onPressed: () async {
               try {
-                // ... (logika tombol chat admin tidak berubah, sudah benar)
                 setState(() => _isDialogRatingLoading = true);
                 final adminInfoList =
                     await _apiService.getBranchAdminInfoByCabangId(
@@ -1152,24 +1045,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                   );
                 }
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text("Gagal memulai chat admin: ${e.toString()}")),
-                  );
-                }
+                _showSnackbar("Gagal memulai chat admin: ${e.toString()}",
+                    isError: true);
               } finally {
                 if (mounted) {
                   setState(() => _isDialogRatingLoading = false);
                 }
               }
             },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
+            style: _buttonStyle(isOutlined: true),
           ),
         ),
         const SizedBox(height: 8),
@@ -1177,7 +1061,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.person),
+              icon: const Icon(Ionicons.person_outline),
               label: Text('Chat dengan Petugas ${petugasPelapor.nama}'),
               onPressed: () async {
                 try {
@@ -1192,12 +1076,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                     tipeTugas: 'pengaduan',
                     idTugas: laporan.id,
                     currentUser: _currentUserData!,
-                    // ===============================================
-                    // == INI ADALAH PERBAIKANNYA ==
-                    // ===============================================
-                    otherUsers: [petugasInfo], // Bungkus dalam List
-                    cabangId: laporan.idCabang, // Tetap kirim cabangId
-                    // ===============================================
+                    otherUsers: [petugasInfo],
+                    cabangId: laporan.idCabang,
                   );
 
                   if (mounted) {
@@ -1214,22 +1094,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                     );
                   }
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Gagal memulai chat petugas: $e")),
-                    );
-                  }
+                  _showSnackbar("Gagal memulai chat petugas: $e",
+                      isError: true);
                 } finally {
                   if (mounted) {
                     setState(() => _isDialogRatingLoading = false);
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
+              style: _buttonStyle(),
             ),
           ),
         const SizedBox(height: 16),
@@ -1248,18 +1121,43 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: GoogleFonts.poppins(
-                textStyle: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500),
+              style: GoogleFonts.manrope(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               )),
           const SizedBox(height: 6),
-          Text(value,
-              style: GoogleFonts.poppins(
-                  textStyle: const TextStyle(fontSize: 16, height: 1.5))),
+          Text(value, style: GoogleFonts.manrope(fontSize: 16, height: 1.5)),
         ],
       ),
     );
+  }
+
+  ButtonStyle _buttonStyle({bool isOutlined = false}) {
+    const Color primaryColor = Color(0xFF0077B6);
+    return isOutlined
+        ? OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            side: BorderSide(color: primaryColor),
+            foregroundColor: primaryColor,
+            textStyle: GoogleFonts.manrope(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          )
+        : ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: GoogleFonts.manrope(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+            elevation: 2,
+          );
   }
 }

@@ -44,9 +44,11 @@ class _FadeInAnimationState extends State<FadeInAnimation>
       duration: const Duration(milliseconds: 600),
     );
 
-    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
-    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
 
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _controller.forward();
@@ -126,7 +128,8 @@ class AnimatedCounter extends StatefulWidget {
   State<AnimatedCounter> createState() => _AnimatedCounterState();
 }
 
-class _AnimatedCounterState extends State<AnimatedCounter> with SingleTickerProviderStateMixin {
+class _AnimatedCounterState extends State<AnimatedCounter>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -147,7 +150,8 @@ class _AnimatedCounterState extends State<AnimatedCounter> with SingleTickerProv
   void didUpdateWidget(covariant AnimatedCounter oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _animation = Tween<double>(begin: oldWidget.value, end: widget.value).animate(
+      _animation =
+          Tween<double>(begin: oldWidget.value, end: widget.value).animate(
         CurvedAnimation(parent: _controller, curve: Curves.easeOut),
       );
       _controller
@@ -330,7 +334,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(berita.judul,
               style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
@@ -342,14 +347,17 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
-                      _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                      _apiService.rootBaseUrl +
+                          '/storage/' +
+                          berita.fotoBanner!,
                       fit: BoxFit.cover,
                     ),
                   ),
                 const SizedBox(height: 12),
                 Text(
                   DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
-                  style: GoogleFonts.manrope(fontSize: 14, color: Colors.grey.shade600),
+                  style: GoogleFonts.manrope(
+                      fontSize: 14, color: Colors.grey.shade600),
                 ),
                 if (berita.namaAdmin != null)
                   Padding(
@@ -378,14 +386,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       },
     );
   }
-  
+
   void _showInfoDialog({required String title, required List<String> steps}) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(title,
+              style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -399,7 +409,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text("Mengerti", style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+              child: Text("Mengerti",
+                  style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -415,7 +426,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         children: [
           CircleAvatar(
             radius: 12,
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            backgroundColor:
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
             child: Text(
               '$number',
               style: GoogleFonts.manrope(
@@ -451,7 +463,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           ? const Center(child: CircularProgressIndicator(color: primaryColor))
           : _errorMessage != null
               ? _buildErrorView()
-              : _buildHomeContent(primaryColor, secondaryColor, textColor, subtleTextColor),
+              : _buildHomeContent(
+                  primaryColor, secondaryColor, textColor, subtleTextColor),
       bottomNavigationBar: _buildBottomNavBar(primaryColor, subtleTextColor),
     );
   }
@@ -472,7 +485,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             ),
             Text(
               _userData?['nama']?.toString().capitalize() ?? 'Pelanggan',
-              style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+              style: GoogleFonts.manrope(
+                  fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
             ),
           ],
         ),
@@ -484,9 +498,13 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: Icon(Ionicons.notifications_outline, size: 28, color: textColor),
+                icon: Icon(Ionicons.notifications_outline,
+                    size: 28, color: textColor),
                 onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (context) => const NotifikasiPage()));
+                  await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const NotifikasiPage()));
                   _fetchUnreadCount();
                 },
               ),
@@ -496,11 +514,17 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   top: 8,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10)),
+                    constraints:
+                        const BoxConstraints(minWidth: 18, minHeight: 18),
                     child: Text(
                       '$_unreadNotifCount',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -513,13 +537,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-   Widget _buildBottomNavBar(Color primaryColor, Color subtleTextColor) {
+  Widget _buildBottomNavBar(Color primaryColor, Color subtleTextColor) {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
       selectedItemColor: primaryColor,
       unselectedItemColor: subtleTextColor.withOpacity(0.8),
-      selectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 12),
+      selectedLabelStyle:
+          GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 12),
       unselectedLabelStyle: GoogleFonts.manrope(fontSize: 12),
       currentIndex: _currentIndex,
       onTap: (index) {
@@ -538,15 +563,28 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         }
       },
       items: const [
-        BottomNavigationBarItem(icon: Icon(Ionicons.home_outline), activeIcon: Icon(Ionicons.home), label: 'Beranda'),
-        BottomNavigationBarItem(icon: Icon(Ionicons.document_text_outline), activeIcon: Icon(Ionicons.document_text), label: 'Laporan'),
-        BottomNavigationBarItem(icon: Icon(Ionicons.receipt_outline), activeIcon: Icon(Ionicons.receipt), label: 'Tagihan'),
-        BottomNavigationBarItem(icon: Icon(Ionicons.person_outline), activeIcon: Icon(Ionicons.person), label: 'Profil'),
+        BottomNavigationBarItem(
+            icon: Icon(Ionicons.home_outline),
+            activeIcon: Icon(Ionicons.home),
+            label: 'Beranda'),
+        BottomNavigationBarItem(
+            icon: Icon(Ionicons.document_text_outline),
+            activeIcon: Icon(Ionicons.document_text),
+            label: 'Laporan'),
+        BottomNavigationBarItem(
+            icon: Icon(Ionicons.receipt_outline),
+            activeIcon: Icon(Ionicons.receipt),
+            label: 'Tagihan'),
+        BottomNavigationBarItem(
+            icon: Icon(Ionicons.person_outline),
+            activeIcon: Icon(Ionicons.person),
+            label: 'Profil'),
       ],
     );
   }
 
-  Widget _buildHomeContent(Color primaryColor, Color secondaryColor, Color textColor, Color subtleTextColor) {
+  Widget _buildHomeContent(Color primaryColor, Color secondaryColor,
+      Color textColor, Color subtleTextColor) {
     return RefreshIndicator(
       onRefresh: _loadInitialData,
       color: primaryColor,
@@ -567,7 +605,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           const SizedBox(height: 28),
           _buildSectionHeader("Laporan Terbaru", textColor,
               actionText: _laporanTerbaruList.isNotEmpty ? "Lihat Semua" : null,
-              onActionTap: () => Navigator.pushNamed(context, '/lacak_laporan_saya')),
+              onActionTap: () =>
+                  Navigator.pushNamed(context, '/lacak_laporan_saya')),
           const SizedBox(height: 16),
           FadeInAnimation(
             delay: 400,
@@ -583,7 +622,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           const SizedBox(height: 28),
           _buildSectionHeader("Untuk Anda", textColor),
           const SizedBox(height: 16),
-          
           StaggeredFadeIn(
             delay: 150,
             children: [
@@ -618,7 +656,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     "Setelah waktu tunggu selesai, periksa kembali angka pada meteran air.",
                     "Jika angka pada meteran berubah (bertambah), ada kemungkinan besar terjadi kebocoran pada jaringan pipa di rumah Anda. Segera hubungi teknisi."
                   ];
-                  _showInfoDialog(title: "Cara Mengecek Kebocoran Persil", steps: steps);
+                  _showInfoDialog(
+                      title: "Cara Mengecek Kebocoran Persil", steps: steps);
                 },
               ),
               const SizedBox(height: 12),
@@ -635,7 +674,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     "Melalui Mobile Banking (BCA, Mandiri, BRI) pada menu pembayaran PDAM.",
                     "Pastikan Anda menyimpan bukti pembayaran yang sah."
                   ];
-                  _showInfoDialog(title: "Kanal Pembayaran Tagihan", steps: steps);
+                  _showInfoDialog(
+                      title: "Kanal Pembayaran Tagihan", steps: steps);
                 },
               ),
               const SizedBox(height: 12),
@@ -679,8 +719,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       ),
     );
   }
-  
-  Widget _buildSectionHeader(String title, Color textColor, {String? actionText, VoidCallback? onActionTap}) {
+
+  Widget _buildSectionHeader(String title, Color textColor,
+      {String? actionText, VoidCallback? onActionTap}) {
     return FadeInAnimation(
       delay: 300,
       child: Row(
@@ -727,7 +768,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 "Penggunaan Air Bulan Lalu",
                 style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
               ),
-              Icon(Ionicons.water, color: Colors.white.withOpacity(0.8), size: 28),
+              Icon(Ionicons.water,
+                  color: Colors.white.withOpacity(0.8), size: 28),
             ],
           ),
           const SizedBox(height: 8),
@@ -737,26 +779,37 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             children: [
               AnimatedCounter(
                 value: 24.5,
-                style: GoogleFonts.manrope(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                style: GoogleFonts.manrope(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
               const SizedBox(width: 4),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6.0),
                 child: Text(
                   'm³',
-                  style: GoogleFonts.manrope(fontSize: 20, color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w300),
+                  style: GoogleFonts.manrope(
+                      fontSize: 20,
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w300),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-           
           const Divider(color: Colors.white30, height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Tagihan Tertunggak", style: GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
-              Text("Rp 0", style: GoogleFonts.manrope(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              Text("Tagihan Tertunggak",
+                  style:
+                      GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
+              Text("Rp 0",
+                  style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -766,11 +819,31 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   Widget _buildMainServicesGrid(Color primaryColor, Color textColor) {
     final services = [
-      {'icon': Ionicons.create_outline, 'label': 'Buat Laporan', 'route': '/buat_laporan'},
-      {'icon': Ionicons.headset_outline, 'label': 'Hubungi Kami', 'route': '/hubungi_kami'},
-      {'icon': Ionicons.camera_outline, 'label': 'Lapor Meter', 'route': '/lapor_foto_meter'},
-      {'icon': Ionicons.map_outline, 'label': 'Lacak Laporan', 'route': '/lacak_laporan_saya'},
-      {'icon': Ionicons.receipt_outline, 'label': 'Cek Tagihan', 'route': '/cek_tunggakan'},
+      {
+        'icon': Ionicons.create_outline,
+        'label': 'Buat Laporan',
+        'route': '/buat_laporan'
+      },
+      {
+        'icon': Ionicons.headset_outline,
+        'label': 'Hubungi Kami',
+        'route': '/hubungi_kami'
+      },
+      {
+        'icon': Ionicons.camera_outline,
+        'label': 'Baca Meter Mandiri',
+        'route': '/lapor_foto_meter'
+      },
+      {
+        'icon': Ionicons.map_outline,
+        'label': 'Lacak Laporan',
+        'route': '/lacak_laporan_saya'
+      },
+      {
+        'icon': Ionicons.receipt_outline,
+        'label': 'Cek Tagihan',
+        'route': '/cek_tunggakan'
+      },
     ];
 
     return GridView.builder(
@@ -791,7 +864,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
             onTap: () {
               if (service['route'] == '/hubungi_kami') {
                 if (_userData != null) {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(userData: _userData!)));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              ChatPage(userData: _userData!)));
                 }
               } else {
                 Navigator.pushNamed(context, service['route'] as String);
@@ -812,12 +889,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(service['icon'] as IconData, size: 36, color: primaryColor),
+                  Icon(service['icon'] as IconData,
+                      size: 36, color: primaryColor),
                   const SizedBox(height: 12),
                   Text(
                     service['label'] as String,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                    style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: textColor),
                   ),
                 ],
               ),
@@ -835,7 +916,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         decoration: BoxDecoration(
             color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(16)),
-        child: Center(child: Text('Anda belum memiliki laporan aktif.', style: GoogleFonts.manrope(color: Colors.grey))),
+        child: Center(
+            child: Text('Anda belum memiliki laporan aktif.',
+                style: GoogleFonts.manrope(color: Colors.grey))),
       );
     }
 
@@ -847,9 +930,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         itemCount: _laporanTerbaruList.length,
         itemBuilder: (context, index) {
           return FadeInAnimation(
-            delay: 150 * index,
-            child: _buildSingleLaporanCard(_laporanTerbaruList[index], textColor)
-          );
+              delay: 150 * index,
+              child: _buildSingleLaporanCard(
+                  _laporanTerbaruList[index], textColor));
         },
       ),
     );
@@ -887,35 +970,45 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   children: [
                     Text(
                       '#LAP${laporan.id}',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                      style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: textColor),
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: statusMeta.color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         laporan.friendlyStatus,
-                        style: GoogleFonts.manrope(color: statusMeta.color, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.manrope(
+                            color: statusMeta.color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
                 Text(
                   laporan.friendlyKategori,
-                  style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.manrope(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Row(
                   children: [
-                    Icon(Ionicons.calendar_outline, size: 14, color: Colors.grey.shade600),
+                    Icon(Ionicons.calendar_outline,
+                        size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
                       DateFormat('d MMM yyyy').format(laporan.createdAt),
-                      style: GoogleFonts.manrope(fontSize: 12, color: Colors.grey.shade600),
+                      style: GoogleFonts.manrope(
+                          fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -931,7 +1024,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     switch (status.toLowerCase()) {
       case 'pending':
       case 'menunggu_konfirmasi':
-        return (color: Colors.orange.shade700, icon: Icons.pending_actions_rounded);
+        return (
+          color: Colors.orange.shade700,
+          icon: Icons.pending_actions_rounded
+        );
       case 'diterima':
       case 'dalam_perjalanan':
       case 'diproses':
@@ -945,13 +1041,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   Widget _buildBeritaHorizontalList(Color textColor, Color subtleTextColor) {
     if (_isBeritaLoading) {
-      return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(
+          height: 250, child: Center(child: CircularProgressIndicator()));
     }
     if (_beritaList.isEmpty) {
-      return const SizedBox(height: 250, child: Center(child: Text('Belum ada berita terbaru.')));
+      return const SizedBox(
+          height: 250, child: Center(child: Text('Belum ada berita terbaru.')));
     }
 
-    final PageController pageController = PageController(viewportFraction: 0.85);
+    final PageController pageController =
+        PageController(viewportFraction: 0.85);
 
     return SizedBox(
       height: 250,
@@ -971,7 +1070,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               return Center(
                 child: SizedBox(
                   height: Curves.easeOut.transform(value) * 250,
-                  child: _buildBeritaCard(_beritaList[index], textColor, subtleTextColor),
+                  child: _buildBeritaCard(
+                      _beritaList[index], textColor, subtleTextColor),
                 ),
               );
             },
@@ -981,7 +1081,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  Widget _buildBeritaCard(Berita berita, Color textColor, Color subtleTextColor) {
+  Widget _buildBeritaCard(
+      Berita berita, Color textColor, Color subtleTextColor) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
@@ -1008,7 +1109,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                   Expanded(
                     flex: 3,
                     child: Image.network(
-                      _apiService.rootBaseUrl + '/storage/' + berita.fotoBanner!,
+                      _apiService.rootBaseUrl +
+                          '/storage/' +
+                          berita.fotoBanner!,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
@@ -1023,7 +1126,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                       children: [
                         Text(
                           berita.judul,
-                          style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                          style: GoogleFonts.manrope(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: textColor),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1048,11 +1154,11 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       ),
     );
   }
-  
+
   Widget _buildInfoCard({
-    required IconData icon, 
-    required Color iconColor, 
-    required String title, 
+    required IconData icon,
+    required Color iconColor,
+    required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
@@ -1066,8 +1172,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200, width: 1.5)
-          ),
+              border: Border.all(color: Colors.grey.shade200, width: 1.5)),
           child: Row(
             children: [
               Container(
@@ -1083,13 +1188,18 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(title,
+                        style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: GoogleFonts.manrope(color: Colors.grey.shade700, fontSize: 13)),
+                    Text(subtitle,
+                        style: GoogleFonts.manrope(
+                            color: Colors.grey.shade700, fontSize: 13)),
                   ],
                 ),
               ),
-              const Icon(Ionicons.chevron_forward, color: Colors.grey, size: 20),
+              const Icon(Ionicons.chevron_forward,
+                  color: Colors.grey, size: 20),
             ],
           ),
         ),
@@ -1104,11 +1214,17 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Ionicons.cloud_offline_outline, size: 80, color: Colors.grey.shade400),
+            Icon(Ionicons.cloud_offline_outline,
+                size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 20),
-            Text("Oops!", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text("Oops!",
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text(_errorMessage ?? "Terjadi kesalahan.", textAlign: TextAlign.center),
+            Text(_errorMessage ?? "Terjadi kesalahan.",
+                textAlign: TextAlign.center),
             const SizedBox(height: 28),
             ElevatedButton.icon(
               icon: const Icon(Ionicons.refresh_outline),
@@ -1163,7 +1279,7 @@ class _AnimatedIconButtonState extends State<_AnimatedIconButton>
 
   void _onTapUp(TapUpDetails details) {
     Future.delayed(const Duration(milliseconds: 120), () {
-       if(mounted) _controller.reverse();
+      if (mounted) _controller.reverse();
     });
   }
 
