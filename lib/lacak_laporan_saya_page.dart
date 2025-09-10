@@ -827,7 +827,122 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               ),
                             ],
                             const Divider(height: 32, thickness: 0.5),
+
+                            // === BLOK YANG DIKEMBALIKAN & DISESUAIKAN GAYANYA ===
+                            if (laporan.status.toLowerCase() ==
+                                'menunggu_pelanggan') ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border:
+                                      Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tindak Lanjut Laporan',
+                                      style: GoogleFonts.manrope(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade800,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Anda diminta untuk datang ke kantor cabang PDAM untuk diskusi lebih lanjut mengenai laporan tagihan membengkak. Mohon berikan konfirmasi Anda di bawah ini.',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    if (_isDialogRatingLoading)
+                                      const Center(
+                                          child: CircularProgressIndicator())
+                                    else ...[
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton(
+                                          style: _buttonStyle().copyWith(
+                                              backgroundColor:
+                                                  MaterialStateProperty.all(
+                                                      Colors.green.shade600)),
+                                          onPressed: () async {
+                                            updateSheetLoadingState(true);
+                                            try {
+                                              await _apiService
+                                                  .respondToComplaint(
+                                                      laporan.id, 'bersedia');
+                                              _showSnackbar(
+                                                  'Konfirmasi berhasil dikirim.',
+                                                  isError: false);
+                                              Navigator.of(context).pop();
+                                              _fetchLaporan(
+                                                  showLoadingIndicator: false);
+                                            } catch (e) {
+                                              _showSnackbar(e.toString(),
+                                                  isError: true);
+                                            } finally {
+                                              if (mounted)
+                                                updateSheetLoadingState(false);
+                                            }
+                                          },
+                                          child: const Text(
+                                              'Ya, Saya Bersedia Datang'),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton(
+                                          style: _buttonStyle(isOutlined: true)
+                                              .copyWith(
+                                            foregroundColor:
+                                                MaterialStateProperty.all(
+                                                    Colors.orange.shade800),
+                                            side: MaterialStateProperty.all(
+                                                BorderSide(
+                                                    color: Colors
+                                                        .orange.shade700)),
+                                          ),
+                                          onPressed: () async {
+                                            updateSheetLoadingState(true);
+                                            try {
+                                              await _apiService
+                                                  .respondToComplaint(
+                                                      laporan.id,
+                                                      'permohonan_cek_kebocoran');
+                                              _showSnackbar(
+                                                  'Permohonan cek kebocoran berhasil diajukan.',
+                                                  isError: false);
+                                              Navigator.of(context).pop();
+                                              _fetchLaporan(
+                                                  showLoadingIndicator: false);
+                                            } catch (e) {
+                                              _showSnackbar(e.toString(),
+                                                  isError: true);
+                                            } finally {
+                                              if (mounted)
+                                                updateSheetLoadingState(false);
+                                            }
+                                          },
+                                          child: const Text(
+                                              'Saya Ingin Ajukan Cek Kebocoran Persil'),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const Divider(height: 32, thickness: 0.5),
+                            ],
+                            // === AKHIR DARI BLOK YANG DIKEMBALIKAN ===
+
                             _buildContactButtons(laporan),
+
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32),
                               Container(

@@ -38,21 +38,13 @@ class ChatService {
     try {
       print('[ChatService] Mengecek keberadaan dokumen: $threadId');
 
-      // =================================================================
-      // == PERBAIKAN UTAMA ADA DI SINI ==
-      // Menambahkan .timeout() untuk mencegah aplikasi menggantung.
       final doc = await threadRef.get().timeout(
-        const Duration(seconds: 15), // Batas waktu 15 detik
+        const Duration(seconds: 15),
         onTimeout: () {
-          // Blok ini akan dijalankan jika tidak ada jawaban setelah 15 detik.
-          print(
-              '[ChatService] GAGAL: Operasi get() timeout karena koneksi lambat/terputus.');
-          // Melempar error khusus yang akan ditangkap oleh blok catch di bawah.
-          throw Exception(
-              'Timeout: Tidak ada respons dari server Firestore. Periksa koneksi internet Anda.');
+          print('[ChatService] GAGAL: Operasi get() timeout.');
+          throw Exception('Timeout: Gagal terhubung ke server Firestore.');
         },
       );
-      // =================================================================
 
       // 5. Jika dokumen thread belum ada, maka buat baru.
       if (!doc.exists) {
@@ -61,10 +53,7 @@ class ChatService {
         final adminInfoResponse =
             await _apiService.getBranchAdminInfo(apiToken);
 
-        print(
-            '[ChatService] Status respons API Admin: ${adminInfoResponse.statusCode}');
         if (adminInfoResponse.statusCode != 200) {
-          print('[ChatService] ERROR: Gagal memanggil API admin.');
           throw Exception(
               'Gagal mendapatkan data admin cabang. Status: ${adminInfoResponse.statusCode}');
         }
@@ -73,14 +62,21 @@ class ChatService {
         print(
             '[ChatService] Info admin diterima. Mempersiapkan daftar peserta...');
 
-        Map<String, bool> participants = {userFirebaseUid: true};
+        // --- PERUBAHAN DARI MAP KE LIST ---
+        List<String> participantUids = [userFirebaseUid];
+        Map<String, dynamic> participantNames = {userFirebaseUid: userName};
+
         for (var admin in adminInfo) {
           if (admin['firebase_uid'] != null) {
-            participants[admin['firebase_uid']] = true;
+            if (!participantUids.contains(admin['firebase_uid'])) {
+              participantUids.add(admin['firebase_uid']);
+            }
+            participantNames[admin['firebase_uid']] = admin['nama'] ?? 'Admin';
           }
         }
         print(
-            '[ChatService] Daftar Peserta (participants) yang akan dibuat: $participants');
+            '[ChatService] Daftar Peserta (Uids) yang akan dibuat: $participantUids');
+        // --- AKHIR PERUBAHAN ---
 
         print('[ChatService] Menulis data ke Firestore...');
         await threadRef.set({
@@ -90,7 +86,10 @@ class ChatService {
             'initiatorType': userType,
             'cabangId': cabangId,
           },
-          'participants': participants,
+          // --- GUNAKAN FIELD BARU ---
+          'participantUids': participantUids,
+          'participantNames': participantNames,
+          // ---
           'lastMessage': 'Percakapan live dimulai.',
           'lastMessageTimestamp': FieldValue.serverTimestamp(),
         });
@@ -99,19 +98,15 @@ class ChatService {
         print('[ChatService] Thread sudah ada, tidak perlu membuat baru.');
       }
 
-      // 6. Mengembalikan ID thread jika semua proses berhasil.
       print('[ChatService] Proses selesai. Mengembalikan threadId: $threadId');
       return threadId;
     } catch (e, s) {
-      // 7. Menangkap dan mencatat semua kemungkinan error, termasuk timeout.
       print('[ChatService] TERJADI KESALAHAN FATAL: $e');
       print('[ChatService] STACK TRACE: $s');
-      // Melempar kembali error agar bisa ditangkap oleh UI (ChatPage) dan ditampilkan di SnackBar.
       rethrow;
     }
   }
 
-  /// Untuk chat Petugas <-> Admin
   Future<String> getOrCreateAdminChatThreadForPetugas({
     required Map<String, dynamic> petugasData,
   }) async {
@@ -127,6 +122,7 @@ class ChatService {
       throw Exception('Gagal memulai chat: Data petugas tidak lengkap.');
     }
 
+    // ID unik untuk chat internal antara semua petugas dan admin di satu cabang
     final threadId = 'cabang_${cabangId}_internal_petugas';
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
     final doc = await threadRef.get();
@@ -141,21 +137,32 @@ class ChatService {
       }
       final adminInfo = jsonDecode(adminInfoResponse.body)['data'];
 
-      Map<String, bool> participants = {petugasFirebaseUid: true};
+      // --- PERUBAHAN DARI MAP KE LIST ---
+      List<String> participantUids = [petugasFirebaseUid];
+      Map<String, dynamic> participantNames = {petugasFirebaseUid: petugasName};
+
       for (var admin in adminInfo) {
         if (admin['firebase_uid'] != null) {
-          participants[admin['firebase_uid']] = true;
+          if (!participantUids.contains(admin['firebase_uid'])) {
+            participantUids.add(admin['firebase_uid']);
+          }
+          participantNames[admin['firebase_uid']] = admin['nama'] ?? 'Admin';
         }
       }
+      // --- AKHIR PERUBAHAN ---
 
       await threadRef.set({
         'threadInfo': {
           'title': 'Chat Internal Cabang $cabangId',
           'initiatorId': petugasId,
-          'initiatorType': 'petugas',
+          'initiatorType':
+              'petugas', // Bisa juga 'internal' jika ingin dibedakan
           'cabangId': cabangId,
         },
-        'participants': participants,
+        // --- GUNAKAN FIELD BARU ---
+        'participantUids': participantUids,
+        'participantNames': participantNames,
+        // ---
         'lastMessage': 'Percakapan internal dimulai.',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
       });
@@ -169,14 +176,9 @@ class ChatService {
     required String tipeTugas,
     required int idTugas,
     required Map<String, dynamic> currentUser,
-    // --- UBAH INI ---
-    // Sekarang otherUsers adalah List
     required List<dynamic> otherUsers,
-    // --- TAMBAHKAN INI ---
-    // Tambahkan parameter untuk cabangId agar bisa disimpan
     required int cabangId,
   }) async {
-    // ID thread tetap unik berdasarkan tugas/laporan
     final threadId = '${tipeTugas}_$idTugas';
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
     final doc = await threadRef.get();
@@ -185,35 +187,41 @@ class ChatService {
       final currentUserUid = currentUser['firebase_uid'];
       final currentUserName = currentUser['nama'];
 
-      // --- AWAL PERUBAHAN LOGIKA ---
-      // Buat map participants, dimulai dari user saat ini
-      Map<String, bool> participants = {currentUserUid: true};
+      // --- AWAL LOGIKA BARU ---
+      // 1. Buat List<String> untuk menyimpan semua UID peserta.
+      // Dimulai dengan UID pengguna saat ini.
+      List<String> participantUids = [currentUserUid];
+
+      // (Opsional, tapi bagus untuk UI) Simpan nama peserta.
       Map<String, dynamic> participantNames = {currentUserUid: currentUserName};
 
-      // Loop melalui daftar otherUsers (sekarang berisi para admin)
+      // 2. Loop melalui daftar pengguna lain (misalnya, petugas atau admin).
       for (var user in otherUsers) {
-        if (user['firebase_uid'] != null) {
-          participants[user['firebase_uid']] = true;
-          participantNames[user['firebase_uid']] = user['nama'];
+        final userUid = user['firebase_uid'] as String?;
+        if (userUid != null && userUid.isNotEmpty) {
+          // 3. Tambahkan UID mereka ke dalam List jika belum ada.
+          if (!participantUids.contains(userUid)) {
+            participantUids.add(userUid);
+          }
+          participantNames[userUid] = user['nama'];
         }
       }
-      // --- AKHIR PERUBAHAN LOGIKA ---
+      // --- AKHIR LOGIKA BARU ---
 
       await threadRef.set({
         'threadInfo': {
           'title': 'Chat Laporan #$idTugas',
           'idTugas': idTugas,
           'tipeTugas': tipeTugas,
-          // ===============================================
-          // == INI ADALAH PERBAIKAN UTAMA UNTUK BUG ==
-          // ===============================================
           'cabangId': cabangId,
-          // ===============================================
-          'initiatorId': currentUser['id'], // Simpan juga info pembuat
+          'initiatorId': currentUser['id'],
           'initiatorType': 'pelanggan',
         },
-        'participants':
-            participants, // Simpan map participants yang sudah diisi semua admin
+        // ===============================================
+        // == SIMPAN SEBAGAI ARRAY, BUKAN MAP ==
+        // ===============================================
+        'participantUids': participantUids,
+        // ===============================================
         'participantNames': participantNames,
         'lastMessage': 'Chat mengenai laporan #$idTugas dimulai.',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
@@ -260,13 +268,12 @@ class ChatService {
     });
   }
 
-  // =========================================================================
-  // == PASTIKAN METODE INI ADA DI DALAM FILE `chat_service.dart` ANDA ==
-  // =========================================================================
   Stream<QuerySnapshot> getPetugasChatThreadsStream(String petugasFirebaseUid) {
     return _firestore
         .collection('chat_threads')
-        .where('participants.$petugasFirebaseUid', isEqualTo: true)
+        // --- PERBAIKAN SINTAKS ---
+        // Di Dart, query 'array-contains' ditulis sebagai 'arrayContains' (camelCase).
+        .where('participantUids', arrayContains: petugasFirebaseUid)
         .orderBy('lastMessageTimestamp', descending: true)
         .snapshots();
   }
