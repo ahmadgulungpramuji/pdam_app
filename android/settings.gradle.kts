@@ -26,3 +26,13 @@ plugins {
 }
 
 include(":app")
+
+// [TAMBAHKAN BLOK INI]
+// Blok ini sangat penting untuk memberi tahu Gradle
+// di mana harus mencari semua dependensi untuk proyek Anda.
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

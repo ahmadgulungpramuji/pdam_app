@@ -4,34 +4,36 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:pdam_app/api_service.dart'; // Pastikan ini diimpor
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
+import 'package:pdam_app/cek_tunggakan_page.dart';
+import 'package:pdam_app/chat_page.dart';
 import 'package:pdam_app/detail_temuan_page.dart';
+import 'package:pdam_app/home_pelanggan_page.dart';
+import 'package:pdam_app/home_petugas_page.dart';
+import 'package:pdam_app/lacak_laporan_saya_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
 import 'package:pdam_app/login_page.dart';
-import 'package:pdam_app/home_pelanggan_page.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:pdam_app/buat_laporan_page.dart';
+import 'package:pdam_app/models/temuan_kebocoran_model.dart';
+import 'package:pdam_app/pages/notifikasi_page.dart';
+import 'package:pdam_app/pages/welcome_page.dart';
+import 'package:pdam_app/profil_page.dart';
+import 'package:pdam_app/register_page.dart';
 import 'package:pdam_app/services/notification_service.dart';
-import 'package:pdam_app/lacak_laporan_saya_page.dart';
-import 'package:pdam_app/cek_tunggakan_page.dart';
-import 'package:pdam_app/chat_page.dart'; // <-- Pastikan ini diimpor
-import 'package:pdam_app/pages/notifikasi_page.dart'; // <-- Pastikan ini diimpor
-import 'package:pdam_app/view_profil_page.dart'; // <-- Pastikan ini diimpor
+import 'package:pdam_app/buat_laporan_page.dart';
+import 'package:pdam_app/temuan_kebocoran_page.dart';
+import 'package:pdam_app/tracking_page.dart';
+import 'package:pdam_app/view_profil_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:pdam_app/home_petugas_page.dart';
-import 'package:pdam_app/models/temuan_kebocoran_model.dart';
-import 'package:pdam_app/profil_page.dart';
-import 'package:pdam_app/tracking_page.dart';
-import 'package:pdam_app/temuan_kebocoran_page.dart';
-import 'package:pdam_app/register_page.dart';
-import 'package:pdam_app/pages/welcome_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
+  // ... (kode inisialisasi Anda tetap sama)
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('id_ID', null);
@@ -54,7 +56,6 @@ void main() async {
     log('Notifikasi Type: $type');
     log('Notifikasi Status: $status');
 
-    // Pastikan logika ini memeriksa nama tipe yang benar
     if (type == 'lapor_foto_water_meter_status') {
       log('Jenis notifikasi cocok: lapor_foto_water_meter_status');
       if (status == 'ditolak') {
@@ -83,17 +84,11 @@ void main() async {
     }
   });
 
-  final prefs = await SharedPreferences.getInstance();
-  final bool hasSeenWelcomeScreen =
-      prefs.getBool('hasSeenWelcomeScreen') ?? false;
-
-  runApp(MyApp(hasSeenWelcomeScreen: hasSeenWelcomeScreen));
+  runApp(const MyApp()); // [UBAH] Sederhanakan pemanggilan MyApp
 }
 
 class MyApp extends StatelessWidget {
-  final bool hasSeenWelcomeScreen;
-
-  const MyApp({super.key, required this.hasSeenWelcomeScreen});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -127,8 +122,11 @@ class MyApp extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
         ),
       ),
-      initialRoute: hasSeenWelcomeScreen ? '/login' : '/welcome',
+      // initialRoute: hasSeenWelcomeScreen ? '/login' : '/welcome', // [HAPUS] Baris ini
+      initialRoute: '/auth_check', // [UBAH] Rute awal sekarang adalah halaman pengecekan
       routes: {
+        // [TAMBAHKAN] Rute baru untuk pengecekan
+        '/auth_check': (context) => const AuthCheckPage(),
         '/': (context) => const LoginPage(),
         '/login': (context) => const LoginPage(),
         '/welcome': (context) => const WelcomePage(),
@@ -153,9 +151,9 @@ class MyApp extends StatelessWidget {
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
         '/view_profil': (context) =>
-            const ViewProfilPage(), // <-- Rute yang hilang
+            const ViewProfilPage(), 
         '/profil_page': (context) =>
-            const ProfilPage(), // Rute lama, mungkin perlu dihapus atau disesuaikan
+            const ProfilPage(),
         '/register_calon_pelanggan': (context) =>
             const CalonPelangganRegisterPage(),
         '/detail_temuan_page': (context) {
@@ -176,14 +174,14 @@ class MyApp extends StatelessWidget {
         },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
         '/notifikasi_page': (context) =>
-            const NotifikasiPage(), // <-- Tambahkan jika belum ada
+            const NotifikasiPage(),
         '/chat_page': (context) {
           final userData = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;
           return ChatPage(userData: userData ?? {});
         },
       },
-      onUnknownRoute: (settings) {
+       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             appBar: AppBar(title: const Text('Halaman Tidak Ditemukan')),
@@ -193,6 +191,91 @@ class MyApp extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// [TAMBAHKAN WIDGET BARU INI] di bawah class MyApp
+class AuthCheckPage extends StatefulWidget {
+  const AuthCheckPage({super.key});
+
+  @override
+  State<AuthCheckPage> createState() => _AuthCheckPageState();
+}
+
+class _AuthCheckPageState extends State<AuthCheckPage> {
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    // Memberi sedikit jeda agar context tersedia
+    await Future.delayed(Duration.zero);
+    
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
+    final hasSeenWelcome = prefs.getBool('hasSeenWelcomeScreen') ?? false;
+
+    if (!mounted) return; // Pastikan widget masih ada di tree
+
+    if (!hasSeenWelcome) {
+      Navigator.pushReplacementNamed(context, '/welcome');
+      return;
+    }
+
+    if (token == null) {
+      // Jika tidak ada token, langsung ke halaman login
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    // Jika ada token, coba validasi ke server
+    try {
+      final apiService = ApiService();
+      // Kita gunakan endpoint /user/profile untuk validasi token
+      final userProfile = await apiService.getUserProfile();
+
+      if (!mounted) return;
+
+      if (userProfile != null) {
+        // Token valid, cari tahu user type dari data yang tersimpan
+        final userDataString = prefs.getString('user_data');
+        if (userDataString != null) {
+          final userData = jsonDecode(userDataString) as Map<String, dynamic>;
+          // Cek apakah 'role' atau 'user_type' ada untuk membedakan
+          // Berdasarkan `AuthController.php`, login petugas memiliki `is_active`
+          if (userData.containsKey('is_active')) { // Ciri khas petugas
+            Navigator.pushReplacementNamed(context, '/home_petugas',
+                arguments: {'idPetugasLoggedIn': userData['id']});
+          } else {
+            Navigator.pushReplacementNamed(context, '/home_pelanggan');
+          }
+        } else {
+          // Fallback jika user_data tidak ada
+          await apiService.logout();
+          if (mounted) Navigator.pushReplacementNamed(context, '/login');
+        }
+      } else {
+        // Token tidak valid (kedaluwarsa atau lainnya)
+        await ApiService().logout(); // Hapus token lokal yang tidak valid
+        if (mounted) Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      // Terjadi error (misal: tidak ada internet), arahkan ke login
+      await ApiService().logout();
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Tampilkan loading indicator selama proses pengecekan
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }

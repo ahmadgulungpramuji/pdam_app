@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'package:http/http.dart' as http; //
+import 'package:http/http.dart' as http;
 import 'package:pdam_app/models/pengaduan_model.dart';
 import 'package:pdam_app/models/petugas_model.dart';
 import 'package:pdam_app/models/temuan_kebocoran_model.dart';
@@ -15,6 +15,7 @@ import 'package:pdam_app/models/paginated_response.dart';
 import 'package:dio/dio.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
 import 'package:pdam_app/models/berita_model.dart';
+import 'package:pdam_app/main.dart';
 
 class ApiService {
   final Dio _dio;
@@ -48,8 +49,22 @@ class ApiService {
           log('<-- DIO: ${response.statusCode} ${response.requestOptions.uri}');
           return handler.next(response);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
           log('DIO Error: ${e.response?.statusCode} Pesan: ${e.message}');
+          if (e.response?.statusCode == 401) {
+            log("Token tidak valid atau sesi berakhir. Melakukan logout otomatis.");
+            // Hapus data lokal
+            await removeToken();
+            
+            // Arahkan ke halaman login menggunakan GlobalKey
+            final navigator = navigatorKey.currentState;
+            if (navigator != null) {
+              navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+            }
+          }
+          
+
+
           return handler.next(e);
         },
       ),

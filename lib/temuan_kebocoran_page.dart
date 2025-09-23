@@ -168,8 +168,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       );
 
       List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude, position.longitude,
-          localeIdentifier: 'id_ID');
+          position.latitude, position.longitude);
 
       if (mounted) {
         setState(() {

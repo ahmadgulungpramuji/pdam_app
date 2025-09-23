@@ -203,8 +203,7 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       setState(() => _currentPosition = position);
 
       List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude, position.longitude,
-          localeIdentifier: 'id_ID');
+          position.latitude, position.longitude);
       if (placemarks.isNotEmpty && mounted) {
         Placemark place = placemarks[0];
         String address =

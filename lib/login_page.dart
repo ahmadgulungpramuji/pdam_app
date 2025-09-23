@@ -17,6 +17,7 @@ import 'package:pdam_app/services/notification_service.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:connectivity_plus/connectivity_plus.dart'; // [TAMBAHKAN] Import package konektivitas
 
 // --- WIDGET ANIMASI ---
 class FadeInAnimation extends StatefulWidget {
@@ -171,7 +172,16 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // [DIUBAH] Fungsi login sekarang memiliki pengecekan koneksi
   Future<void> _login() async {
+    // 1. Cek koneksi internet di awal
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      _showSnackbar("Tidak ada koneksi internet. Silakan periksa jaringan Anda.", isError: true);
+      return;
+    }
+    
+    // 2. Lanjutkan proses login jika ada koneksi
     if (!_formKey.currentState!.validate()) {
       return;
     }

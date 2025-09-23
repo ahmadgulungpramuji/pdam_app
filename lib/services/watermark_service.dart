@@ -55,7 +55,6 @@ class WatermarkService {
     List<Placemark> placemarks = await placemarkFromCoordinates(
       position.latitude,
       position.longitude,
-      localeIdentifier: 'id_ID'
     );
     
     final Placemark place = placemarks[0];
