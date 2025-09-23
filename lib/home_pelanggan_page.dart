@@ -2,6 +2,7 @@
 // ignore_for_file: unused_element, unused_field, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
@@ -15,6 +16,7 @@ import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
 import 'package:pdam_app/models/berita_model.dart';
 import 'package:intl/intl.dart';
+
 import 'dart:async';
 
 // --- WIDGET ANIMASI ---
@@ -200,6 +202,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   List<Berita> _beritaList = [];
   bool _isBeritaLoading = true;
   String? _beritaErrorMessage;
+  
+  // ---> [MODIFIKASI 1] TAMBAHKAN VARIABEL INI <---
+  DateTime? _lastPressed;
 
   @override
   void initState() {
@@ -449,14 +454,38 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF0077B6);
-    const Color secondaryColor = Color(0xFF00B4D8);
-    const Color backgroundColor = Color(0xFFF8F9FA);
-    const Color textColor = Color(0xFF212529);
-    const Color subtleTextColor = Color(0xFF6C757D);
+Widget build(BuildContext context) {
+  const Color primaryColor = Color(0xFF0077B6);
+  const Color secondaryColor = Color(0xFF00B4D8);
+  const Color backgroundColor = Color(0xFFF8F9FA);
+  const Color textColor = Color(0xFF212529);
+  const Color subtleTextColor = Color(0xFF6C757D);
 
-    return Scaffold(
+  return WillPopScope(
+    onWillPop: () async {
+      final now = DateTime.now();
+      // Cek jika tombol kembali belum pernah ditekan atau sudah lebih dari 2 detik
+      final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
+          _lastPressed == null ||
+              now.difference(_lastPressed!) > const Duration(seconds: 2);
+
+      if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
+        _lastPressed = now;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tekan sekali lagi untuk keluar'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return false; // Mencegah aplikasi keluar pada tekanan pertama
+      } else {
+        // [INI SOLUSINYA]
+        // Memaksa aplikasi untuk keluar sepenuhnya, tidak peduli state navigator.
+        SystemNavigator.pop();
+        return true; 
+      }
+    },
+    child: Scaffold(
       backgroundColor: backgroundColor,
       appBar: _buildAppBar(textColor, subtleTextColor),
       body: _isLoading
@@ -466,8 +495,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               : _buildHomeContent(
                   primaryColor, secondaryColor, textColor, subtleTextColor),
       bottomNavigationBar: _buildBottomNavBar(primaryColor, subtleTextColor),
-    );
-  }
+    ),
+  );
+}
+
 
   AppBar _buildAppBar(Color textColor, Color subtleTextColor) {
     return AppBar(
