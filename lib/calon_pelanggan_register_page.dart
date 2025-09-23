@@ -445,15 +445,30 @@ class _CalonPelangganRegisterPageState
       );
       _showSuccessDialog(responseData['data']?['tracking_code']);
     } catch (e) {
-      _showSnackbar(
-          'Pendaftaran Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
-          isError: true);
+      // Panggil fungsi baru kita untuk mendapatkan pesan yang ramah
+      final String friendlyMessage = _getFriendlyErrorMessage(e);
+      _showSnackbar(friendlyMessage, isError: true);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // --- UI WIDGETS ---
+  String _getFriendlyErrorMessage(Object error) {
+    log('Terjadi error saat registrasi: $error');
+
+    final errorString = error.toString().toLowerCase();
+
+    if (errorString.contains('socket') ||
+        errorString.contains('broken pipe') ||
+        errorString.contains('connection failed') ||
+        errorString.contains('timeout') ||
+        errorString.contains('host lookup')) {
+      return 'Gagal terhubung ke server. Mohon periksa koneksi internet Anda dan coba lagi.';
+    }
+
+    return 'Pendaftaran gagal karena terjadi kesalahan. Silakan coba kembali beberapa saat lagi.';
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF0077B6);

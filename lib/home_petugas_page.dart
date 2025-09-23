@@ -20,10 +20,8 @@ import 'package:pdam_app/login_page.dart';
 import 'package:pdam_app/pages/petugas_chat_home_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
+import 'package:pdam_app/services/notification_service.dart';
 
-// ===============================================================
-// == HALAMAN UTAMA (FRAME) UNTUK PETUGAS ==
-// ===============================================================
 class HomePetugasPage extends StatefulWidget {
   final int idPetugasLoggedIn;
   const HomePetugasPage({super.key, required this.idPetugasLoggedIn});
@@ -35,17 +33,38 @@ class HomePetugasPage extends StatefulWidget {
 class _HomePetugasPageState extends State<HomePetugasPage> {
   int _selectedIndex = 0;
   late final List<Widget> _widgetOptions;
+  StreamSubscription? _newTaskSubscription;
+  final GlobalKey<_AssignmentsPageState> _assignmentsPageKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      AssignmentsPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
+      // Beri key pada AssignmentsPage agar kita bisa memanggil method-nya
+      AssignmentsPage(
+        key: _assignmentsPageKey,
+        idPetugasLoggedIn: widget.idPetugasLoggedIn,
+      ),
       KinerjaPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
       HistoryPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
       const PetugasChatHomePage(),
       const ProfilePage(),
     ];
+    _newTaskSubscription =
+        NotificationService().onNotificationTap.listen((payload) {
+      // Cek tipe notifikasi dari payload
+      if (mounted && payload['tipe_notifikasi'] == 'penugasan_baru') {
+        _onItemTapped(0);
+        _assignmentsPageKey.currentState?.refreshTugas();
+      }
+      // Anda bisa tambahkan else if untuk tipe notifikasi petugas lainnya di masa depan
+    });
+  }
+
+  @override
+  void dispose() {
+    _newTaskSubscription?.cancel(); // Selalu batalkan subscription
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
@@ -78,19 +97,18 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar:
-          isProfilePage || isKinerjaPage
-              ? null
-              : AppBar(
-                title: Text(
-                  _getAppBarTitle(_selectedIndex),
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                ),
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0D47A1),
-                elevation: 1.0,
-                centerTitle: true,
+      appBar: isProfilePage || isKinerjaPage
+          ? null
+          : AppBar(
+              title: Text(
+                _getAppBarTitle(_selectedIndex),
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
               ),
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF0D47A1),
+              elevation: 1.0,
+              centerTitle: true,
+            ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, animation) {
@@ -179,6 +197,10 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   @override
   void initState() {
     super.initState();
+    _loadTugas();
+  }
+
+  void refreshTugas() {
     _loadTugas();
   }
 
@@ -618,7 +640,7 @@ class _HistoryPageState extends State<HistoryPage> {
     // ====================================================================
     // == AWAL PERUBAHAN STYLE HEADER ==
     // ====================================================================
-    
+
     // Default Style
     Color headerBackgroundColor = statusColor.withOpacity(0.1);
     Color headerTextColor = statusColor;
@@ -633,11 +655,10 @@ class _HistoryPageState extends State<HistoryPage> {
       headerTextColor = Colors.blue.shade800;
       headerIcon = Ionicons.build; // Ikon lebih solid
     }
-    
+
     // ====================================================================
     // == AKHIR PERUBAHAN STYLE HEADER ==
     // ====================================================================
-
 
     return Card(
       elevation: 4,
@@ -909,44 +930,42 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      child:
-          (_riwayatList.isEmpty && _isLoading)
-              ? const Center(child: CircularProgressIndicator())
-              : (_riwayatList.isEmpty && !_hasMore)
+      child: (_riwayatList.isEmpty && _isLoading)
+          ? const Center(child: CircularProgressIndicator())
+          : (_riwayatList.isEmpty && !_hasMore)
               ? _buildErrorUI(
-                'Riwayat pekerjaan Anda masih kosong.',
-                icon: Ionicons.archive_outline,
-              )
+                  'Riwayat pekerjaan Anda masih kosong.',
+                  icon: Ionicons.archive_outline,
+                )
               : ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _riwayatList.length + (_hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < _riwayatList.length) {
-                    final tugas = _riwayatList[index];
-                    return FadeInUp(
-                      from: 20,
-                      delay: const Duration(milliseconds: 50),
-                      child: _buildTugasCard(tugas),
-                    );
-                  } else {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32.0),
-                      child: Center(
-                        child:
-                            _hasMore
-                                ? const CircularProgressIndicator()
-                                : Text(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _riwayatList.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < _riwayatList.length) {
+                      final tugas = _riwayatList[index];
+                      return FadeInUp(
+                        from: 20,
+                        delay: const Duration(milliseconds: 50),
+                        child: _buildTugasCard(tugas),
+                      );
+                    } else {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32.0),
+                        child: Center(
+                          child: _hasMore
+                              ? const CircularProgressIndicator()
+                              : Text(
                                   '-- Anda telah mencapai akhir riwayat --',
                                   style: GoogleFonts.lato(
                                     color: Colors.grey[500],
                                   ),
                                 ),
-                      ),
-                    );
-                  }
-                },
-              ),
+                        ),
+                      );
+                    }
+                  },
+                ),
     );
   }
 }
@@ -1035,18 +1054,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: CircleAvatar(
                   radius: 50,
                   backgroundColor: Colors.white,
-                  backgroundImage:
-                      fullImageUrl.isNotEmpty
-                          ? CachedNetworkImageProvider(fullImageUrl)
-                          : null,
-                  child:
-                      fullImageUrl.isEmpty
-                          ? Icon(
-                            Ionicons.person,
-                            size: 60,
-                            color: Colors.blue[800],
-                          )
-                          : null,
+                  backgroundImage: fullImageUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(fullImageUrl)
+                      : null,
+                  child: fullImageUrl.isEmpty
+                      ? Icon(
+                          Ionicons.person,
+                          size: 60,
+                          color: Colors.blue[800],
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1147,8 +1164,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 final result = await Navigator.push<Petugas>(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (context) => EditProfilePage(currentPetugas: petugas),
+                    builder: (context) =>
+                        EditProfilePage(currentPetugas: petugas),
                   ),
                 );
                 if (result != null && mounted) {
@@ -1378,7 +1395,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
                         child: _buildKpiGrid(kinerjaData.kpiUtama),
                       ),
                       const SizedBox(height: 32),
-
                       if (kinerjaData.komposisiTugas.isNotEmpty) ...[
                         FadeInUp(
                           from: 20,
@@ -1393,7 +1409,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
                         ),
                         const SizedBox(height: 32),
                       ],
-
                       if (kinerjaData.rincianPerTipe.isNotEmpty) ...[
                         FadeInUp(
                           from: 20,
@@ -1576,22 +1591,21 @@ class _KinerjaPageState extends State<KinerjaPage> {
                   PieChartData(
                     sectionsSpace: 2,
                     centerSpaceRadius: 40,
-                    sections:
-                        data.asMap().entries.map((entry) {
-                          final int index = entry.key;
-                          final KomposisiTugas item = entry.value;
-                          return PieChartSectionData(
-                            color: colors[index % colors.length],
-                            value: item.total.toDouble(),
-                            title: '${item.total}',
-                            radius: 50,
-                            titleStyle: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          );
-                        }).toList(),
+                    sections: data.asMap().entries.map((entry) {
+                      final int index = entry.key;
+                      final KomposisiTugas item = entry.value;
+                      return PieChartSectionData(
+                        color: colors[index % colors.length],
+                        value: item.total.toDouble(),
+                        title: '${item.total}',
+                        radius: 50,
+                        titleStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               ),
@@ -1601,31 +1615,30 @@ class _KinerjaPageState extends State<KinerjaPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children:
-                      data.asMap().entries.map((entry) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: colors[entry.key % colors.length],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  entry.value.tipeTugas,
-                                  style: GoogleFonts.lato(),
-                                ),
-                              ),
-                            ],
+                  children: data.asMap().entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors[entry.key % colors.length],
+                            ),
                           ),
-                        );
-                      }).toList(),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              entry.value.tipeTugas,
+                              style: GoogleFonts.lato(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ],
@@ -1647,9 +1660,8 @@ class _KinerjaPageState extends State<KinerjaPage> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
-        separatorBuilder:
-            (context, index) =>
-                const Divider(height: 1, indent: 16, endIndent: 16),
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, indent: 16, endIndent: 16),
         itemBuilder: (context, index) {
           final item = data[index];
           return ListTile(
