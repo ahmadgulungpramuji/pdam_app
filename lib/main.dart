@@ -1,10 +1,11 @@
+// lib/main.dart
 // ignore_for_file: unused_local_variable
 
 import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:pdam_app/api_service.dart'; // Pastikan ini diimpor
+import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/calon_pelanggan_register_page.dart';
 import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/chat_page.dart';
@@ -33,7 +34,6 @@ import 'firebase_options.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // ... (kode inisialisasi Anda tetap sama)
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('id_ID', null);
@@ -84,7 +84,7 @@ void main() async {
     }
   });
 
-  runApp(const MyApp()); // [UBAH] Sederhanakan pemanggilan MyApp
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -122,10 +122,8 @@ class MyApp extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
         ),
       ),
-      // initialRoute: hasSeenWelcomeScreen ? '/login' : '/welcome', // [HAPUS] Baris ini
-      initialRoute: '/auth_check', // [UBAH] Rute awal sekarang adalah halaman pengecekan
+      initialRoute: '/auth_check', // Menggunakan AuthCheckPage sebagai rute awal
       routes: {
-        // [TAMBAHKAN] Rute baru untuk pengecekan
         '/auth_check': (context) => const AuthCheckPage(),
         '/': (context) => const LoginPage(),
         '/login': (context) => const LoginPage(),
@@ -151,7 +149,7 @@ class MyApp extends StatelessWidget {
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
         '/view_profil': (context) =>
-            const ViewProfilPage(), 
+            const ViewProfilPage(),
         '/profil_page': (context) =>
             const ProfilPage(),
         '/register_calon_pelanggan': (context) =>
@@ -181,7 +179,7 @@ class MyApp extends StatelessWidget {
           return ChatPage(userData: userData ?? {});
         },
       },
-       onUnknownRoute: (settings) {
+      onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             appBar: AppBar(title: const Text('Halaman Tidak Ditemukan')),
@@ -195,7 +193,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// [TAMBAHKAN WIDGET BARU INI] di bawah class MyApp
+// Widget untuk memeriksa status login saat aplikasi dibuka
 class AuthCheckPage extends StatefulWidget {
   const AuthCheckPage({super.key});
 
@@ -211,14 +209,11 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
   }
 
   Future<void> _checkLoginStatus() async {
-    // Memberi sedikit jeda agar context tersedia
-    await Future.delayed(Duration.zero);
-    
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('user_token');
     final hasSeenWelcome = prefs.getBool('hasSeenWelcomeScreen') ?? false;
 
-    if (!mounted) return; // Pastikan widget masih ada di tree
+    if (!mounted) return;
 
     if (!hasSeenWelcome) {
       Navigator.pushReplacementNamed(context, '/welcome');
@@ -226,44 +221,51 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
     }
 
     if (token == null) {
-      // Jika tidak ada token, langsung ke halaman login
       Navigator.pushReplacementNamed(context, '/login');
       return;
     }
 
-    // Jika ada token, coba validasi ke server
     try {
       final apiService = ApiService();
-      // Kita gunakan endpoint /user/profile untuk validasi token
       final userProfile = await apiService.getUserProfile();
 
       if (!mounted) return;
 
       if (userProfile != null) {
-        // Token valid, cari tahu user type dari data yang tersimpan
+        // Token valid, periksa tipe pengguna dari data yang tersimpan
         final userDataString = prefs.getString('user_data');
         if (userDataString != null) {
           final userData = jsonDecode(userDataString) as Map<String, dynamic>;
-          // Cek apakah 'role' atau 'user_type' ada untuk membedakan
-          // Berdasarkan `AuthController.php`, login petugas memiliki `is_active`
-          if (userData.containsKey('is_active')) { // Ciri khas petugas
-            Navigator.pushReplacementNamed(context, '/home_petugas',
-                arguments: {'idPetugasLoggedIn': userData['id']});
+          
+          // [PERUBAHAN UTAMA DI SINI]
+          // Kita cek berdasarkan keberadaan field 'is_active' yang hanya ada pada Petugas
+          if (userData.containsKey('is_active')) {
+            // Ini adalah PETUGAS
+            final int petugasId = userData['id'] as int;
+            // Penting: Gunakan pushReplacement untuk navigasi tanpa bisa kembali
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomePetugasPage(idPetugasLoggedIn: petugasId),
+              ),
+            );
           } else {
+            // Ini adalah PELANGGAN
             Navigator.pushReplacementNamed(context, '/home_pelanggan');
           }
         } else {
-          // Fallback jika user_data tidak ada
+          // Fallback jika user_data tidak ditemukan
           await apiService.logout();
           if (mounted) Navigator.pushReplacementNamed(context, '/login');
         }
       } else {
         // Token tidak valid (kedaluwarsa atau lainnya)
-        await ApiService().logout(); // Hapus token lokal yang tidak valid
+        await ApiService().logout();
         if (mounted) Navigator.pushReplacementNamed(context, '/login');
       }
     } catch (e) {
       // Terjadi error (misal: tidak ada internet), arahkan ke login
+      log("Error saat cek status login: $e");
       await ApiService().logout();
       if (mounted) Navigator.pushReplacementNamed(context, '/login');
     }
@@ -271,7 +273,6 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan loading indicator selama proses pengecekan
     return const Scaffold(
       body: Center(
         child: CircularProgressIndicator(),

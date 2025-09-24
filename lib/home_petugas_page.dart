@@ -1,9 +1,9 @@
 // lib/pages/home_petugas_page.dart
-
 // ignore_for_file: unused_import
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- [MODIFIKASI] Import untuk SystemNavigator
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:intl/intl.dart';
@@ -31,6 +31,9 @@ class HomePetugasPage extends StatefulWidget {
 }
 
 class _HomePetugasPageState extends State<HomePetugasPage> {
+  // [MODIFIKASI 1] Menambahkan variabel _lastPressed untuk melacak waktu
+  DateTime? _lastPressed;
+  
   int _selectedIndex = 0;
   late final List<Widget> _widgetOptions;
   StreamSubscription? _newTaskSubscription;
@@ -40,7 +43,6 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      // Beri key pada AssignmentsPage agar kita bisa memanggil method-nya
       AssignmentsPage(
         key: _assignmentsPageKey,
         idPetugasLoggedIn: widget.idPetugasLoggedIn,
@@ -52,18 +54,16 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
     ];
     _newTaskSubscription =
         NotificationService().onNotificationTap.listen((payload) {
-      // Cek tipe notifikasi dari payload
       if (mounted && payload['tipe_notifikasi'] == 'penugasan_baru') {
         _onItemTapped(0);
         _assignmentsPageKey.currentState?.refreshTugas();
       }
-      // Anda bisa tambahkan else if untuk tipe notifikasi petugas lainnya di masa depan
     });
   }
 
   @override
   void dispose() {
-    _newTaskSubscription?.cancel(); // Selalu batalkan subscription
+    _newTaskSubscription?.cancel();
     super.dispose();
   }
 
@@ -95,28 +95,52 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
     final bool isProfilePage = _selectedIndex == 4;
     final bool isKinerjaPage = _selectedIndex == 1;
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: isProfilePage || isKinerjaPage
-          ? null
-          : AppBar(
-              title: Text(
-                _getAppBarTitle(_selectedIndex),
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF0D47A1),
-              elevation: 1.0,
-              centerTitle: true,
+    // [MODIFIKASI 2] Membungkus Scaffold dengan WillPopScope
+    return WillPopScope(
+      onWillPop: () async {
+        final now = DateTime.now();
+        final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
+            _lastPressed == null ||
+                now.difference(_lastPressed!) > const Duration(seconds: 2);
+
+        if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
+          _lastPressed = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tekan sekali lagi untuk keluar'),
+              duration: Duration(seconds: 2),
             ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: _widgetOptions.elementAt(_selectedIndex),
+          );
+          return false; // Mencegah aplikasi keluar pada tekanan pertama
+        } else {
+          // [MODIFIKASI 3] Memaksa aplikasi untuk keluar
+          SystemNavigator.pop();
+          return true;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade100,
+        appBar: isProfilePage || isKinerjaPage
+            ? null
+            : AppBar(
+                title: Text(
+                  _getAppBarTitle(_selectedIndex),
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0D47A1),
+                elevation: 1.0,
+                centerTitle: true,
+              ),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: _widgetOptions.elementAt(_selectedIndex),
+        ),
+        bottomNavigationBar: _buildModernNavBar(),
       ),
-      bottomNavigationBar: _buildModernNavBar(),
     );
   }
 
@@ -481,6 +505,8 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 }
 
+// ... Sisa kode untuk HistoryPage, ProfilePage, KinerjaPage tetap sama ...
+// Kode di bawah ini tidak perlu diubah.
 // ===============================================================
 // == HALAMAN RIWAYAT (TAB 3)
 // ===============================================================
@@ -490,7 +516,6 @@ class HistoryPage extends StatefulWidget {
   @override
   State<HistoryPage> createState() => _HistoryPageState();
 }
-
 class _HistoryPageState extends State<HistoryPage> {
   final ApiService _apiService = ApiService();
   final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'id_ID');
@@ -510,13 +535,11 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     });
   }
-
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
-
   Future<void> _fetchRiwayat() async {
     if (_isLoading || !_hasMore) return;
     setState(() => _isLoading = true);
@@ -550,7 +573,6 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
   }
-
   Future<void> _onRefresh() async {
     setState(() {
       _isLoading = false;
@@ -560,7 +582,6 @@ class _HistoryPageState extends State<HistoryPage> {
     });
     await _fetchRiwayat();
   }
-
   IconData _getIconForTugas(Tugas tugas) {
     if (tugas is PengaduanTugas) return Ionicons.document_text_outline;
     if (tugas is TemuanTugas) return Ionicons.warning_outline;
@@ -572,7 +593,6 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     return Ionicons.help_circle_outline;
   }
-
   Color _getColorForStatus(String status) {
     switch (status.toLowerCase()) {
       case 'selesai':
@@ -586,7 +606,6 @@ class _HistoryPageState extends State<HistoryPage> {
         return Colors.grey.shade600;
     }
   }
-
   Widget _buildInfoRow(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 4.0),
@@ -605,7 +624,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
-
   Widget _buildTugasCard(Tugas tugas) {
     KontakInfo? kontak = tugas.infoKontakPelapor;
     String formattedDate = tugas.tanggalTugas;
@@ -620,7 +638,6 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     Color statusColor = _getColorForStatus(tugas.status);
     final bool hasRating = (tugas.ratingHasil ?? 0) > 0;
-
     String tanggalLabel;
     switch (tugas.status.toLowerCase()) {
       case 'survey selesai':
@@ -636,16 +653,9 @@ class _HistoryPageState extends State<HistoryPage> {
       default:
         tanggalLabel = 'Tgl Selesai:';
     }
-
-    // ====================================================================
-    // == AWAL PERUBAHAN STYLE HEADER ==
-    // ====================================================================
-
-    // Default Style
     Color headerBackgroundColor = statusColor.withOpacity(0.1);
     Color headerTextColor = statusColor;
     IconData headerIcon = _getIconForTugas(tugas);
-
     if (tugas.status.toLowerCase() == 'survey selesai') {
       headerBackgroundColor = Colors.teal.shade50;
       headerTextColor = Colors.teal.shade700;
@@ -655,11 +665,6 @@ class _HistoryPageState extends State<HistoryPage> {
       headerTextColor = Colors.blue.shade800;
       headerIcon = Ionicons.build; // Ikon lebih solid
     }
-
-    // ====================================================================
-    // == AKHIR PERUBAHAN STYLE HEADER ==
-    // ====================================================================
-
     return Card(
       elevation: 4,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -690,7 +695,6 @@ class _HistoryPageState extends State<HistoryPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                // Menggunakan warna yang sudah ditentukan di atas
                 color: headerBackgroundColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
@@ -699,7 +703,6 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               child: Row(
                 children: [
-                  // Menggunakan ikon yang sudah ditentukan
                   Icon(headerIcon, color: headerTextColor, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
@@ -708,7 +711,6 @@ class _HistoryPageState extends State<HistoryPage> {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        // Menggunakan warna teks yang sudah ditentukan
                         color: headerTextColor,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -827,7 +829,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
-
   void _showRatingDialog(BuildContext context, Tugas tugas) {
     showDialog(
       context: context,
@@ -871,7 +872,6 @@ class _HistoryPageState extends State<HistoryPage> {
       },
     );
   }
-
   Widget _buildRatingRow(String label, int rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -892,7 +892,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
-
   Widget _buildErrorUI(
     String message, {
     IconData icon = Ionicons.cloud_offline_outline,
@@ -925,7 +924,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -969,7 +967,6 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 }
-
 // ===============================================================
 // == HALAMAN PROFIL (TAB 4)
 // ===============================================================
@@ -978,23 +975,19 @@ class ProfilePage extends StatefulWidget {
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
-
 class _ProfilePageState extends State<ProfilePage> {
   final ApiService _apiService = ApiService();
   Future<Petugas>? _petugasFuture;
-
   @override
   void initState() {
     super.initState();
     _loadProfileData();
   }
-
   void _loadProfileData() {
     setState(() {
       _petugasFuture = _apiService.getPetugasProfile();
     });
   }
-
   Future<void> _logout() async {
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
@@ -1016,7 +1009,6 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     );
-
     if (shouldLogout == true && mounted) {
       await _apiService.logout();
       Navigator.of(context).pushAndRemoveUntil(
@@ -1025,14 +1017,12 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
   }
-
   Widget _buildProfileHeader(Petugas petugas) {
     final String? profilePhotoPath = petugas.fotoProfil;
     final String fullImageUrl =
         profilePhotoPath != null && profilePhotoPath.isNotEmpty
             ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
             : '';
-
     return SliverAppBar(
       expandedHeight: 240.0,
       pinned: true,
@@ -1091,7 +1081,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
   Widget _buildInfoTile({
     required IconData icon,
     required String title,
@@ -1149,7 +1138,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
   Widget _buildActionButtons(Petugas petugas) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1213,7 +1201,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
   Widget _buildErrorUI(String message) {
     return Center(
       child: Padding(
@@ -1243,7 +1230,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -1311,29 +1297,24 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
-
 // ===============================================================
 // == HALAMAN KINERJA (TAB 2) - VERSI MODIFIKASI LENGKAP
 // ===============================================================
 class KinerjaPage extends StatefulWidget {
   final int idPetugasLoggedIn;
   const KinerjaPage({super.key, required this.idPetugasLoggedIn});
-
   @override
   State<KinerjaPage> createState() => _KinerjaPageState();
 }
-
 class _KinerjaPageState extends State<KinerjaPage> {
   final ApiService _apiService = ApiService();
   late Future<KinerjaResponse> _kinerjaFuture;
   String _selectedPeriode = 'bulanan';
-
   @override
   void initState() {
     super.initState();
     _loadKinerjaData();
   }
-
   void _loadKinerjaData() {
     setState(() {
       _kinerjaFuture = _apiService.getKinerja(
@@ -1342,7 +1323,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       );
     });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1363,9 +1343,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
             if (!snapshot.hasData) {
               return _buildErrorUI('Data kinerja tidak tersedia.');
             }
-
             final kinerjaData = snapshot.data!;
-
             // Tampilan utama menggunakan CustomScrollView
             return CustomScrollView(
               slivers: [
@@ -1432,7 +1410,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildFilterPeriode() {
     return SegmentedButton<String>(
       segments: const <ButtonSegment<String>>[
@@ -1464,7 +1441,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildKpiGrid(KpiUtama kpi) {
     return GridView.count(
       crossAxisCount: 2,
@@ -1506,7 +1482,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ],
     );
   }
-
   Widget _buildKpiCard(String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 5,
@@ -1552,7 +1527,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildChartTitle(String title) {
     return Text(
       title,
@@ -1563,10 +1537,8 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildPieChart(List<KomposisiTugas> data) {
     if (data.isEmpty) return const SizedBox.shrink();
-
     final colors = [
       Colors.blue.shade400,
       Colors.green.shade400,
@@ -1574,7 +1546,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       Colors.purple.shade400,
       Colors.red.shade400,
     ];
-
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -1647,10 +1618,8 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildRincianList(List<RincianPerTipe> data) {
     if (data.isEmpty) return const SizedBox.shrink();
-
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -1678,7 +1647,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   void _showRatingDetailsDialog(BuildContext context, KpiUtama kpi) {
     showDialog(
       context: context,
@@ -1712,7 +1680,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       },
     );
   }
-
   Widget _buildRatingRowDialog(String label, double rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1740,7 +1707,6 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
-
   Widget _buildErrorUI(String message) {
     return Center(
       child: Padding(
