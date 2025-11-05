@@ -114,13 +114,13 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        cardTheme: CardTheme(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
-        ),
+        cardTheme: CardThemeData( // <--- Tanda kurung '(' pembuka di sini
+  elevation: 4,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+),
       ),
       initialRoute: '/auth_check', // Menggunakan AuthCheckPage sebagai rute awal
       routes: {

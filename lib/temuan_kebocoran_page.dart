@@ -139,8 +139,17 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       if (_currentPosition != null) _findNearestBranch();
     } catch (e) {
       if (!mounted) return;
-      setState(
-          () => _cabangError = 'Gagal memuat data cabang: ${e.toString()}');
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal memuat data cabang.';
+      } else {
+        errorMessage = 'Gagal memuat data cabang: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      setState(() => _cabangError = errorMessage);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isCabangLoading = false);
     }
@@ -188,8 +197,17 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar(e.toString().replaceFirst("Exception: ", ""),
-            isError: true);
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda untuk mendapatkan nama alamat.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout saat mencari alamat.';
+        } else {
+          errorMessage = e.toString().replaceFirst("Exception: ", "");
+        }
+        _showSnackbar(errorMessage, isError: true);
+        // --- AKHIR PERUBAHAN ---
       }
     }
   }
@@ -310,8 +328,18 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         _showSnackbar(responseData['message'] ?? 'Gagal mengirim data',
             isError: true);
       }
-    } catch (e) {
-      _showSnackbar('Terjadi kesalahan: ${e.toString()}', isError: true);
+   } catch (e) {
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal mengirim laporan.';
+      } else {
+        errorMessage = 'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

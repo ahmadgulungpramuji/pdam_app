@@ -198,7 +198,17 @@ class _CalonPelangganRegisterPageState
       if (mounted) setState(() => _allCabangs = options);
     } catch (e) {
       log('Error fetching cabang options: $e');
-      _showSnackbar('Gagal memuat daftar cabang: $e', isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal memuat daftar cabang.';
+      } else {
+        errorMessage = 'Gagal memuat daftar cabang: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     }
   }
 
@@ -208,9 +218,19 @@ class _CalonPelangganRegisterPageState
       final List<dynamic> kecamatanData =
           await _apiService.getKecamatanIndramayu();
       if (mounted) setState(() => _kecamatanOptions = kecamatanData);
-    } catch (e) {
+   } catch (e) {
       log('Error tertangkap di _fetchKecamatan: $e');
-      _showSnackbar('Gagal memuat data kecamatan: $e', isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal memuat data kecamatan.';
+      } else {
+        errorMessage = 'Gagal memuat data kecamatan: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isKecamatanLoading = false);
     }
@@ -226,7 +246,17 @@ class _CalonPelangganRegisterPageState
       final List<dynamic> desaData = await _apiService.getDesa(kecamatanCode);
       if (mounted) setState(() => _desaOptions = desaData);
     } catch (e) {
-      _showSnackbar('Gagal memuat data desa: $e', isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal memuat data desa.';
+      } else {
+        errorMessage = 'Gagal memuat data desa: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isDesaLoading = false);
     }
@@ -272,10 +302,21 @@ class _CalonPelangganRegisterPageState
       _findNearestBranch(
           position.latitude, position.longitude, _detectedKabupatenKota);
     } catch (e) {
-      final errorMessage = e.toString().replaceFirst("Exception: ", "");
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda untuk mendapatkan alamat.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout saat mencari alamat.';
+      } else {
+        errorMessage = e.toString().replaceFirst("Exception: ", "");
+      }
+      // --- AKHIR PERUBAHAN ---
+      
       if (mounted) {
         log('Error getting location: $e');
-        _showSnackbar('Gagal mendapatkan lokasi: $errorMessage', isError: true);
+        // Gunakan errorMessage yang baru
+        _showSnackbar('Gagal mendapatkan lokasi: $errorMessage', isError: true); 
         setState(() {
           _deskripsiAlamatController.text = 'Gagal mendapatkan lokasi.';
           _nearestBranchError = 'Kesalahan sistem lokasi.';

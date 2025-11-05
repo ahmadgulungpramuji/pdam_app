@@ -1,5 +1,6 @@
 // Salin dan ganti seluruh isi file: lib/detail_calon_pelanggan_page.dart
-
+import 'dart:async'; // <-- TAMBAHKAN INI
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
@@ -135,7 +136,17 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Gagal memperbarui data: ${e.toString()}');
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal memperbarui data.';
+        } else {
+          errorMessage = 'Gagal memperbarui data: ${e.toString().replaceFirst("Exception: ", "")}';
+        }
+        _showSnackbar(errorMessage);
+        // --- AKHIR PERUBAHAN ---
       }
     }
   }
@@ -161,7 +172,19 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
         await _refreshData();
       }
     } catch (e) {
-      if (mounted) _showSnackbar(e.toString());
+      // --- AWAL PERUBAHAN ---
+      if (mounted) {
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal mengirim penilaian.';
+        } else {
+          errorMessage = e.toString().replaceFirst("Exception: ", "");
+        }
+        _showSnackbar(errorMessage);
+      }
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isSubmittingRating = false);
     }

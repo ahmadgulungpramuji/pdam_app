@@ -3,6 +3,8 @@
 // ignore_for_file: unused_element
 
 import 'dart:convert';
+import 'dart:async'; // <-- TAMBAHKAN INI
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
@@ -118,9 +120,19 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           );
         }
       }
-    } catch (e) {
+   } catch (e) {
       if (mounted) {
-        _showSnackbar('Gagal mengubah status: $e');
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal mengubah status.';
+        } else {
+          errorMessage = 'Gagal mengubah status: ${e.toString().replaceFirst("Exception: ", "")}';
+        }
+        _showSnackbar(errorMessage);
+        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       if (mounted) _setLoading(false);
@@ -166,7 +178,17 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         );
       }
     } catch (e) {
-      _showSnackbar('Gagal upload foto: $e');
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal mengunggah foto.';
+      } else {
+        errorMessage = 'Gagal upload foto: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) _setLoading(false);
     }
@@ -305,8 +327,18 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                               ),
                             );
                           }
-                        } catch (e) {
-                          _showSnackbar("Gagal memulai chat: $e");
+                       } catch (e) {
+                          // --- AWAL PERUBAHAN ---
+                          String errorMessage;
+                          if (e is SocketException) {
+                            errorMessage = 'Periksa koneksi internet Anda.';
+                          } else if (e is TimeoutException) {
+                            errorMessage = 'Koneksi timeout. Gagal memulai chat.';
+                          } else {
+                            errorMessage = 'Gagal memulai chat: ${e.toString().replaceFirst("Exception: ", "")}';
+                          }
+                          _showSnackbar(errorMessage);
+                          // --- AKHIR PERUBAHAN ---
                         } finally {
                           _setLoading(false);
                         }
@@ -540,7 +572,17 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar('Gagal membatalkan tugas: $e');
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal membatalkan tugas.';
+        } else {
+          errorMessage = 'Gagal membatalkan tugas: ${e.toString().replaceFirst("Exception: ", "")}';
+        }
+        _showSnackbar(errorMessage);
+        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       if (mounted) _setLoading(false);

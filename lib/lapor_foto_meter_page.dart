@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdam_app/api_service.dart'; // Sesuaikan path
@@ -84,12 +85,22 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
           _isFetchingInitialData = false;
         });
       }
-    } catch (e) {
+   } catch (e) {
       if (mounted) {
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda. Gagal memuat data awal.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal memuat data awal.';
+        } else {
+          errorMessage = 'Gagal memuat data awal: ${e.toString().replaceFirst("Exception: ", "")}';
+        }
         setState(() {
-          _fetchError = "Gagal memuat data awal: $e";
+          _fetchError = errorMessage;
           _isFetchingInitialData = false;
         });
+        // --- AKHIR PERUBAHAN ---
       }
     }
   }
@@ -180,7 +191,17 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
         _showSnackbar('Gagal: $message', isError: true);
       }
     } catch (e) {
-      _showSnackbar('Terjadi kesalahan: $e', isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda. Laporan gagal dikirim.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Laporan gagal dikirim.';
+      } else {
+        errorMessage = 'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

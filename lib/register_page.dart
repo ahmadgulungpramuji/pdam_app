@@ -2,6 +2,8 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
+import 'dart:io';       
+import 'dart:async';    
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdam_app/api_service.dart';
@@ -76,8 +78,17 @@ class _RegisterPageState extends State<RegisterPage> {
               isStepValid = true;
             }
           } catch (e) {
-            _showSnackbar('Gagal memverifikasi nomor: ${e.toString()}',
-                isError: true);
+            // --- AWAL PERUBAHAN ---
+            String errorMessage;
+            if (e is SocketException) {
+              errorMessage = 'Periksa koneksi internet Anda.';
+            } else if (e is TimeoutException) {
+              errorMessage = 'Koneksi timeout. Gagal memverifikasi nomor.';
+            } else {
+              errorMessage = 'Gagal memverifikasi nomor: ${e.toString().replaceFirst("Exception: ", "")}';
+            }
+            _showSnackbar(errorMessage, isError: true);
+            // --- AKHIR PERUBAHAN ---
           } finally {
             if (mounted) setState(() => _isLoading = false);
           }
@@ -176,9 +187,17 @@ class _RegisterPageState extends State<RegisterPage> {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      _showSnackbar(
-          'Registrasi Gagal: ${e.toString().replaceFirst("Exception: ", "")}',
-          isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda.';
+      } else if (e is TimeoutException) {
+        errorMessage = 'Koneksi timeout. Gagal melakukan registrasi.';
+      } else {
+        errorMessage = e.toString().replaceFirst("Exception: ", "");
+      }
+      _showSnackbar('Registrasi Gagal: $errorMessage', isError: true);
+      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

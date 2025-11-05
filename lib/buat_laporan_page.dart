@@ -174,8 +174,16 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             'Gagal mengambil data dari server (Status: ${response.statusCode})');
       }
     } catch (e) {
-      // Error akan ditampilkan di Snackbar
-      _showSnackbar('Gagal mengambil daftar nomor PDAM: $e', isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda';
+      } else {
+        errorMessage = 'Gagal mengambil daftar nomor PDAM: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
+
       if (mounted) {
         setState(() {
           _pdamIdList = []; // Kosongkan daftar jika gagal
@@ -213,9 +221,16 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             address.startsWith(',') ? address.substring(2) : address);
       }
     } catch (e) {
-      _showSnackbar(
-          'Gagal mendapatkan lokasi: ${e.toString().replaceFirst("Exception: ", "")}',
-          isError: true);
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda';
+      } else {
+        errorMessage =
+            'Gagal mendapatkan lokasi: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
     }
   }
 
@@ -354,11 +369,17 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      // Tangani semua jenis error (jaringan, validasi, dll) dan tampilkan di Snackbar
-      _showSnackbar(
-        'Gagal mengirim laporan: ${e.toString().replaceFirst("Exception: ", "")}',
-        isError: true,
-      );
+      // --- AWAL PERUBAHAN ---
+      String errorMessage;
+      if (e is SocketException) {
+        errorMessage = 'Periksa koneksi internet Anda';
+      } else {
+        errorMessage =
+            'Gagal mengirim laporan: ${e.toString().replaceFirst("Exception: ", "")}';
+      }
+      _showSnackbar(errorMessage, isError: true);
+      // --- AKHIR PERUBAHAN ---
+      
     } finally {
       // Pastikan loading indicator berhenti meskipun terjadi error
       if (mounted) {

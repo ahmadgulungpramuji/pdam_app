@@ -1,5 +1,6 @@
 // lib/pages/petugas/detail_calon_pelanggan_page.dart
-
+import 'dart:async'; // <-- TAMBAHKAN INI
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -213,8 +214,17 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
           }
         } catch (e) {
           _setLoading(false);
-          _showSnackbar("Gagal menambahkan watermark: ${e.toString()}",
-              isError: true);
+          // --- AWAL PERUBAHAN ---
+          String errorMessage;
+          if (e is SocketException) {
+            errorMessage = 'Periksa koneksi internet Anda. Gagal mengambil data lokasi untuk watermark.';
+          } else if (e is TimeoutException) {
+            errorMessage = 'Koneksi timeout. Gagal mengambil data lokasi.';
+          } else {
+            errorMessage = "Gagal menambahkan watermark: ${e.toString().replaceFirst("Exception: ", "")}";
+          }
+          _showSnackbar(errorMessage, isError: true);
+          // --- AKHIR PERUBAHAN ---
           return;
         }
       } else {
@@ -242,10 +252,17 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar(
-          e.toString().replaceAll('Exception: ', ''),
-          isError: true,
-        );
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda. Gagal memperbarui status.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal memperbarui status.';
+        } else {
+          errorMessage = e.toString().replaceAll('Exception: ', '');
+        }
+        _showSnackbar(errorMessage, isError: true);
+        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       _setLoading(false);
@@ -345,8 +362,17 @@ class _DetailCalonPelangganPageState extends State<DetailCalonPelangganPage> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackbar(e.toString().replaceAll('Exception: ', ''),
-            isError: true);
+        // --- AWAL PERUBAHAN ---
+        String errorMessage;
+        if (e is SocketException) {
+          errorMessage = 'Periksa koneksi internet Anda. Gagal memperbarui status.';
+        } else if (e is TimeoutException) {
+          errorMessage = 'Koneksi timeout. Gagal memperbarui status.';
+        } else {
+          errorMessage = e.toString().replaceAll('Exception: ', '');
+        }
+        _showSnackbar(errorMessage, isError: true);
+        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       _setLoading(false);
