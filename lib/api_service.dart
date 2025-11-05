@@ -19,7 +19,7 @@ import 'package:pdam_app/main.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://172.26.229.196:8000/api';
+  final String baseUrl = 'https://pdam-production.up.railway.app/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -28,7 +28,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://172.26.229.196:8000/api',
+            baseUrl: 'https://pdam-production.up.railway.app/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
