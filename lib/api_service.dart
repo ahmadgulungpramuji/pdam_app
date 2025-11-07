@@ -166,6 +166,82 @@ class ApiService {
     }
   }
 
+  Future<String> getOcrText(File imageFile) async {
+    //
+    // GANTI DENGAN API KEY ANDA YANG DIDAPAT DARI ocr.space
+    const String ocrApiKey = 'K83052043788957';
+    //
+    const String ocrUrl = 'https://api.ocr.space/parse/image';
+
+    if (ocrApiKey == 'YOUR_OCR_SPACE_API_KEY') {
+      log('OCR_ERROR: API Key ocr.space belum diatur di api_service.dart');
+      throw Exception('Fitur OCR belum diaktifkan (Key_not_set).');
+    }
+
+    var request = http.MultipartRequest('POST', Uri.parse(ocrUrl));
+    request.headers['apikey'] = ocrApiKey;
+
+    // Tambahkan file
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file', // Nama field untuk ocr.space
+        imageFile.path,
+        filename: imageFile.path.split('/').last,
+      ),
+    );
+
+    // Tambahkan parameter lain
+    request.fields['language'] = 'eng'; // Bahasa Inggris (untuk angka)
+    request.fields['scale'] = 'true'; // Izinkan server me-resize gambar
+    request.fields['detectOrientation'] = 'true'; // Deteksi orientasi
+    request.fields['isOverlayRequired'] = 'false';
+
+    try {
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 45));
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (responseData['ParsedResults'] != null &&
+            (responseData['ParsedResults'] as List).isNotEmpty) {
+          
+          String parsedText = responseData['ParsedResults'][0]['ParsedText'];
+
+          // Kita hanya ingin angkanya saja, bukan teks "m3" atau "PDAM".
+          // RegExp ini akan mengambil semua kelompok digit, titik, dan koma.
+          RegExp regex = RegExp(r'[\d.,]+');
+          String numbersOnly = regex
+              .allMatches(parsedText)
+              .map((m) => m.group(0)!)
+              .join(' ') // Beri spasi jika ada beberapa angka terpisah
+              .trim();
+
+          if (numbersOnly.isEmpty) {
+            return 'Tidak ada angka terdeteksi.';
+          }
+
+          log('OCR_SUCCESS: Teks terdeteksi: $parsedText');
+          log('OCR_SUCCESS: Angka diekstrak: $numbersOnly');
+          return numbersOnly; // Kembalikan hanya angka
+        } else if (responseData['IsErroredOnProcessing'] == true) {
+          throw Exception(
+              responseData['ErrorMessage'][0] ?? 'Gagal memproses gambar OCR.');
+        } else {
+          return 'Tidak ada teks terdeteksi.';
+        }
+      } else {
+        throw Exception(
+            'Gagal menghubungi server OCR. Status: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception('Koneksi ke server OCR timeout.');
+    } catch (e) {
+      log('OCR_ERROR: $e');
+      rethrow;
+    }
+  }
+
   Future<String?> getFirebaseCustomToken() async {
     // 1. Ambil token otentikasi Laravel dari SharedPreferences
     final prefs = await SharedPreferences.getInstance();
@@ -718,7 +794,11 @@ class ApiService {
         }
         // Lempar exception dengan pesan yang lebih spesifik
         throw Exception(errorMessage);
-        // --- AKHIR PERUBAHAN ---
+        } else if (response.statusCode == 429) { // <-- TAMBAHKAN BLOK INI
+        // Lempar pesan spesifik untuk spam
+        throw Exception(
+          'Anda telah mencoba mendaftar terlalu sering. Silakan coba lagi nanti.'
+        );
       } else {
         throw Exception(
           'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}',
