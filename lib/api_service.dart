@@ -16,6 +16,7 @@ import 'package:dio/dio.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
 import 'package:pdam_app/models/berita_model.dart';
 import 'package:pdam_app/main.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final Dio _dio;
@@ -24,6 +25,9 @@ class ApiService {
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
   final String _witAiApiVersion = '20240514';
+  final _storage = const FlutterSecureStorage();
+  final String _storageKeyIdentifier = 'saved_identifier';
+  final String _storageKeyPassword = 'saved_password';
 
   ApiService()
       : _dio = Dio(
@@ -301,6 +305,14 @@ class ApiService {
     await prefs.remove('user_token'); //
     await prefs.remove('user_data'); //
     await prefs.remove('pdam_ids'); //
+
+    try {
+      await _storage.delete(key: _storageKeyIdentifier);
+      await _storage.delete(key: _storageKeyPassword);
+      log('[ApiService] Kredensial "Ingat Saya" berhasil dihapus saat removeToken.');
+    } catch (e) {
+      log('[ApiService] Gagal menghapus kredensial "Ingat Saya": $e');
+    }
   }
 
   Future<List<dynamic>> getBranchAdminInfoByCabangId(String cabangId) async {
