@@ -20,7 +20,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pdam-production.up.railway.app/api';
+  final String baseUrl = 'http://192.168.0.120:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -32,7 +32,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pdam-production.up.railway.app/api',
+            baseUrl: 'http://192.168.0.120:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -788,6 +788,12 @@ class ApiService {
             const Duration(seconds: 60),
           );
       final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 429) {
+      // Lempar pesan spesifik untuk spam
+      throw Exception(
+        'Anda telah mencoba mendaftar terlalu sering. Silakan coba lagi nanti.'
+      );
+    }
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
@@ -806,11 +812,6 @@ class ApiService {
         }
         // Lempar exception dengan pesan yang lebih spesifik
         throw Exception(errorMessage);
-        } else if (response.statusCode == 429) { // <-- TAMBAHKAN BLOK INI
-        // Lempar pesan spesifik untuk spam
-        throw Exception(
-          'Anda telah mencoba mendaftar terlalu sering. Silakan coba lagi nanti.'
-        );
       } else {
         throw Exception(
           'Gagal mendaftar: ${responseData['message'] ?? 'Terjadi kesalahan server.'}',

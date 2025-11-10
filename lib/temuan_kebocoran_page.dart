@@ -31,7 +31,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   final _pageController = PageController();
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
-  final _step3FormKey = GlobalKey<FormState>(); // <-- Perubahan: Key untuk form langkah 3
+  final _step3FormKey =
+      GlobalKey<FormState>(); // <-- Perubahan: Key untuk form langkah 3
 
   final ApiService _apiService = ApiService();
   late String _apiUrlSubmit;
@@ -146,7 +147,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Gagal memuat data cabang.';
       } else {
-        errorMessage = 'Gagal memuat data cabang: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage =
+            'Gagal memuat data cabang: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       setState(() => _cabangError = errorMessage);
       // --- AKHIR PERUBAHAN ---
@@ -176,8 +178,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         timeLimit: const Duration(seconds: 20),
       );
 
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude, position.longitude);
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
 
       if (mounted) {
         setState(() {
@@ -200,7 +202,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         // --- AWAL PERUBAHAN ---
         String errorMessage;
         if (e is SocketException) {
-          errorMessage = 'Periksa koneksi internet Anda untuk mendapatkan nama alamat.';
+          errorMessage =
+              'Periksa koneksi internet Anda untuk mendapatkan nama alamat.';
         } else if (e is TimeoutException) {
           errorMessage = 'Koneksi timeout saat mencari alamat.';
         } else {
@@ -255,8 +258,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
 
         final watermarkedImage = img.copyResize(originalImage, width: 800);
         final now = DateTime.now();
-        img.drawString(
-            watermarkedImage,
+        img.drawString(watermarkedImage,
             '${now.hour}:${now.minute} - ${now.day}/${now.month}/${now.year}',
             x: 10,
             y: 10,
@@ -318,17 +320,34 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           await http.MultipartFile.fromPath('foto_bukti', _imageFile!.path));
 
       var res = await request.send().timeout(const Duration(seconds: 60));
+
+      // --- AWAL PERBAIKAN ---
+      // Pindahkan pengecekan status 429 KE ATAS, sebelum membaca body.
+      if (res.statusCode == 429) {
+        _showSnackbar(
+            'Anda telah terlalu sering mengirim laporan. Coba lagi nanti.',
+            isError: true);
+        // Hentikan eksekusi di sini
+        return;
+      }
+      // --- AKHIR PERBAIKAN ---
+
       final responseBody = await res.stream.bytesToString();
+
+      // Jika bukan 429, baru kita aman untuk decode
       final responseData = jsonDecode(responseBody);
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         _showSuccessDialog(
             responseData['data']?['tracking_code'] as String? ?? 'N/A');
-      } else {
+      }
+      // else if (res.statusCode == 429) { ... } // Pindahkan ini ke atas
+      else {
+        // Status error lain yang memiliki body JSON (seperti 422, 500)
         _showSnackbar(responseData['message'] ?? 'Gagal mengirim data',
             isError: true);
       }
-   } catch (e) {
+    } catch (e) {
       // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
@@ -336,7 +355,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Gagal mengirim laporan.';
       } else {
-        errorMessage = 'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage =
+            'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       _showSnackbar(errorMessage, isError: true);
       // --- AKHIR PERUBAHAN ---
@@ -523,8 +543,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
               borderSide: BorderSide(color: Colors.grey.shade300)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: Color(0xFF0077B6), width: 2)),
+              borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
         ),
       ),
     );
@@ -544,8 +563,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           borderSide: BorderSide(color: Colors.grey.shade300)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFF0077B6), width: 2)),
+          borderSide: const BorderSide(color: Color(0xFF0077B6), width: 2)),
     );
   }
 
@@ -588,7 +606,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           children: [
             _buildSectionHeader(
                 'Langkah 2: Detail Lokasi', Ionicons.map_outline),
-            SizedBox( // <-- Perubahan: Peta Statis Dihapus
+            SizedBox(
+              // <-- Perubahan: Peta Statis Dihapus
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
@@ -666,13 +685,14 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   Widget _buildStep3Bukti() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Form( // <-- Perubahan: Dibungkus Form
+      child: Form(
+        // <-- Perubahan: Dibungkus Form
         key: _step3FormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader(
-                'Langkah 3: Bukti & Deskripsi', Ionicons.camera_outline), // <-- Judul diubah
+            _buildSectionHeader('Langkah 3: Bukti & Deskripsi',
+                Ionicons.camera_outline), // <-- Judul diubah
             if (_isImageProcessing)
               const Center(
                   child: Padding(
@@ -691,7 +711,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                      border:
+                          Border.all(color: Colors.grey.shade200, width: 1.5),
                       image: _imageFile != null
                           ? DecorationImage(
                               image: FileImage(File(_imageFile!.path)),
@@ -731,7 +752,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                 ),
               ),
             const SizedBox(height: 24), // Spasi
-            _buildTextField( // <-- Perubahan: TextField dipindahkan ke sini
+            _buildTextField(
+                // <-- Perubahan: TextField dipindahkan ke sini
                 controller: _deskripsiLaporanController,
                 label: 'Deskripsi Laporan',
                 hint: 'Jelaskan secara singkat apa yang terjadi',

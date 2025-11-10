@@ -21,7 +21,8 @@ class LaporFotoMeterPage extends StatefulWidget {
   State<LaporFotoMeterPage> createState() => _LaporFotoMeterPageState();
 }
 
-class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTickerProviderStateMixin {
+class _LaporFotoMeterPageState extends State<LaporFotoMeterPage>
+    with SingleTickerProviderStateMixin {
   // --- Blok Variabel & Controller (TIDAK BERUBAH) ---
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
@@ -40,6 +41,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
 
   late AnimationController _cameraButtonAnimationController;
   late Animation<double> _scaleAnimation;
+  bool _isOcrLoading = false;
 
   // --- Blok Logika & State Management (TIDAK BERUBAH) ---
   @override
@@ -85,16 +87,18 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
           _isFetchingInitialData = false;
         });
       }
-   } catch (e) {
+    } catch (e) {
       if (mounted) {
         // --- AWAL PERUBAHAN ---
         String errorMessage;
         if (e is SocketException) {
-          errorMessage = 'Periksa koneksi internet Anda. Gagal memuat data awal.';
+          errorMessage =
+              'Periksa koneksi internet Anda. Gagal memuat data awal.';
         } else if (e is TimeoutException) {
           errorMessage = 'Koneksi timeout. Gagal memuat data awal.';
         } else {
-          errorMessage = 'Gagal memuat data awal: ${e.toString().replaceFirst("Exception: ", "")}';
+          errorMessage =
+              'Gagal memuat data awal: ${e.toString().replaceFirst("Exception: ", "")}';
         }
         setState(() {
           _fetchError = errorMessage;
@@ -119,15 +123,32 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     int? idCabang;
 
     switch (duaDigit) {
-      case '10': idCabang = 1; break;
-      case '12': idCabang = 2; break;
-      case '15': idCabang = 3; break;
-      case '20': idCabang = 4; break;
-      case '30': idCabang = 5; break;
-      case '40': idCabang = 6; break;
-      case '50': idCabang = 7; break;
-      case '60': idCabang = 8; break;
-      default: idCabang = null;
+      case '10':
+        idCabang = 1;
+        break;
+      case '12':
+        idCabang = 2;
+        break;
+      case '15':
+        idCabang = 3;
+        break;
+      case '20':
+        idCabang = 4;
+        break;
+      case '30':
+        idCabang = 5;
+        break;
+      case '40':
+        idCabang = 6;
+        break;
+      case '50':
+        idCabang = 7;
+        break;
+      case '60':
+        idCabang = 8;
+        break;
+      default:
+        idCabang = null;
     }
 
     setState(() {
@@ -153,10 +174,45 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
         imageQuality: 85,
       );
       if (pickedFile != null) {
-        setState(() => _imageFile = File(pickedFile.path));
+        setState(() {
+          _imageFile = File(pickedFile.path);
+          _isOcrLoading = true; // --- TAMBAHAN BARU: Mulai loading OCR
+          _komentarController.text =
+              ''; // --- TAMBAHAN BARU: Kosongkan komentar lama
+        });
+
+        // --- TAMBAHAN BARU: Panggil fungsi untuk menjalankan OCR ---
+        _runOCR(_imageFile!);
       }
     } catch (e) {
       _showSnackbar('Gagal mengambil gambar: $e', isError: true);
+    }
+  }
+
+  Future<void> _runOCR(File imageFile) async {
+    try {
+      // Panggil ApiService
+      final String ocrResult = await _apiService.getOcrText(imageFile);
+
+      // Masukkan hasil ke controller
+      if (mounted) {
+        setState(() {
+          _komentarController.text = ocrResult;
+          _isOcrLoading = false; // Selesai loading
+        });
+        _showSnackbar('Angka terdeteksi: $ocrResult', isError: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isOcrLoading = false; // Selesai loading (gagal)
+        });
+        // Tampilkan error OCR ke pengguna
+        _showSnackbar(
+          'Gagal membaca angka: ${e.toString().replaceFirst("Exception: ", "")}',
+          isError: true,
+        );
+      }
     }
   }
 
@@ -198,7 +254,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Laporan gagal dikirim.';
       } else {
-        errorMessage = 'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage =
+            'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       _showSnackbar(errorMessage, isError: true);
       // --- AKHIR PERUBAHAN ---
@@ -212,7 +269,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: GoogleFonts.poppins(color: Colors.white)),
-        backgroundColor: isError ? Colors.red.shade800 : const Color(0xFF27AE60),
+        backgroundColor:
+            isError ? Colors.red.shade800 : const Color(0xFF27AE60),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -227,7 +285,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
       backgroundColor: elegantBackgroundColor,
       appBar: _buildElegantAppBar(),
       body: _isFetchingInitialData
-          ? const Center(child: CircularProgressIndicator(color: elegantPrimaryColor))
+          ? const Center(
+              child: CircularProgressIndicator(color: elegantPrimaryColor))
           : _fetchError != null
               ? Center(
                   child: Padding(
@@ -304,9 +363,10 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
       ),
     );
   }
-  
+
   // Widget baru untuk header seksi, lebih ringan dari Card
-  Widget _buildSectionHeader({required IconData icon, required String title, String? subtitle}) {
+  Widget _buildSectionHeader(
+      {required IconData icon, required String title, String? subtitle}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -314,7 +374,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
         children: [
           Icon(icon, color: elegantPrimaryColor, size: 22),
           const SizedBox(width: 12),
-          Text(title,
+          Text(
+            title,
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -323,7 +384,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
           ),
           if (subtitle != null) ...[
             const SizedBox(width: 8),
-            Text(subtitle,
+            Text(
+              subtitle,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
@@ -342,7 +404,10 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
     return DropdownButtonFormField<String>(
       value: _selectedPdamId,
       hint: Text('Pilih Nomor ID Pelanggan Anda', style: GoogleFonts.poppins()),
-      items: _pdamIds.map((id) => DropdownMenuItem(value: id, child: Text(id, style: GoogleFonts.poppins()))).toList(),
+      items: _pdamIds
+          .map((id) => DropdownMenuItem(
+              value: id, child: Text(id, style: GoogleFonts.poppins())))
+          .toList(),
       onChanged: _updateCabangOtomatis,
       validator: (value) => value == null ? 'Mohon pilih ID PDAM' : null,
       decoration: _elegantInputDecoration(
@@ -361,7 +426,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
         labelText: 'Cabang Terdeteksi',
         prefixIcon: Icons.location_on_outlined,
       ).copyWith(
-        fillColor: Colors.grey.shade100, // Sedikit berbeda untuk status read-only
+        fillColor:
+            Colors.grey.shade100, // Sedikit berbeda untuk status read-only
       ),
       style: GoogleFonts.poppins(
         fontWeight: FontWeight.w600,
@@ -376,7 +442,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
         Container(
           height: 250,
           width: double.infinity,
-          clipBehavior: Clip.antiAlias, // Penting untuk border radius pada child
+          clipBehavior:
+              Clip.antiAlias, // Penting untuk border radius pada child
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -388,9 +455,12 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.photo_camera_back_outlined, size: 60, color: Colors.grey.shade400),
+                      Icon(Icons.photo_camera_back_outlined,
+                          size: 60, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      Text('Belum ada foto yang diunggah', style: GoogleFonts.poppins(color: Colors.grey.shade600)),
+                      Text('Belum ada foto yang diunggah',
+                          style:
+                              GoogleFonts.poppins(color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
@@ -402,19 +472,25 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
             scale: _scaleAnimation,
             child: OutlinedButton.icon(
               onPressed: () {
-                _cameraButtonAnimationController.forward().then((_) => _cameraButtonAnimationController.reverse());
+                _cameraButtonAnimationController
+                    .forward()
+                    .then((_) => _cameraButtonAnimationController.reverse());
                 _pickImage(ImageSource.camera);
               },
-              icon: Icon(_imageFile == null ? Icons.camera_alt_outlined : Icons.sync_outlined),
+              icon: Icon(_imageFile == null
+                  ? Icons.camera_alt_outlined
+                  : Icons.sync_outlined),
               label: Text(
                 _imageFile == null ? 'Buka Kamera' : 'Ambil Foto Ulang',
-                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
+                style: GoogleFonts.poppins(
+                    fontSize: 15, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 foregroundColor: elegantPrimaryColor,
                 side: const BorderSide(color: elegantPrimaryColor, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -422,19 +498,34 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
       ],
     );
   }
-  
+
   Widget _buildKomentarField() {
-    return TextFormField(
-      controller: _komentarController,
-      decoration: _elegantInputDecoration(
-        hintText: 'Tulis catatan jika ada...',
-        prefixIcon: Icons.notes_outlined,
-      ).copyWith(
-        alignLabelWithHint: true,
-      ),
-      maxLines: 4,
-      keyboardType: TextInputType.multiline,
-      style: GoogleFonts.poppins(),
+    // --- MODIFIKASI: Bungkus dengan Stack ---
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        TextFormField(
+          controller: _komentarController,
+          decoration: _elegantInputDecoration(
+            // --- MODIFIKASI: Ubah hintText saat loading ---
+            hintText: _isOcrLoading
+                ? 'Membaca angka pada gambar...'
+                : 'Tulis catatan jika ada...',
+            prefixIcon: Icons.notes_outlined,
+          ).copyWith(
+            alignLabelWithHint: true,
+          ),
+          maxLines: 4,
+          keyboardType: TextInputType.multiline,
+          style: GoogleFonts.poppins(),
+          // --- MODIFIKASI: Buat readOnly saat loading ---
+          readOnly: _isOcrLoading,
+        ),
+
+        // --- TAMBAHAN BARU: Tampilkan loading indicator ---
+        if (_isOcrLoading)
+          const CircularProgressIndicator(color: elegantPrimaryColor),
+      ],
     );
   }
 
@@ -458,30 +549,39 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> with SingleTick
       child: ElevatedButton.icon(
         onPressed: _isLoading ? null : _submitLaporan,
         icon: _isLoading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5))
             : const Icon(Icons.cloud_upload_outlined, color: Colors.white),
         label: Text(
           _isLoading ? 'Mengirim...' : 'Kirim Laporan',
-          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.poppins(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
     );
   }
-  
+
   // Helper untuk standardisasi decoration input field
-  InputDecoration _elegantInputDecoration({String? labelText, String? hintText, IconData? prefixIcon}) {
+  InputDecoration _elegantInputDecoration(
+      {String? labelText, String? hintText, IconData? prefixIcon}) {
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
       labelStyle: GoogleFonts.poppins(color: Colors.grey.shade700),
       hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400),
-      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.grey.shade500) : null,
+      prefixIcon: prefixIcon != null
+          ? Icon(prefixIcon, color: Colors.grey.shade500)
+          : null,
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
