@@ -3,7 +3,7 @@
 
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';       // <-- TAMBAHKAN INI
+import 'dart:io'; 
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +18,8 @@ import 'package:pdam_app/services/notification_service.dart';
 import 'package:pdam_app/temuan_kebocoran_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; // [TAMBAHKAN] Import package konektivitas
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // --- WIDGET ANIMASI ---
 class FadeInAnimation extends StatefulWidget {
@@ -95,8 +96,47 @@ class _LoginPageState extends State<LoginPage> {
   bool _isTrackingReport = false;
   bool _passwordVisible = false;
 
+  // --- MODIFIKASI: Variabel "Ingat Saya" ---
+  final _storage = const FlutterSecureStorage();
+  bool _rememberMe = false; // State untuk checkbox
+  // Kunci penyimpanan
+  final String _storageKeyIdentifier = 'saved_identifier';
+  final String _storageKeyPassword = 'saved_password';
+  // --- AKHIR MODIFIKASI ---
+  
   final String _checkBillUrl =
       'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
+
+  // --- MODIFIKASI: Panggil fungsi load saat initState ---
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials(); // <-- PANGGIL FUNGSI BARU INI
+  }
+
+  // --- MODIFIKASI: Fungsi baru untuk memuat kredensial ---
+  Future<void> _loadSavedCredentials() async {
+    try {
+      // Baca semua data yang mungkin tersimpan
+      final allValues = await _storage.readAll();
+      final identifier = allValues[_storageKeyIdentifier];
+      final password = allValues[_storageKeyPassword];
+
+      if (identifier != null && password != null) {
+        if (!mounted) return;
+        setState(() {
+          _identifierController.text = identifier;
+          _passwordController.text = password;
+          _rememberMe = true; // Set checkbox ke "true" jika data ada
+        });
+      }
+    } catch (e) {
+      log("Gagal memuat kredensial tersimpan: $e");
+      // Jika gagal (misal: Keystore error), hapus saja datanya
+      await _storage.deleteAll();
+    }
+  }
+  // --- AKHIR MODIFIKASI ---
 
   @override
   void dispose() {
@@ -149,7 +189,6 @@ class _LoginPageState extends State<LoginPage> {
             'Format kode tracking tidak valid. Pastikan kode diawali "TK-" atau "CP-".');
       }
    } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
@@ -159,7 +198,6 @@ class _LoginPageState extends State<LoginPage> {
         errorMessage = e.toString().replaceFirst("Exception: ", "");
       }
       _showSnackbar(errorMessage, isError: true);
-      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isTrackingReport = false);
     }
@@ -178,19 +216,16 @@ class _LoginPageState extends State<LoginPage> {
       }
    } catch (e) {
       log('[LoginPage] Re-otentikasi Firebase GAGAL: $e');
-      // --- AWAL PERUBAHAN ---
       if (e is SocketException) {
         throw Exception('Periksa koneksi internet Anda.');
       } else if (e is TimeoutException) {
         throw Exception('Koneksi timeout saat otentikasi.');
       } else {
-        rethrow; // Biarkan error Firebase lainnya ditangani oleh _login
+        rethrow;
       }
-      // --- AKHIR PERUBAHAN ---
     }
   }
 
-  // [DIUBAH] Fungsi login sekarang memiliki pengecekan koneksi
   Future<void> _login() async {
     // 1. Cek koneksi internet di awal
     final connectivityResult = await (Connectivity().checkConnectivity());
@@ -203,6 +238,12 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    // --- MODIFIKASI: Panggil fungsi "Ingat Saya" ---
+    // Panggil fungsi untuk menyimpan atau menghapus kredensial
+    await _handleRememberMe(); 
+    // --- AKHIR MODIFIKASI ---
+
     setState(() => _isLoading = true);
     try {
       final Map<String, dynamic> responseData = await _apiService.unifiedLogin(
@@ -243,7 +284,6 @@ class _LoginPageState extends State<LoginPage> {
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }
     } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
@@ -253,11 +293,34 @@ class _LoginPageState extends State<LoginPage> {
         errorMessage = e.toString().replaceFirst("Exception: ", "");
       }
       _showSnackbar(errorMessage, isError: true);
-      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // --- MODIFIKASI: Fungsi baru untuk menyimpan/menghapus kredensial ---
+  Future<void> _handleRememberMe() async {
+    try {
+      final identifier = _identifierController.text.trim();
+      final password = _passwordController.text;
+
+      if (_rememberMe) {
+        // Jika dicentang, SIMPAN dengan aman
+        await _storage.write(key: _storageKeyIdentifier, value: identifier);
+        await _storage.write(key: _storageKeyPassword, value: password);
+        log("Kredensial disimpan dengan aman.");
+      } else {
+        // Jika tidak dicentang, HAPUS
+        await _storage.delete(key: _storageKeyIdentifier);
+        await _storage.delete(key: _storageKeyPassword);
+        log("Kredensial tersimpan dihapus.");
+      }
+    } catch (e) {
+      log("Error saat menyimpan/menghapus kredensial: $e");
+      // Tidak perlu mengganggu pengguna, cukup log
+    }
+  }
+  // --- AKHIR MODIFIKASI ---
 
   Future<void> _forgotPassword() async {
     final identifierController = TextEditingController();
@@ -280,7 +343,6 @@ class _LoginPageState extends State<LoginPage> {
                 Navigator.pop(context);
                 setState(() => _isLoading = true);
                try {
-                  // [TAMBAHKAN] Cek koneksi dulu
                   final connectivityResult = await (Connectivity().checkConnectivity());
                   if (connectivityResult == ConnectivityResult.none) {
                     throw SocketException("Tidak ada koneksi internet.");
@@ -294,8 +356,7 @@ class _LoginPageState extends State<LoginPage> {
                   );
                 } on FirebaseAuthException catch (e) {
                   _showSnackbar("Gagal: ${e.message}", isError: true);
-                } catch (e) { // <-- [UBAH] Tambahkan catch general
-                  // --- AWAL PERUBAHAN ---
+                } catch (e) {
                   String errorMessage;
                   if (e is SocketException) {
                     errorMessage = 'Periksa koneksi internet Anda.';
@@ -305,7 +366,6 @@ class _LoginPageState extends State<LoginPage> {
                     errorMessage = e.toString().replaceFirst("Exception: ", "");
                   }
                   _showSnackbar(errorMessage, isError: true);
-                  // --- AKHIR PERUBAHAN ---
                 } finally {
                   if (mounted) setState(() => _isLoading = false);
                 }
@@ -437,58 +497,119 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLoginForm(Color primaryColor) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        children: [
-          TextFormField(
-            controller: _identifierController,
-            decoration: _inputDecoration("ID PDAM / No. HP / Email",
-                Ionicons.person_circle_outline, primaryColor),
-            keyboardType: TextInputType.text,
-            validator: (val) =>
-                val == null || val.isEmpty ? 'Kolom ini tidak boleh kosong' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            decoration: _inputDecoration(
-                    "Password", Ionicons.lock_closed_outline, primaryColor)
-                .copyWith(
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _passwordVisible
-                      ? Ionicons.eye_outline
-                      : Ionicons.eye_off_outline,
-                  color: primaryColor,
+ Widget _buildLoginForm(Color primaryColor) {
+    // --- MODIFIKASI: Dibungkus dengan AutofillGroup ---
+    return AutofillGroup(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _identifierController,
+              decoration: _inputDecoration("ID PDAM / No. HP / Email",
+                  Ionicons.person_circle_outline, primaryColor),
+
+              // --- PERBAIKAN (AUTOFIL) ---
+              keyboardType: TextInputType.emailAddress, // 1. Keyboard email
+              autofillHints: const [AutofillHints.username], // 2. Petunjuk Autofill
+              // --- AKHIR PERBAIKAN ---
+
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Kolom ini tidak boleh kosong' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              decoration: _inputDecoration(
+                      "Password", Ionicons.lock_closed_outline, primaryColor)
+                  .copyWith(
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _passwordVisible
+                        ? Ionicons.eye_outline
+                        : Ionicons.eye_off_outline,
+                    color: primaryColor,
+                  ),
+                  onPressed: () =>
+                      setState(() => _passwordVisible = !_passwordVisible),
                 ),
-                onPressed: () =>
-                    setState(() => _passwordVisible = !_passwordVisible),
               ),
+              obscureText: !_passwordVisible,
+
+              // --- PERBAIKAN (AUTOFIL) ---
+              autofillHints: const [AutofillHints.password], // 3. Petunjuk Autofill
+              // --- AKHIR PERBAIKAN ---
+
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
             ),
-            obscureText: !_passwordVisible,
-            validator: (val) =>
-                val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _isLoading ? null : _forgotPassword,
-              child: Text(
-                'Lupa Password?',
-                style: GoogleFonts.manrope(
-                    color: primaryColor, fontWeight: FontWeight.bold),
-              ),
+            
+            // --- AWAL PERUBAHAN: Menggabungkan "Ingat Saya" dan "Lupa Password?" ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Bagian "Ingat Saya" (dibuat ringkas)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (newValue) {
+                        if (newValue == null) return;
+                        setState(() {
+                          _rememberMe = newValue;
+                        });
+                      },
+                      activeColor: primaryColor,
+                      visualDensity: VisualDensity.compact, // Mengurangi padding
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // Mengurangi area tap
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _rememberMe = !_rememberMe; // Toggle saat teks di-tap
+                        });
+                      },
+                      // Tambahkan padding kecil di sini jika teks terlalu dekat checkbox
+                      // padding: const EdgeInsets.only(right: 8.0), 
+                      child: Text(
+                        "Ingat Saya",
+                        style: GoogleFonts.manrope(color: Colors.grey.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Bagian "Lupa Password?"
+                TextButton(
+                  onPressed: _isLoading ? null : _forgotPassword,
+                  // Mengurangi padding default TextButton agar lebih sejajar
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Lupa Password?',
+                    style: GoogleFonts.manrope(
+                        color: primaryColor, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          _GradientButton(
-            onPressed: _isLoading || _isTrackingReport ? null : _login,
-            isLoading: _isLoading,
-            text: 'LOGIN',
-          ),
-        ],
+            // --- AKHIR PERUBAHAN ---
+
+            // SizedBox ini sebelumnya ada di bawah CheckboxListTile,
+            // kita biarkan untuk memberi jarak ke tombol LOGIN
+            const SizedBox(height: 12),
+            _GradientButton(
+              onPressed: _isLoading || _isTrackingReport ? null : _login,
+              isLoading: _isLoading,
+              text: 'LOGIN',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -596,7 +717,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 
  Widget _buildRegisterFooter(Color primaryColor) {
-    // --- AWAL PERUBAHAN ---
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -625,7 +745,6 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ],
     );
-    // --- AKHIR PERUBAHAN ---
   }
 
   Widget _buildSectionDivider(String text) {

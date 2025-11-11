@@ -203,7 +203,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   bool _isBeritaLoading = true;
   String? _beritaErrorMessage;
   
-  // ---> [MODIFIKASI 1] TAMBAHKAN VARIABEL INI <---
   DateTime? _lastPressed;
 
   @override
@@ -479,7 +478,6 @@ Widget build(BuildContext context) {
         );
         return false; // Mencegah aplikasi keluar pada tekanan pertama
       } else {
-        // [INI SOLUSINYA]
         // Memaksa aplikasi untuk keluar sepenuhnya, tidak peduli state navigator.
         SystemNavigator.pop();
         return true; 
@@ -849,6 +847,7 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildMainServicesGrid(Color primaryColor, Color textColor) {
+    // --- MODIFIKASI: Tambahkan "Lapor Kebocoran" ---
     final services = [
       {
         'icon': Ionicons.create_outline,
@@ -875,7 +874,15 @@ Widget build(BuildContext context) {
         'label': 'Cek Tagihan',
         'route': '/cek_tunggakan'
       },
+      // --- TAMBAHAN (ITEM KE-6) ---
+      {
+        'icon': Ionicons.warning_outline, // Ikon untuk kebocoran
+        'label': 'Lapor Kebocoran',
+        'route': '/temuan_kebocoran' // Rute ini sudah ada di main.dart
+      },
+      // --- AKHIR TAMBAHAN ---
     ];
+    // --- AKHIR MODIFIKASI ---
 
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
