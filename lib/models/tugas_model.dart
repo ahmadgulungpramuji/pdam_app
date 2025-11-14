@@ -127,20 +127,44 @@ class CalonPelangganTugas extends Tugas {
     required this.pelanggan,
     super.detailTugasLengkap,
     super.cabang,
+    // Tambahkan parameter opsional ini agar bisa di-override
+    String? fotoRumahUrlOverride,
+    String? fotoKtpUrlOverride, 
   })  : jenisTugasInternal = kategori,
         super(
           tipeTugas: 'calon_pelanggan',
           lokasiMaps: '',
-          fotoBuktiUrl: detailTugasLengkap?['foto_ktp_url'],
-          fotoRumahUrl: detailTugasLengkap?['foto_rumah_url'],
-          fotoSebelumUrl: detailTugasLengkap?['foto_survey_url'],
-          fotoSesudahUrl: detailTugasLengkap?['foto_pemasangan_url'],
+          // Ambil dari override dulu, kalau null baru cari di detailTugasLengkap
+          fotoBuktiUrl: fotoKtpUrlOverride ?? detailTugasLengkap?['foto_ktp_url'],
+          fotoRumahUrl: fotoRumahUrlOverride ?? detailTugasLengkap?['foto_rumah_url'],
+          fotoSebelumUrl: detailTugasLengkap?['foto_survey'], // Perhatikan nama key di API
+          fotoSesudahUrl: detailTugasLengkap?['foto_pemasangan'], // Perhatikan nama key di API
           alasanPembatalan: null,
         );
 
   factory CalonPelangganTugas.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic>? detailLengkap =
         json['detail_tugas_lengkap'] as Map<String, dynamic>?;
+        
+    // LOGIKA TAMBAHAN UNTUK MENCARI FOTO RUMAH
+    String? foundFotoRumah;
+    String? foundFotoKtp;
+    
+    if (detailLengkap != null) {
+      // Cek langsung di root detailLengkap (jika API langsung mengirim objek CalonPelanggan)
+      foundFotoRumah = detailLengkap['foto_rumah_url'];
+      foundFotoKtp = detailLengkap['foto_ktp_url'];
+      
+      // Jika tidak ada, cek apakah ada di dalam key 'calon_pelanggan'
+      if (foundFotoRumah == null && detailLengkap.containsKey('calon_pelanggan')) {
+         final cp = detailLengkap['calon_pelanggan'];
+         if (cp is Map) {
+             foundFotoRumah = cp['foto_rumah_url'];
+             foundFotoKtp = cp['foto_ktp_url'];
+         }
+      }
+    }
+
     return CalonPelangganTugas(
       idPenugasanInternal: json['id_penugasan_internal'] ?? '',
       isPetugasPelapor: json['is_petugas_pelapor'] ?? false,
@@ -158,6 +182,9 @@ class CalonPelangganTugas extends Tugas {
       ),
       detailTugasLengkap: detailLengkap,
       cabang: json['cabang'] as Map<String, dynamic>?,
+      // Masukkan hasil pencarian kita tadi
+      fotoRumahUrlOverride: foundFotoRumah,
+      fotoKtpUrlOverride: foundFotoKtp,
     );
   }
 
