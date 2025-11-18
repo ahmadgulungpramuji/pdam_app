@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart'; // Pastikan package
 import 'package:pdam_app/api_service.dart'; // Sesuaikan path
 import 'package:pdam_app/models/cabang_model.dart'; // Pastikan Anda punya model ini
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image/image.dart' as img;
 
 // --- DEFINISI TEMA WARNA ELEGAN ---
 const Color elegantPrimaryColor = Color(0xFF2C3E50);
@@ -44,7 +45,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   CameraController? _cameraController;
   Future<void>? _cameraInitializeFuture;
   bool _isCameraPermissionGranted = false;
-  
+
   // --- PERUBAHAN KUNCI: Set default ke 'false' untuk 'Form Dulu' ---
   bool _isCameraViewActive = false;
 
@@ -54,10 +55,28 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     super.initState();
     // 1. Fetch data awal untuk form
     _fetchInitialData();
-    
+
     // 2. Minta izin & inisialisasi kamera di latar belakang
     // Ini membuat kamera siap saat tombol 'Buka Kamera' ditekan
     _requestCameraPermission();
+  }
+
+  Widget _buildInstructionRow(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.check_circle_outline,
+            color: Colors.greenAccent, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.9), fontSize: 13),
+          ),
+        ),
+      ],
+    );
   }
 
   // --- Fungsi Izin & Inisialisasi Kamera (TIDAK BERUBAH) ---
@@ -130,11 +149,13 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
       if (mounted) {
         String errorMessage;
         if (e is SocketException) {
-          errorMessage = 'Periksa koneksi internet Anda. Gagal memuat data awal.';
+          errorMessage =
+              'Periksa koneksi internet Anda. Gagal memuat data awal.';
         } else if (e is TimeoutException) {
           errorMessage = 'Koneksi timeout. Gagal memuat data awal.';
         } else {
-          errorMessage = 'Gagal memuat data awal: ${e.toString().replaceFirst("Exception: ", "")}';
+          errorMessage =
+              'Gagal memuat data awal: ${e.toString().replaceFirst("Exception: ", "")}';
         }
         setState(() {
           _fetchError = errorMessage;
@@ -157,15 +178,32 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     final duaDigit = nomorPdam.substring(0, 2);
     int? idCabang;
     switch (duaDigit) {
-      case '10': idCabang = 1; break;
-      case '12': idCabang = 2; break;
-      case '15': idCabang = 3; break;
-      case '20': idCabang = 4; break;
-      case '30': idCabang = 5; break;
-      case '40': idCabang = 6; break;
-      case '50': idCabang = 7; break;
-      case '60': idCabang = 8; break;
-      default: idCabang = null;
+      case '10':
+        idCabang = 1;
+        break;
+      case '12':
+        idCabang = 2;
+        break;
+      case '15':
+        idCabang = 3;
+        break;
+      case '20':
+        idCabang = 4;
+        break;
+      case '30':
+        idCabang = 5;
+        break;
+      case '40':
+        idCabang = 6;
+        break;
+      case '50':
+        idCabang = 7;
+        break;
+      case '60':
+        idCabang = 8;
+        break;
+      default:
+        idCabang = null;
     }
     setState(() {
       _selectedPdamId = nomorPdam;
@@ -182,9 +220,6 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     });
   }
 
-  // --- Fungsi Ambil Foto & OCR (TIDAK BERUBAH) ---
-  // Fungsi ini dipanggil dari _buildCameraView()
-  // Logikanya sudah benar: ambil foto, KEMBALI KE FORM, & jalankan OCR
   Future<void> _onCapturePressed() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       _showSnackbar('Kamera belum siap', isError: true);
@@ -193,18 +228,53 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     if (_cameraController!.value.isTakingPicture) return;
 
     try {
-      // 1. Ambil foto
+      // 1. Ambil foto original (Full)
       final XFile imageXFile = await _cameraController!.takePicture();
+      File finalImageFile = File(imageXFile.path);
+
+      // --- MULAI PROSES CROP (POTONG GAMBAR) ---
+      try {
+        final bytes = await finalImageFile.readAsBytes();
+        final originalImage = img.decodeImage(bytes);
+
+        if (originalImage != null) {
+          // Kita ambil bagian tengah gambar (sesuai overlay UI)
+          // Logika: Ambil lebar penuh, tapi tinggi hanya 25% di tengah
+          final int cropHeight = (originalImage.height * 0.30).toInt(); // 30% tinggi
+          final int cropY = (originalImage.height - cropHeight) ~/ 2; // Posisi Y tengah
+          
+          // Lakukan cropping
+          final croppedImage = img.copyCrop(
+            originalImage, 
+            x: 0, 
+            y: cropY, 
+            width: originalImage.width, 
+            height: cropHeight
+          );
+
+          // Simpan hasil crop ke file sementara baru
+          final String croppedPath = '${finalImageFile.path}_cropped.jpg';
+          final File croppedFile = File(croppedPath)
+            ..writeAsBytesSync(img.encodeJpg(croppedImage));
+          
+          // Gunakan file yang sudah di-crop
+          finalImageFile = croppedFile;
+        }
+      } catch (e) {
+        print("Gagal melakukan crop: $e");
+        // Jika crop gagal, tetap gunakan gambar asli (fallback)
+      }
+      // --- SELESAI PROSES CROP ---
 
       // 2. Update state untuk pindah ke tampilan form
       setState(() {
-        _imageFile = File(imageXFile.path);
-        _isCameraViewActive = false; // <-- INI KUNCINYA (Kembali ke Form)
+        _imageFile = finalImageFile; // File ini sekarang fokus ke angka saja
+        _isCameraViewActive = false; 
         _isOcrLoading = true;
         _komentarController.text = '';
       });
 
-      // 3. Jalankan OCR
+      // 3. Jalankan OCR dengan gambar yang sudah di-crop
       try {
         final String ocrResult = await _apiService.getOcrText(_imageFile!);
         if (mounted) {
@@ -264,7 +334,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Laporan gagal dikirim.';
       } else {
-        errorMessage = 'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage =
+            'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       _showSnackbar(errorMessage, isError: true);
     } finally {
@@ -278,7 +349,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: GoogleFonts.poppins(color: Colors.white)),
-        backgroundColor: isError ? Colors.red.shade800 : const Color(0xFF27AE60),
+        backgroundColor:
+            isError ? Colors.red.shade800 : const Color(0xFF27AE60),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -378,7 +450,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.camera_alt_outlined, size: 60, color: Colors.grey),
+              const Icon(Icons.camera_alt_outlined,
+                  size: 60, color: Colors.grey),
               const SizedBox(height: 16),
               Text(
                 'Izin Kamera Dibutuhkan',
@@ -419,15 +492,10 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              Container(
-                color: Colors.black,
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: _cameraController!.value.aspectRatio,
-                    child: CameraPreview(_cameraController!),
-                  ),
-                ),
-              ),
+              // PERBAIKAN: Langsung tampilkan CameraPreview.
+              // Ini akan otomatis mengisi layar penuh (mungkin ter-crop, tapi TIDAK gepeng).
+              CameraPreview(_cameraController!),
+
               _buildScannerOverlay(), // Overlay panduan
               _buildCaptureControl(), // Tombol ambil foto
             ],
@@ -443,34 +511,112 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
 
   // Widget untuk overlay (kotak panduan)
   Widget _buildScannerOverlay() {
-    // ... (Implementasi _buildScannerOverlay tidak berubah)
-    return Column(
+    // Tentukan area pemindaian
+    final double scanWidth = MediaQuery.of(context).size.width * 0.9;
+    final double scanHeight = 130; // Bentuk persegi panjang
+    final Radius scanRadius = const Radius.circular(16);
+
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        const Spacer(flex: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(8),
+        // Layer 1: Latar belakang gelap "berlubang" (Cutout Effect)
+        ColorFiltered(
+          colorFilter: ColorFilter.mode(
+            Colors.black.withOpacity(0.7), // Tingkat kegelapan
+            BlendMode.srcOut, // Mode ini "melubangi"
           ),
-          child: Text(
-            'Posisikan angka meteran di dalam kotak',
-            style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black, // Warna ini tidak penting
+                  backgroundBlendMode: BlendMode.dstOut,
+                ),
+              ),
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: scanWidth,
+                  height: scanHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.white, // Warna ini harus ada
+                    borderRadius: BorderRadius.all(scanRadius),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          height: 150,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Colors.white.withOpacity(0.9),
-              width: 3,
+
+        // Layer 2: Instruksi Teks (Tampilan Keren)
+        Align(
+          alignment: Alignment.topCenter, // PERBAIKAN: Pindahkan ke atas
+          child: Padding(
+            padding: EdgeInsets.only(
+              // PERBAIKAN: Beri jarak dari atas
+              top: MediaQuery.of(context).size.height *
+                  0.1, // 10% dari atas layar
+              left: 24,
+              right: 24,
             ),
-            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Agar column tidak terlalu besar
+              children: [
+                Text(
+                  '📷 Pindai Angka Meteran Anda',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInstructionRow(
+                          'Posisikan hanya deretan angka meteran Anda di dalam kotak.'),
+                      const SizedBox(height: 8),
+                      _buildInstructionRow(
+                          'Pastikan gambar jelas dan tidak buram.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const Spacer(flex: 3),
+
+        // Layer 3: Border/Garis di atas "Lubang"
+        Align(
+          alignment: Alignment.center,
+          child: Container(
+            width: scanWidth,
+            height: scanHeight,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.white.withOpacity(0.9), // Garis putih
+                width: 2.5,
+              ),
+              borderRadius: BorderRadius.all(scanRadius),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -536,7 +682,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     );
   }
 
-  Widget _buildSectionHeader({required IconData icon, required String title, String? subtitle}) {
+  Widget _buildSectionHeader(
+      {required IconData icon, required String title, String? subtitle}) {
     // ... (Implementasi _buildSectionHeader tidak berubah)
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -623,7 +770,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
           // --- Logika Kondisional BARU ---
           child: _imageFile != null
               ? Image.file(_imageFile!, fit: BoxFit.cover)
-              : Center( // Tampilan jika _imageFile masih null
+              : Center(
+                  // Tampilan jika _imageFile masih null
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -638,7 +786,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
                 ),
         ),
         const SizedBox(height: 16),
-        
+
         // 2. Tombol (dinamis)
         SizedBox(
           width: double.infinity,
@@ -653,7 +801,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
                 openAppSettings();
                 return;
               }
-              
+
               // Jika izin ADA, buka kamera
               setState(() {
                 _isCameraViewActive = true; // Pindah ke tampilan kamera
@@ -756,7 +904,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     );
   }
 
- InputDecoration _elegantInputDecoration(
+  InputDecoration _elegantInputDecoration(
       {String? labelText, String? hintText, IconData? prefixIcon}) {
     return InputDecoration(
       labelText: labelText,

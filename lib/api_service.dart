@@ -20,7 +20,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.0.120:8000/api';
+  final String baseUrl = 'https://pdam-production.up.railway.app/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -32,7 +32,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.168.0.120:8000/api',
+            baseUrl: 'https://pdam-production.up.railway.app/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -53,13 +53,13 @@ class ApiService {
           log('<-- DIO: ${response.statusCode} ${response.requestOptions.uri}');
           return handler.next(response);
         },
-       onError: (DioException e, handler) async {
+        onError: (DioException e, handler) async {
           log('DIO Error: ${e.response?.statusCode} Pesan: ${e.message}');
           if (e.response?.statusCode == 401) {
             log("Token tidak valid atau sesi berakhir. Melakukan logout otomatis.");
             // Hapus data lokal
             await removeToken();
-            
+
             // Arahkan ke halaman login menggunakan GlobalKey
             final navigator = navigatorKey.currentState;
             if (navigator != null) {
@@ -69,7 +69,7 @@ class ApiService {
 
           // --- AWAL MODIFIKASI ---
           final errorString = e.toString().toLowerCase();
-          
+
           // Cek apakah ini error koneksi (termasuk yg di screenshot)
           if (e.type == DioExceptionType.connectionError ||
               e.type == DioExceptionType.connectionTimeout ||
@@ -77,22 +77,23 @@ class ApiService {
               e.type == DioExceptionType.receiveTimeout ||
               e.error is SocketException ||
               errorString.contains('host lookup') ||
-              errorString.contains('socketfailed')) 
-          {
+              errorString.contains('socketfailed')) {
             log('Dio Error: Masalah koneksi terdeteksi. Mengganti pesan error...');
-            
+
             // Buat error baru yang "friendly"
             final friendlyError = DioException(
               requestOptions: e.requestOptions,
               // Ganti pesannya menjadi pesan yang kita inginkan
-              message: 'Periksa koneksi internet Anda.', 
+              message: 'Periksa koneksi internet Anda.',
               error: 'Periksa koneksi internet Anda.',
-              type: DioExceptionType.unknown, // Ganti tipe agar tidak di-handle lagi
+              type: DioExceptionType
+                  .unknown, // Ganti tipe agar tidak di-handle lagi
             );
-            return handler.next(friendlyError); // Kirim error yang sudah dimodifikasi
+            return handler
+                .next(friendlyError); // Kirim error yang sudah dimodifikasi
           }
           // --- AKHIR MODIFIKASI ---
-          
+
           return handler.next(e);
         },
       ),
@@ -209,25 +210,33 @@ class ApiService {
       if (response.statusCode == 200) {
         if (responseData['ParsedResults'] != null &&
             (responseData['ParsedResults'] as List).isNotEmpty) {
-          
           String parsedText = responseData['ParsedResults'][0]['ParsedText'];
 
           // Kita hanya ingin angkanya saja, bukan teks "m3" atau "PDAM".
           // RegExp ini akan mengambil semua kelompok digit, titik, dan koma.
           RegExp regex = RegExp(r'[\d.,]+');
-          String numbersOnly = regex
-              .allMatches(parsedText)
-              .map((m) => m.group(0)!)
-              .join(' ') // Beri spasi jika ada beberapa angka terpisah
-              .trim();
+
+// Ambil SEMUA angka yang cocok
+          final allMatches =
+              regex.allMatches(parsedText).map((m) => m.group(0)!).toList();
+
+          if (allMatches.isEmpty) {
+            return 'Tidak ada angka terdeteksi.';
+          }
+
+// --- LOGIKA BARU: Urutkan berdasarkan panjang, dari terpanjang ke terpendek ---
+          allMatches.sort((a, b) => b.length.compareTo(a.length));
+
+          String numbersOnly =
+              allMatches.first.trim(); // 'first' sekarang berarti 'terpanjang'
 
           if (numbersOnly.isEmpty) {
             return 'Tidak ada angka terdeteksi.';
           }
 
           log('OCR_SUCCESS: Teks terdeteksi: $parsedText');
-          log('OCR_SUCCESS: Angka diekstrak: $numbersOnly');
-          return numbersOnly; // Kembalikan hanya angka
+          log('OCR_SUCCESS: Angka diekstrak (terpanjang): $numbersOnly');
+          return numbersOnly;
         } else if (responseData['IsErroredOnProcessing'] == true) {
           throw Exception(
               responseData['ErrorMessage'][0] ?? 'Gagal memproses gambar OCR.');
@@ -789,11 +798,10 @@ class ApiService {
           );
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 429) {
-      // Lempar pesan spesifik untuk spam
-      throw Exception(
-        'Anda telah mencoba mendaftar terlalu sering. Silakan coba lagi nanti.'
-      );
-    }
+        // Lempar pesan spesifik untuk spam
+        throw Exception(
+            'Anda telah mencoba mendaftar terlalu sering. Silakan coba lagi nanti.');
+      }
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
