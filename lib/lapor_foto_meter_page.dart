@@ -8,6 +8,7 @@ import 'package:pdam_app/api_service.dart'; // Sesuaikan path
 import 'package:pdam_app/models/cabang_model.dart'; // Pastikan Anda punya model ini
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 // --- DEFINISI TEMA WARNA ELEGAN ---
 const Color elegantPrimaryColor = Color(0xFF2C3E50);
@@ -220,7 +221,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     });
   }
 
-  Future<void> _onCapturePressed() async {
+ Future<void> _onCapturePressed() async {
+    // 1. Cek Kamera
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       _showSnackbar('Kamera belum siap', isError: true);
       return;
@@ -228,76 +230,112 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     if (_cameraController!.value.isTakingPicture) return;
 
     try {
-      // 1. Ambil foto original (Full)
+      // 2. Ambil Foto
       final XFile imageXFile = await _cameraController!.takePicture();
-      File finalImageFile = File(imageXFile.path);
+      File processedFile = File(imageXFile.path);
 
-      // --- MULAI PROSES CROP (POTONG GAMBAR) ---
+      // 3. Update UI agar user tahu sedang memproses
+      setState(() {
+        _isCameraViewActive = false; // Tutup kamera, kembali ke form
+        _isOcrLoading = true; // Mulai loading di input text
+        _komentarController.text = "Memproses gambar...";
+      });
+
+      // --- PROSES CROPPING (Membuang bagian atas/bawah yang tidak perlu) ---
+      // Ini solusi agar tulisan "0.25" di bawah tidak ikut terbaca
       try {
-        final bytes = await finalImageFile.readAsBytes();
+        final bytes = await processedFile.readAsBytes();
         final originalImage = img.decodeImage(bytes);
 
         if (originalImage != null) {
-          // Kita ambil bagian tengah gambar (sesuai overlay UI)
-          // Logika: Ambil lebar penuh, tapi tinggi hanya 25% di tengah
-          final int cropHeight = (originalImage.height * 0.30).toInt(); // 30% tinggi
-          final int cropY = (originalImage.height - cropHeight) ~/ 2; // Posisi Y tengah
-          
-          // Lakukan cropping
+          // Kita ambil 25% tinggi gambar tepat di tengah (area kotak scanner)
+          final int cropHeight = (originalImage.height * 0.25).toInt();
+          final int cropY = (originalImage.height - cropHeight) ~/ 2;
+
+          // Lakukan Crop
           final croppedImage = img.copyCrop(
-            originalImage, 
-            x: 0, 
-            y: cropY, 
-            width: originalImage.width, 
-            height: cropHeight
+            originalImage,
+            x: 0,
+            y: cropY,
+            width: originalImage.width,
+            height: cropHeight,
           );
 
-          // Simpan hasil crop ke file sementara baru
-          final String croppedPath = '${finalImageFile.path}_cropped.jpg';
-          final File croppedFile = File(croppedPath)
+          // Simpan hasil crop ke file sementara
+          final String cropPath = '${processedFile.path}_cropped.jpg';
+          processedFile = File(cropPath)
             ..writeAsBytesSync(img.encodeJpg(croppedImage));
-          
-          // Gunakan file yang sudah di-crop
-          finalImageFile = croppedFile;
         }
       } catch (e) {
-        print("Gagal melakukan crop: $e");
-        // Jika crop gagal, tetap gunakan gambar asli (fallback)
+        print("Gagal crop gambar: $e");
+        // Jika crop gagal, lanjut pakai gambar asli
       }
-      // --- SELESAI PROSES CROP ---
 
-      // 2. Update state untuk pindah ke tampilan form
+      // 4. Update file gambar di UI (Tampilkan yang sudah di-crop)
       setState(() {
-        _imageFile = finalImageFile; // File ini sekarang fokus ke angka saja
-        _isCameraViewActive = false; 
-        _isOcrLoading = true;
-        _komentarController.text = '';
+        _imageFile = processedFile;
       });
 
-      // 3. Jalankan OCR dengan gambar yang sudah di-crop
+      // --- PROSES GOOGLE ML KIT (OCR OFFLINE) ---
       try {
-        final String ocrResult = await _apiService.getOcrText(_imageFile!);
+        final inputImage = InputImage.fromFilePath(processedFile.path);
+        final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+        
+        // Proses deteksi teks
+        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+        
+        // Tutup recognizer untuk hemat memori
+        await textRecognizer.close();
+
+        // 5. Ambil & Bersihkan Teks (Logic Filter)
+        String resultText = _parseOcrResult(recognizedText.text);
+
         if (mounted) {
           setState(() {
-            _komentarController.text = ocrResult;
+            _komentarController.text = resultText;
             _isOcrLoading = false;
           });
-          _showSnackbar('Angka terdeteksi: $ocrResult', isError: false);
+          
+          if (resultText.contains('Tidak ada')) {
+             _showSnackbar('Angka tidak terdeteksi. Coba lagi.', isError: true);
+          } else {
+             _showSnackbar('Angka terdeteksi: $resultText', isError: false);
+          }
         }
       } catch (e) {
         if (mounted) {
           setState(() {
             _isOcrLoading = false;
+            _komentarController.text = "";
           });
-          _showSnackbar(
-            'Gagal membaca angka: ${e.toString().replaceFirst("Exception: ", "")}',
-            isError: true,
-          );
+          _showSnackbar('Gagal membaca teks: $e', isError: true);
         }
       }
+
     } catch (e) {
       _showSnackbar('Gagal mengambil foto: $e', isError: true);
+      setState(() => _isOcrLoading = false);
     }
+  }
+
+  // Fungsi Helper untuk menyaring hasil teks (Regex)
+  String _parseOcrResult(String rawText) {
+    // Hapus spasi dan baris baru
+    String cleanText = rawText.replaceAll('\n', ' ').trim();
+    
+    // Regex: Ambil hanya angka, titik, atau koma
+    RegExp regex = RegExp(r'[\d.,]+');
+    final allMatches = regex.allMatches(cleanText).map((m) => m.group(0)!).toList();
+
+    if (allMatches.isEmpty) {
+      return 'Tidak ada angka';
+    }
+
+    // Urutkan dari yang terpanjang (biasanya angka meteran lebih panjang dari noise)
+    allMatches.sort((a, b) => b.length.compareTo(a.length));
+    
+    // Ambil yang terpanjang
+    return allMatches.first;
   }
 
   Future<void> _submitLaporan() async {

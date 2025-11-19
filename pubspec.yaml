@@ -30,6 +30,7 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   image: ^4.2.0
   google_sign_in: ^7.2.0
+  google_mlkit_text_recognition: ^0.11.0 
 
   intl: ^0.20.2
   flutter_staggered_animations: ^1.1.1
@@ -42,6 +43,7 @@ dependencies:
   firebase_messaging: ^16.0.1
   flutter_local_notifications: ^19.4.2
   flutter_image_compress: ^2.3.0
+  flutter_secure_storage: ^9.2.2
 
   # Firebase essentials
   firebase_core: ^4.1.0 # Menentukan versi lebih spesifik lebih baik dari 'any'
