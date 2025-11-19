@@ -30,6 +30,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   final _formKey = GlobalKey<FormState>();
   final _komentarController = TextEditingController();
   final _cabangController = TextEditingController();
+  double _scanBoxHeight = 100.0;
+  double _scanBoxWidth = 300.0;
 
   List<String> _pdamIds = [];
   List<Cabang> _daftarCabang = [];
@@ -221,8 +223,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     });
   }
 
- Future<void> _onCapturePressed() async {
-    // 1. Cek Kamera
+  Future<void> _onCapturePressed() async {
+    // 1. Cek Status Kamera
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       _showSnackbar('Kamera belum siap', isError: true);
       return;
@@ -230,64 +232,81 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
     if (_cameraController!.value.isTakingPicture) return;
 
     try {
-      // 2. Ambil Foto
+      // 2. AMBIL FOTO ASLI (FULL)
       final XFile imageXFile = await _cameraController!.takePicture();
-      File processedFile = File(imageXFile.path);
+      final File originalFile = File(imageXFile.path);
 
-      // 3. Update UI agar user tahu sedang memproses
+      // Update UI: Tampilkan loading
       setState(() {
-        _isCameraViewActive = false; // Tutup kamera, kembali ke form
-        _isOcrLoading = true; // Mulai loading di input text
+        _isCameraViewActive = false; // Tutup kamera
+        _isOcrLoading = true;        // Mulai loading teks
         _komentarController.text = "Memproses gambar...";
       });
 
-      // --- PROSES CROPPING (Membuang bagian atas/bawah yang tidak perlu) ---
-      // Ini solusi agar tulisan "0.25" di bawah tidak ikut terbaca
+      // Variabel untuk file yang akan di-scan (bisa file crop, atau fallback ke asli)
+      File fileForOcr = originalFile; 
+
+      // 3. PROSES CROPPING (Hanya untuk OCR)
       try {
-        final bytes = await processedFile.readAsBytes();
+        final bytes = await originalFile.readAsBytes();
         final originalImage = img.decodeImage(bytes);
 
         if (originalImage != null) {
-          // Kita ambil 25% tinggi gambar tepat di tengah (area kotak scanner)
-          final int cropHeight = (originalImage.height * 0.25).toInt();
-          final int cropY = (originalImage.height - cropHeight) ~/ 2;
+          // --- LOGIKA CROP (Sama seperti sebelumnya) ---
+          final Size screenSize = MediaQuery.of(context).size;
+          
+          // Gunakan variabel slider (_scanBoxWidth & _scanBoxHeight)
+          final double widthRatio = (_scanBoxWidth / screenSize.width);
+          final double heightRatio = (_scanBoxHeight / screenSize.height);
 
-          // Lakukan Crop
+          final int cropW = (originalImage.width * widthRatio).toInt();
+          final int cropH = (originalImage.height * heightRatio).toInt();
+
+          final int cropX = (originalImage.width - cropW) ~/ 2;
+          final int cropY = (originalImage.height - cropH) ~/ 2;
+
+          // Pastikan koordinat aman
+          final safeCropX = cropX < 0 ? 0 : cropX;
+          final safeCropY = cropY < 0 ? 0 : cropY;
+
           final croppedImage = img.copyCrop(
             originalImage,
-            x: 0,
-            y: cropY,
-            width: originalImage.width,
-            height: cropHeight,
+            x: safeCropX,
+            y: safeCropY,
+            width: cropW,
+            height: cropH,
           );
 
-          // Simpan hasil crop ke file sementara
-          final String cropPath = '${processedFile.path}_cropped.jpg';
-          processedFile = File(cropPath)
+          // --- PERBEDAAN UTAMA DI SINI ---
+          // Simpan hasil crop ke file BARU yang terpisah (Temporary)
+          final String cropPath = '${originalFile.path}_temp_crop.jpg';
+          final File tempCroppedFile = File(cropPath)
             ..writeAsBytesSync(img.encodeJpg(croppedImage));
+          
+          // Set fileForOcr menggunakan file crop ini
+          fileForOcr = tempCroppedFile;
         }
       } catch (e) {
-        print("Gagal crop gambar: $e");
-        // Jika crop gagal, lanjut pakai gambar asli
+        print("Gagal crop gambar, menggunakan gambar asli untuk OCR: $e");
+        // Jika gagal crop, fileForOcr tetap originalFile
       }
 
-      // 4. Update file gambar di UI (Tampilkan yang sudah di-crop)
+      // 4. UPDATE STATE UTAMA (Untuk Database & Tampilan UI)
       setState(() {
-        _imageFile = processedFile;
+        // PENTING: Kita simpan originalFile (Foto Lengkap) ke _imageFile
+        // Agar saat tombol "Kirim Laporan" ditekan, foto utuh yang terkirim.
+        _imageFile = originalFile; 
       });
 
-      // --- PROSES GOOGLE ML KIT (OCR OFFLINE) ---
+      // 5. JALANKAN OCR (Menggunakan File Crop)
       try {
-        final inputImage = InputImage.fromFilePath(processedFile.path);
+        // Gunakan fileForOcr (yang sudah di-crop) untuk ML Kit
+        final inputImage = InputImage.fromFilePath(fileForOcr.path);
         final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
         
-        // Proses deteksi teks
         final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-        
-        // Tutup recognizer untuk hemat memori
         await textRecognizer.close();
 
-        // 5. Ambil & Bersihkan Teks (Logic Filter)
         String resultText = _parseOcrResult(recognizedText.text);
 
         if (mounted) {
@@ -297,11 +316,19 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
           });
           
           if (resultText.contains('Tidak ada')) {
-             _showSnackbar('Angka tidak terdeteksi. Coba lagi.', isError: true);
+             _showSnackbar('Angka tidak terdeteksi. Silakan koreksi manual.', isError: true);
           } else {
              _showSnackbar('Angka terdeteksi: $resultText', isError: false);
           }
         }
+        
+        // Opsional: Hapus file crop sementara agar tidak memenuhi memori
+        if (fileForOcr.path.contains('_temp_crop')) {
+          try {
+            await fileForOcr.delete();
+          } catch (_) {}
+        }
+
       } catch (e) {
         if (mounted) {
           setState(() {
@@ -322,10 +349,11 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   String _parseOcrResult(String rawText) {
     // Hapus spasi dan baris baru
     String cleanText = rawText.replaceAll('\n', ' ').trim();
-    
+
     // Regex: Ambil hanya angka, titik, atau koma
     RegExp regex = RegExp(r'[\d.,]+');
-    final allMatches = regex.allMatches(cleanText).map((m) => m.group(0)!).toList();
+    final allMatches =
+        regex.allMatches(cleanText).map((m) => m.group(0)!).toList();
 
     if (allMatches.isEmpty) {
       return 'Tidak ada angka';
@@ -333,7 +361,7 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
 
     // Urutkan dari yang terpanjang (biasanya angka meteran lebih panjang dari noise)
     allMatches.sort((a, b) => b.length.compareTo(a.length));
-    
+
     // Ambil yang terpanjang
     return allMatches.first;
   }
@@ -526,59 +554,121 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
       future: _cameraInitializeFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          // Jika kamera siap, tampilkan preview
+          // Ambil lebar layar untuk batasan max slider
+          final screenWidth = MediaQuery.of(context).size.width;
+
           return Stack(
             fit: StackFit.expand,
             children: [
-              // PERBAIKAN: Langsung tampilkan CameraPreview.
-              // Ini akan otomatis mengisi layar penuh (mungkin ter-crop, tapi TIDAK gepeng).
               CameraPreview(_cameraController!),
+              _buildScannerOverlay(),
 
-              _buildScannerOverlay(), // Overlay panduan
-              _buildCaptureControl(), // Tombol ambil foto
+              // --- PANEL KONTROL UKURAN (SLIDER) ---
+              Positioned(
+                bottom: 130, // Di atas tombol shutter
+                left: 24,
+                right: 24,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label Kontrol
+                    Center(
+                      child: Text(
+                        "Atur Area Scan (Geser Tombol)",
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 12,
+                          shadows: [
+                            const Shadow(blurRadius: 4, color: Colors.black)
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // SLIDER 1: LEBAR (WIDTH)
+                    Row(
+                      children: [
+                        const Icon(Icons.swap_horiz,
+                            color: Colors.white, size: 20),
+                        Expanded(
+                          child: Slider(
+                            value: _scanBoxWidth,
+                            min: 50.0,
+                            max: screenWidth -
+                                40, // Maksimal selebar layar - margin
+                            activeColor: Colors.white,
+                            inactiveColor: Colors.white24,
+                            onChanged: (val) =>
+                                setState(() => _scanBoxWidth = val),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // SLIDER 2: TINGGI (HEIGHT)
+                    Row(
+                      children: [
+                        const Icon(Icons.swap_vert,
+                            color: Colors.white, size: 20),
+                        Expanded(
+                          child: Slider(
+                            value: _scanBoxHeight,
+                            min: 50.0,
+                            max: 400.0, // Batas tinggi maksimal
+                            activeColor: Colors.white,
+                            inactiveColor: Colors.white24,
+                            onChanged: (val) =>
+                                setState(() => _scanBoxHeight = val),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              _buildCaptureControl(),
             ],
           );
-        } else {
-          // Jika kamera sedang loading
-          return const Center(
-              child: CircularProgressIndicator(color: elegantPrimaryColor));
         }
+        return const Center(
+            child: CircularProgressIndicator(color: elegantPrimaryColor));
       },
     );
   }
 
   // Widget untuk overlay (kotak panduan)
   Widget _buildScannerOverlay() {
-    // Tentukan area pemindaian
-    final double scanWidth = MediaQuery.of(context).size.width * 0.9;
-    final double scanHeight = 130; // Bentuk persegi panjang
+    final double scanWidth = _scanBoxWidth;
+    final double scanHeight = _scanBoxHeight;
     final Radius scanRadius = const Radius.circular(16);
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Layer 1: Latar belakang gelap "berlubang" (Cutout Effect)
+        // Layer 1: Background Gelap (Cutout)
         ColorFiltered(
           colorFilter: ColorFilter.mode(
-            Colors.black.withOpacity(0.7), // Tingkat kegelapan
-            BlendMode.srcOut, // Mode ini "melubangi"
+            Colors.black.withOpacity(0.7),
+            BlendMode.srcOut,
           ),
           child: Stack(
             fit: StackFit.expand,
             children: [
               Container(
                 decoration: const BoxDecoration(
-                  color: Colors.black, // Warna ini tidak penting
+                  color: Colors.black,
                   backgroundBlendMode: BlendMode.dstOut,
                 ),
               ),
               Align(
                 alignment: Alignment.center,
                 child: Container(
-                  width: scanWidth,
-                  height: scanHeight,
+                  width: scanWidth, // Dinamis
+                  height: scanHeight, // Dinamis
                   decoration: BoxDecoration(
-                    color: Colors.white, // Warna ini harus ada
+                    color: Colors.white,
                     borderRadius: BorderRadius.all(scanRadius),
                   ),
                 ),
@@ -644,13 +734,10 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
         Align(
           alignment: Alignment.center,
           child: Container(
-            width: scanWidth,
-            height: scanHeight,
+            width: scanWidth, // Dinamis
+            height: scanHeight, // Dinamis
             decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.white.withOpacity(0.9), // Garis putih
-                width: 2.5,
-              ),
+              border: Border.all(color: Colors.white, width: 2.0),
               borderRadius: BorderRadius.all(scanRadius),
             ),
           ),
