@@ -16,12 +16,11 @@ import 'package:pdam_app/cek_tunggakan_page.dart';
 import 'package:pdam_app/lapor_foto_meter_page.dart';
 import 'package:pdam_app/models/berita_model.dart';
 import 'package:intl/intl.dart';
+import 'package:pdam_app/services/chat_service.dart';
 
 import 'dart:async';
 
 // --- WIDGET ANIMASI ---
-
-// 1. Animasi Fade-in dan Slide-up.
 class FadeInAnimation extends StatefulWidget {
   final int delay;
   final Widget child;
@@ -75,7 +74,6 @@ class _FadeInAnimationState extends State<FadeInAnimation>
   }
 }
 
-// 2. Widget untuk animasi staggered pada list/grid.
 class StaggeredFadeIn extends StatelessWidget {
   final List<Widget> children;
   final int delay;
@@ -113,7 +111,6 @@ class StaggeredFadeIn extends StatelessWidget {
   }
 }
 
-// 3. Widget untuk animasi angka (counter).
 class AnimatedCounter extends StatefulWidget {
   final double value;
   final TextStyle? style;
@@ -181,7 +178,6 @@ class _AnimatedCounterState extends State<AnimatedCounter>
     );
   }
 }
-
 // --- END WIDGET ANIMASI ---
 
 class HomePelangganPage extends StatefulWidget {
@@ -193,6 +189,12 @@ class HomePelangganPage extends StatefulWidget {
 
 class _HomePelangganPageState extends State<HomePelangganPage> {
   final ApiService _apiService = ApiService();
+  final ChatService _chatService = ChatService();
+  
+  // Stream untuk badge notifikasi
+  Stream<int>? _unreadLaporanStream;
+  Stream<int>? _unreadAdminStream;
+
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _errorMessage;
@@ -245,7 +247,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
         });
       }
     } catch (e) {
-      print("Gagal mengambil laporan terbaru di beranda: $e");
       if (mounted) {
         setState(() {
           _laporanTerbaruList = [];
@@ -291,6 +292,16 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           setState(() {
             _userData = data;
             _isLoading = false;
+
+            if (_userData != null && _userData!['firebase_uid'] != null) {
+              final uid = _userData!['firebase_uid'];
+              
+              // 1. Lacak Laporan -> Global Search 'pengaduan_'
+              _unreadLaporanStream = _chatService.getUnreadCountByPrefix(uid, 'pengaduan_');
+              
+              // 2. Hubungi Kami -> Global Search 'cabang_'
+              _unreadAdminStream = _chatService.getUnreadCountByPrefix(uid, 'cabang_');
+            }
           });
           _fetchUnreadCount();
           _fetchLaporanTerbaru();
@@ -453,50 +464,48 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   }
 
   @override
-Widget build(BuildContext context) {
-  const Color primaryColor = Color(0xFF0077B6);
-  const Color secondaryColor = Color(0xFF00B4D8);
-  const Color backgroundColor = Color(0xFFF8F9FA);
-  const Color textColor = Color(0xFF212529);
-  const Color subtleTextColor = Color(0xFF6C757D);
+  Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF0077B6);
+    const Color secondaryColor = Color(0xFF00B4D8);
+    const Color backgroundColor = Color(0xFFF8F9FA);
+    const Color textColor = Color(0xFF212529);
+    const Color subtleTextColor = Color(0xFF6C757D);
 
-  return WillPopScope(
-    onWillPop: () async {
-      final now = DateTime.now();
-      // Cek jika tombol kembali belum pernah ditekan atau sudah lebih dari 2 detik
-      final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
-          _lastPressed == null ||
-              now.difference(_lastPressed!) > const Duration(seconds: 2);
+    return WillPopScope(
+      onWillPop: () async {
+        final now = DateTime.now();
+        final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
+            _lastPressed == null ||
+                now.difference(_lastPressed!) > const Duration(seconds: 2);
 
-      if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
-        _lastPressed = now;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tekan sekali lagi untuk keluar'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return false; // Mencegah aplikasi keluar pada tekanan pertama
-      } else {
-        // Memaksa aplikasi untuk keluar sepenuhnya, tidak peduli state navigator.
-        SystemNavigator.pop();
-        return true; 
-      }
-    },
-    child: Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: _buildAppBar(textColor, subtleTextColor),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryColor))
-          : _errorMessage != null
-              ? _buildErrorView()
-              : _buildHomeContent(
-                  primaryColor, secondaryColor, textColor, subtleTextColor),
-      bottomNavigationBar: _buildBottomNavBar(primaryColor, subtleTextColor),
-    ),
-  );
-}
-
+        if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
+          _lastPressed = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tekan sekali lagi untuk keluar'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return false;
+        } else {
+          SystemNavigator.pop();
+          return true;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: _buildAppBar(textColor, subtleTextColor),
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: primaryColor))
+            : _errorMessage != null
+                ? _buildErrorView()
+                : _buildHomeContent(
+                    primaryColor, secondaryColor, textColor, subtleTextColor),
+        bottomNavigationBar: _buildBottomNavBar(primaryColor, subtleTextColor),
+      ),
+    );
+  }
 
   AppBar _buildAppBar(Color textColor, Color subtleTextColor) {
     return AppBar(
@@ -749,8 +758,9 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildSectionHeader(String title, Color textColor,
-      {String? actionText, VoidCallback? onActionTap}) {
+  // --- METODE YANG TADI HILANG (DITAMBAHKAN KEMBALI) ---
+  
+  Widget _buildSectionHeader(String title, Color textColor, {String? actionText, VoidCallback? onActionTap}) {
     return FadeInAnimation(
       delay: 300,
       child: Row(
@@ -845,9 +855,9 @@ Widget build(BuildContext context) {
       ),
     );
   }
+  // ---------------------------------------------------
 
   Widget _buildMainServicesGrid(Color primaryColor, Color textColor) {
-    // --- MODIFIKASI: Tambahkan "Lapor Kebocoran" ---
     final services = [
       {
         'icon': Ionicons.create_outline,
@@ -857,7 +867,7 @@ Widget build(BuildContext context) {
       {
         'icon': Ionicons.headset_outline,
         'label': 'Hubungi Kami',
-        'route': '/hubungi_kami'
+        'route': '/hubungi_kami' // Target Badge (Angka)
       },
       {
         'icon': Ionicons.camera_outline,
@@ -867,22 +877,19 @@ Widget build(BuildContext context) {
       {
         'icon': Ionicons.map_outline,
         'label': 'Lacak Laporan',
-        'route': '/lacak_laporan_saya'
+        'route': '/lacak_laporan_saya' // Target Badge (Titik Merah)
       },
       {
         'icon': Ionicons.receipt_outline,
         'label': 'Cek Tagihan',
         'route': '/cek_tunggakan'
       },
-      // --- TAMBAHAN (ITEM KE-6) ---
       {
-        'icon': Ionicons.warning_outline, // Ikon untuk kebocoran
+        'icon': Ionicons.warning_outline,
         'label': 'Lapor Kebocoran',
-        'route': '/temuan_kebocoran' // Rute ini sudah ada di main.dart
+        'route': '/temuan_kebocoran'
       },
-      // --- AKHIR TAMBAHAN ---
     ];
-    // --- AKHIR MODIFIKASI ---
 
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
@@ -896,52 +903,141 @@ Widget build(BuildContext context) {
       itemCount: services.length,
       itemBuilder: (context, index) {
         final service = services[index];
+        final String route = service['route'] as String;
+
+        Stream<int>? badgeStream;
+        if (route == '/lacak_laporan_saya') {
+          badgeStream = _unreadLaporanStream;
+        } else if (route == '/hubungi_kami') {
+          badgeStream = _unreadAdminStream;
+        }
+
+        // Widget Konten Ikon (Putih, Kotak)
+        Widget iconContent = Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(service['icon'] as IconData,
+                  size: 36, color: primaryColor),
+              const SizedBox(height: 12),
+              Text(
+                service['label'] as String,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: textColor),
+              ),
+            ],
+          ),
+        );
+
+        // Widget dasar yang bisa diklik
+        Widget baseIcon = _AnimatedIconButton(
+          onTap: () {
+            if (route == '/hubungi_kami') {
+              if (_userData != null) {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            ChatPage(userData: _userData!)));
+              }
+            } else {
+              Navigator.pushNamed(context, route);
+            }
+          },
+          child: iconContent,
+        );
+
+        // Jika memiliki stream badge
+        if (badgeStream != null) {
+          return StreamBuilder<int>(
+            stream: badgeStream,
+            initialData: 0, 
+            builder: (context, snapshot) {
+              final int count = snapshot.data ?? 0;
+              
+              // Jika 0, tampilkan ikon polos
+              if (count == 0) {
+                return FadeInAnimation(delay: 100 * index, child: baseIcon);
+              }
+
+              Widget badgeWidget;
+
+              // LOGIKA TAMPILAN BADGE
+              if (route == '/lacak_laporan_saya') {
+                // Lacak Laporan: Hanya Titik Merah (DOT)
+                badgeWidget = Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                );
+              } else {
+                // Hubungi Kami (Admin): Angka (NUMBER)
+                badgeWidget = Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 22,
+                    minHeight: 22,
+                  ),
+                  child: Center(
+                    child: Text(
+                      count > 99 ? '99+' : count.toString(),
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+
+              // Bungkus dengan Stack agar Badge mengambang di atas ikon
+              return FadeInAnimation(
+                delay: 100 * index,
+                child: Stack(
+                  fit: StackFit.expand, // <<< INI PENTING: Agar ikon tetap besar
+                  clipBehavior: Clip.none, 
+                  children: [
+                    baseIcon, 
+                    Positioned(
+                      top: -5,    // Geser ke atas
+                      right: -5,  // Geser ke kanan
+                      child: IgnorePointer(child: badgeWidget),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+
         return FadeInAnimation(
           delay: 100 * index,
-          child: _AnimatedIconButton(
-            onTap: () {
-              if (service['route'] == '/hubungi_kami') {
-                if (_userData != null) {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              ChatPage(userData: _userData!)));
-                }
-              } else {
-                Navigator.pushNamed(context, service['route'] as String);
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(service['icon'] as IconData,
-                      size: 36, color: primaryColor),
-                  const SizedBox(height: 12),
-                  Text(
-                    service['label'] as String,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: textColor),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: baseIcon,
         );
       },
     );
@@ -1276,7 +1372,6 @@ Widget build(BuildContext context) {
   }
 }
 
-// --- WIDGET BANTUAN UNTUK ANIMASI TOMBOL ---
 class _AnimatedIconButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

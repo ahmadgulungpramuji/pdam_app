@@ -1,6 +1,4 @@
 // lib/lacak_laporan_saya_page.dart
-// ignore_for_file: use_build_context_synchronously, unused_element
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -14,7 +12,10 @@ import 'package:pdam_app/pages/shared/reusable_chat_page.dart';
 import 'package:pdam_app/services/chat_service.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 
-// --- WIDGET ANIMASI (Disalin dari home_pelanggan_page.dart) ---
+// ... (Bagian FadeInAnimation, StaggeredAnimation dll TETAP SAMA) ...
+// ... (Untuk menghemat ruang, saya mulai dari class utama. Pastikan Widget Animasi tetap ada di atas) ...
+
+// --- WIDGET ANIMASI ---
 class FadeInAnimation extends StatefulWidget {
   final int delay;
   final Widget child;
@@ -80,14 +81,12 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
 
-  // --- State untuk Manajemen Data Tab ---
   List<Pengaduan> _masterLaporanList = [];
   List<Pengaduan> _laporanDiproses = [];
   List<Pengaduan> _laporanDikerjakan = [];
   List<Pengaduan> _laporanSelesai = [];
   List<Pengaduan> _laporanDibatalkan = [];
   int _laporanButuhPenilaianCount = 0;
-  // --- Akhir State untuk Tab ---
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -142,7 +141,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     super.dispose();
   }
 
-  // --- FUNGSI LOGIC (TIDAK BERUBAH) ---
   void _filterAndCategorizeLaporan() {
     _laporanDiproses.clear();
     _laporanDikerjakan.clear();
@@ -212,7 +210,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
 
         setState(() {
           _masterLaporanList = tempList;
-          _filterAndCategorizeLaporan(); // Panggil fungsi filter
+          _filterAndCategorizeLaporan(); 
           _isLoading = false;
         });
 
@@ -284,7 +282,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           if (index != -1) {
             setState(() {
               _masterLaporanList[index] = updatedLaporan;
-              _filterAndCategorizeLaporan(); // Re-filter setelah update
+              _filterAndCategorizeLaporan(); 
             });
           }
         }
@@ -317,10 +315,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       margin: const EdgeInsets.fromLTRB(20, 10, 20, 20),
     ));
   }
-
-  // ==========================================================
-  // --- UI WIDGETS (TELAH DIROMBAK) ---
-  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
@@ -429,148 +423,17 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         final laporan = laporanList[index];
         return FadeInAnimation(
           delay: 100 * index,
-          child: _buildTimelineCard(laporan,
-              isLast: index == laporanList.length - 1),
+          child: TimelineCardWithUnreadBadge(
+            laporan: laporan,
+            isLast: index == laporanList.length - 1,
+            currentUserData: _currentUserData,
+            chatService: _chatService,
+            onTap: () => _showDetailAndRatingSheet(laporan),
+            getStatusMeta: _getStatusMeta,
+            buildStatusBadge: _buildStatusBadge,
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildTimelineCard(Pengaduan laporan, {bool isLast = false}) {
-    final statusMeta = _getStatusMeta(laporan.status);
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 30,
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    width: 2,
-                    color: Colors.grey.shade200,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: statusMeta.color.withOpacity(0.2),
-                  ),
-                  child:
-                      Icon(statusMeta.icon, color: statusMeta.color, size: 18),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    width: 2,
-                    color: isLast ? Colors.transparent : Colors.grey.shade200,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _showDetailAndRatingSheet(laporan),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildStatusBadge(laporan.friendlyStatus),
-                            Text(
-                              '#LAP${laporan.id}',
-                              style: GoogleFonts.manrope(
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          laporan.friendlyKategori,
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: const Color(0xFF212529),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          laporan.deskripsi,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.manrope(
-                              color: Colors.grey.shade600, height: 1.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Icon(Ionicons.calendar_outline,
-                                size: 14, color: Colors.grey.shade500),
-                            const SizedBox(width: 6),
-                            Text(
-                              DateFormat('d MMM yyyy, HH:mm')
-                                  .format(laporan.createdAt.toLocal()),
-                              style: GoogleFonts.manrope(
-                                  color: Colors.grey.shade600, fontSize: 12),
-                            ),
-                            const Spacer(),
-                            if (laporan.ratingHasil != null)
-                              Row(
-                                children: [
-                                  Icon(Ionicons.star,
-                                      color: Colors.amber.shade700, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    laporan.ratingHasil!.toStringAsFixed(1),
-                                    style: GoogleFonts.manrope(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.amber.shade800,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Icon(Ionicons.chevron_forward,
-                                  size: 16, color: Colors.grey.shade400),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -827,8 +690,6 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               ),
                             ],
                             const Divider(height: 32, thickness: 0.5),
-
-                            // === BLOK YANG DIKEMBALIKAN & DISESUAIKAN GAYANYA ===
                             if (laporan.status.toLowerCase() ==
                                 'menunggu_pelanggan') ...[
                               Container(
@@ -939,10 +800,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                               ),
                               const Divider(height: 32, thickness: 0.5),
                             ],
-                            // === AKHIR DARI BLOK YANG DIKEMBALIKAN ===
-
                             _buildContactButtons(laporan),
-
                             if (laporan.status.toLowerCase() == 'selesai') ...[
                               const Divider(height: 32),
                               Container(
@@ -1139,13 +997,9 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                   throw Exception(
                       "Tidak ada admin yang dapat dihubungi untuk cabang ini.");
                 }
-                final threadId = await _chatService.getOrCreateTugasChatThread(
-                  tipeTugas: 'pengaduan_admin',
-                  idTugas: laporan.id,
-                  currentUser: _currentUserData!,
-                  otherUsers: adminInfoList,
-                  cabangId: laporan.idCabang,
-                );
+
+                final threadId = 'cabang_${laporan.idCabang}_pelanggan_${_currentUserData!['id']}';
+
                 if (mounted) {
                   Navigator.pop(context);
                   Navigator.push(
@@ -1274,5 +1128,226 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             ),
             elevation: 2,
           );
+  }
+}
+
+// ==========================================================
+// --- WIDGET CARD DENGAN BADGE STREAM ---
+// ==========================================================
+
+class TimelineCardWithUnreadBadge extends StatefulWidget {
+  final Pengaduan laporan;
+  final bool isLast;
+  final Map<String, dynamic>? currentUserData;
+  final VoidCallback onTap;
+  final ChatService chatService;
+  final Function(String) getStatusMeta;
+  final Function(String) buildStatusBadge;
+
+  const TimelineCardWithUnreadBadge({
+    super.key,
+    required this.laporan,
+    required this.isLast,
+    required this.currentUserData,
+    required this.onTap,
+    required this.chatService,
+    required this.getStatusMeta,
+    required this.buildStatusBadge,
+  });
+
+  @override
+  State<TimelineCardWithUnreadBadge> createState() =>
+      _TimelineCardWithUnreadBadgeState();
+}
+
+class _TimelineCardWithUnreadBadgeState
+    extends State<TimelineCardWithUnreadBadge> {
+  Stream<int>? _unreadPetugasChatCountStream;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.currentUserData != null && widget.currentUserData!['firebase_uid'] != null) {
+      
+      final String petugasThreadId = widget.chatService.generateTugasThreadId(
+        tipeTugas: 'pengaduan',
+        idTugas: widget.laporan.id,
+      );
+
+      // --- PERBAIKAN STREAM (SYNC DENGAN MARK AS READ) ---
+      // Gunakan logika manual filter agar sinkron
+      _unreadPetugasChatCountStream = widget.chatService.getUnreadMessageCount(
+        petugasThreadId,
+        widget.currentUserData!['firebase_uid'],
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: _unreadPetugasChatCountStream,
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return Badge(
+          label: Text(unreadCount.toString()),
+          isLabelVisible: unreadCount > 0,
+          alignment: const AlignmentDirectional(1.0, -0.45),
+          largeSize: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 30,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Container(
+                          width: 2,
+                          color: Colors.grey.shade200,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: (widget.getStatusMeta(widget.laporan.status)
+                                  as ({Color color, IconData icon}))
+                              .color
+                              .withOpacity(0.2),
+                        ),
+                        child: Icon(
+                            (widget.getStatusMeta(widget.laporan.status)
+                                    as ({Color color, IconData icon}))
+                                .icon,
+                            color: (widget.getStatusMeta(widget.laporan.status)
+                                    as ({Color color, IconData icon}))
+                                .color,
+                            size: 18),
+                      ),
+                      Expanded(
+                        flex: 5,
+                        child: Container(
+                          width: 2,
+                          color: widget.isLast
+                              ? Colors.transparent
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: widget.onTap,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  widget.buildStatusBadge(
+                                      widget.laporan.friendlyStatus),
+                                  Text(
+                                    '#LAP${widget.laporan.id}',
+                                    style: GoogleFonts.manrope(
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                widget.laporan.friendlyKategori,
+                                style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: const Color(0xFF212529),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                widget.laporan.deskripsi,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.manrope(
+                                    color: Colors.grey.shade600, height: 1.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Icon(Ionicons.calendar_outline,
+                                      size: 14, color: Colors.grey.shade500),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    DateFormat('d MMM yyyy, HH:mm').format(
+                                        widget.laporan.createdAt.toLocal()),
+                                    style: GoogleFonts.manrope(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 12),
+                                  ),
+                                  const Spacer(),
+                                  if (widget.laporan.ratingHasil != null)
+                                    Row(
+                                      children: [
+                                        Icon(Ionicons.star,
+                                            color: Colors.amber.shade700,
+                                            size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          widget.laporan.ratingHasil!
+                                              .toStringAsFixed(1),
+                                          style: GoogleFonts.manrope(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber.shade800,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Icon(Ionicons.chevron_forward,
+                                        size: 16, color: Colors.grey.shade400),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

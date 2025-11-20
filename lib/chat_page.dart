@@ -32,6 +32,38 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLiveChatActive = false;
   bool _isLoading = false;
 
+  // --- TAMBAHAN BARU ---
+  Stream<int>? _unreadAdminChatCountStream;
+  late String _adminThreadId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Secara proaktif mendengarkan unread count dari thread admin
+    _initializeAdminChatStream();
+  }
+
+  void _initializeAdminChatStream() {
+    try {
+      // Kita susun ID thread admin yang BISA DIPREDIKSI
+      // berdasarkan logika di chat_service.dart
+      final int cabangId = widget.userData['id_cabang'];
+      final int laravelId = widget.userData['id'];
+      _adminThreadId = 'cabang_${cabangId}_pelanggan_$laravelId';
+
+      setState(() {
+        _unreadAdminChatCountStream = _chatService.getUnreadMessageCount(
+          _adminThreadId,
+          widget.userData['firebase_uid'],
+        );
+      });
+    } catch (e) {
+      print("Gagal inisialisasi stream admin: $e");
+      // Gagal secara diam-diam, tidak menghentikan UI
+    }
+  }
+  // --- AKHIR TAMBAHAN ---
+
   void _sendMessage() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
@@ -174,8 +206,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Fungsi reauthenticateWithFirebase dan _switchToLiveChat tidak diubah,
-  // karena sudah sesuai dengan struktur baru Anda.
+  // (FUNGSI TIDAK BERUBAH)
   Future<void> reauthenticateWithFirebase() async {
     try {
       // Anda perlu membuat fungsi ini di ApiService yang mengembalikan custom token dari server Anda
@@ -193,46 +224,63 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  // --- MODIFIKASI TOTAL ---
+  // Fungsi ini sekarang beralih secara instan menggunakan ID yang sudah ada,
+  // dan tidak lagi memanggil getOrCreate...
   Future<void> _switchToLiveChat() async {
     setState(() => _isLoading = true);
     try {
-      await reauthenticateWithFirebase();
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser == null) {
-        throw Exception(
-            "Sesi Firebase Anda telah berakhir. Mohon login kembali.");
-      }
+      // --- MODIFIKASI ---
+      // Kita sekarang menggunakan _adminThreadId yang sudah ada
+      // Ini membuat perpindahan ke live chat menjadi instan
+      final threadId = _adminThreadId;
+      // --- AKHIR MODIFIKASI ---
 
-      final token = await _apiService.getToken();
-      if (token == null) {
-        throw Exception("Sesi berakhir. Silakan login kembali.");
-      }
+      setState(() {
+        _isLiveChatActive = true;
+        _liveChatThreadId = threadId;
+      });
 
-      final threadId =
-          await _chatService.getOrCreateAdminChatThreadForPelanggan(
-        userData: widget.userData,
-        apiToken: token,
+      // --- TAMBAHAN LOGIS ---
+      // Saat kita beralih, tandai semua pesan sebagai terbaca
+      // agar badge unread-nya hilang.
+      _chatService.markMessagesAsRead(
+        threadId,
+        widget.userData['firebase_uid'],
       );
 
-      if (threadId != null) {
-        setState(() {
-          _isLiveChatActive = true;
-          _liveChatThreadId = threadId;
-        });
-      } else {
-        throw Exception("Gagal mendapatkan ID thread dari service.");
+      // Kita juga *tetap* memanggil getOrCreate... di background
+      // untuk memastikan dokumennya ada, kalau-kalau ini adalah
+      // pertama kalinya user chat.
+      try {
+        await reauthenticateWithFirebase();
+        final token = await _apiService.getToken();
+        if (token != null) {
+          await _chatService.getOrCreateAdminChatThreadForPelanggan(
+            userData: widget.userData,
+            apiToken: token,
+          );
+        }
+      } catch (bgError) {
+        // Gagal secara diam-diam, user sudah di dalam chat
+        print("Gagal memastikan thread di background: $bgError");
       }
+      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal terhubung ke live chat: $e')),
       );
+      // Rollback jika gagal
+      setState(() {
+        _isLiveChatActive = false;
+        _liveChatThreadId = null;
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+  // --- AKHIR MODIFIKASI ---
 
-  // Bagian UI (build, _buildLiveChatView, dst.) tidak diubah.
-  // ... (Sisa kode UI dari file Anda diletakkan di sini) ...
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
@@ -245,14 +293,28 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: primaryColor,
         actions: [
           if (!_isLiveChatActive)
-            TextButton.icon(
-              icon: const Icon(Icons.support_agent),
-              label: const Text('Bicara dengan Admin'),
-              onPressed: _isLoading ? null : _switchToLiveChat,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-              ),
+            // --- MODIFIKASI DI SINI ---
+            StreamBuilder<int>(
+              stream: _unreadAdminChatCountStream,
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+
+                return Badge(
+                  // Widget Badge
+                  label: Text(unreadCount.toString()),
+                  isLabelVisible: unreadCount > 0,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.support_agent),
+                    label: const Text('Bicara dengan Admin'),
+                    onPressed: _isLoading ? null : _switchToLiveChat,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                );
+              },
             ),
+          // --- AKHIR MODIFIKASI ---
         ],
       ),
       body: Column(
@@ -353,6 +415,8 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
+            // TODO: Pertimbangkan untuk menggunakan widget
+            // yang dapat mem-parsing Markdown jika 'text' mengandung **tebal**.
             Text(text, style: const TextStyle(color: Colors.black87)),
           ],
         ),

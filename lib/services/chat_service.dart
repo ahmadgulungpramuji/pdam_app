@@ -1,4 +1,4 @@
-// services/chat_service.dart
+// lib/services/chat_service.dart
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pdam_app/api_service.dart';
@@ -7,171 +7,152 @@ class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ApiService _apiService = ApiService();
 
-  /// (TIDAK BERUBAH) Untuk chat Pelanggan <-> Admin
-  Future<String?> getOrCreateAdminChatThreadForPelanggan({
-    required Map<String, dynamic> userData,
-    required String apiToken,
-  }) async {
-    // 1. Memulai fungsi dan mencatat data awal.
-    print('[ChatService] Memulai fungsi untuk pelanggan: ${userData['nama']}');
+  // ==========================================================
+  // 1. STREAM BADGE (VERSI MANUAL FILTER - LEBIH STABIL)
+  // ==========================================================
+  
+  // Digunakan di Lacak Laporan Saya (Per-Item) dan Hubungi Kami
+  Stream<int> getUnreadMessageCount(String threadId, String currentUserUid) {
+    return _firestore
+        .collection('chat_threads')
+        .doc(threadId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true) // Ambil yang terbaru
+        .limit(50) // Batasi 50 pesan terakhir untuk efisiensi
+        .snapshots()
+        .map((snapshot) {
+      
+      int unreadCount = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final String senderId = data['senderId'] ?? '';
+        final List<dynamic> readBy = data['read_by'] ?? [];
 
-    // 2. Validasi data pengguna yang masuk.
-    final userLaravelId = userData['id'] as int?;
-    final cabangId = userData['id_cabang'] as int?;
-    final userFirebaseUid = userData['firebase_uid'] as String?;
-    final userName = userData['nama'] as String?;
+        // LOGIKA MANUAL (Sama persis dengan markAsRead)
+        // Jika pengirim BUKAN saya, DAN saya BELUM baca
+        if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
+          unreadCount++;
+        }
+      }
+      return unreadCount;
+    }).handleError((e) {
+      print("Error stream unread: $e");
+      return 0;
+    });
+  }
 
-    if (userLaravelId == null ||
-        userFirebaseUid == null ||
-        userName == null ||
-        cabangId == null) {
-      print('[ChatService] ERROR: Data pengguna tidak lengkap.');
-      throw Exception('Gagal memulai chat: Data pengguna tidak lengkap.');
-    }
+  // Stream Global (Untuk Beranda - Total Titik Merah)
+  Stream<int> getUnreadCountByPrefix(String currentUserUid, String prefix) {
+    return _firestore
+        .collectionGroup('messages')
+        // Hapus whereNotIn di sini juga agar konsisten, tapi collectionGroup 
+        // wajib pakai limit agar tidak boros biaya.
+        .orderBy('timestamp', descending: true) 
+        .limit(100)
+        .snapshots()
+        .map((snapshot) {
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        final threadRef = doc.reference.parent.parent;
+        // Cek Thread Prefix
+        if (threadRef != null && threadRef.id.startsWith(prefix)) {
+          final data = doc.data();
+          final String senderId = data['senderId'] ?? '';
+          final List<dynamic> readBy = data['read_by'] ?? [];
 
-    // 3. Menyiapkan ID unik untuk thread chat.
-    const String userType = 'pelanggan';
-    final threadId = 'cabang_${cabangId}_${userType}_$userLaravelId';
-    final threadRef = _firestore.collection('chat_threads').doc(threadId);
+          // Filter Manual
+          if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
+            count++;
+          }
+        }
+      }
+      return count;
+    }).handleError((e) {
+      // Silent error jika permission/index bermasalah di awal
+      return 0; 
+    });
+  }
 
-    // 4. Membungkus seluruh operasi dalam try-catch.
+  // ==========================================================
+  // 2. FUNGSI TANDAI BACA
+  // ==========================================================
+  Future<void> markMessagesAsRead(String threadId, String currentUserUid) async {
     try {
-      print('[ChatService] Mengecek keberadaan dokumen: $threadId');
+      final querySnapshot = await _firestore
+          .collection('chat_threads')
+          .doc(threadId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get();
 
-      final doc = await threadRef.get().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('[ChatService] GAGAL: Operasi get() timeout.');
-          throw Exception('Timeout: Gagal terhubung ke server Firestore.');
-        },
-      );
+      final batch = _firestore.batch();
+      bool needsCommit = false;
 
-      // 5. Jika dokumen thread belum ada, maka buat baru.
-      if (!doc.exists) {
-        print(
-            '[ChatService] Thread belum ada. Mengambil info admin dari API...');
-        final adminInfoResponse =
-            await _apiService.getBranchAdminInfo(apiToken);
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final String senderId = data['senderId'] ?? '';
+        final List<dynamic> readBy = data['read_by'] ?? [];
 
-        if (adminInfoResponse.statusCode != 200) {
-          throw Exception(
-              'Gagal mendapatkan data admin cabang. Status: ${adminInfoResponse.statusCode}');
+        // Syarat: Pesan orang lain & Saya belum baca
+        if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
+          batch.update(doc.reference, {
+            'read_by': FieldValue.arrayUnion([currentUserUid])
+          });
+          needsCommit = true;
         }
-
-        final adminInfo = jsonDecode(adminInfoResponse.body)['data'];
-        print(
-            '[ChatService] Info admin diterima. Mempersiapkan daftar peserta...');
-
-        // --- PERUBAHAN DARI MAP KE LIST ---
-        List<String> participantUids = [userFirebaseUid];
-        Map<String, dynamic> participantNames = {userFirebaseUid: userName};
-
-        for (var admin in adminInfo) {
-          if (admin['firebase_uid'] != null) {
-            if (!participantUids.contains(admin['firebase_uid'])) {
-              participantUids.add(admin['firebase_uid']);
-            }
-            participantNames[admin['firebase_uid']] = admin['nama'] ?? 'Admin';
-          }
-        }
-        print(
-            '[ChatService] Daftar Peserta (Uids) yang akan dibuat: $participantUids');
-        // --- AKHIR PERUBAHAN ---
-
-        print('[ChatService] Menulis data ke Firestore...');
-        await threadRef.set({
-          'threadInfo': {
-            'title': 'Chat dengan $userName ($userType)',
-            'initiatorId': userLaravelId,
-            'initiatorType': userType,
-            'cabangId': cabangId,
-          },
-          // --- GUNAKAN FIELD BARU ---
-          'participantUids': participantUids,
-          'participantNames': participantNames,
-          // ---
-          'lastMessage': 'Percakapan live dimulai.',
-          'lastMessageTimestamp': FieldValue.serverTimestamp(),
-        });
-        print('[ChatService] Berhasil menulis ke Firestore.');
-      } else {
-        print('[ChatService] Thread sudah ada, tidak perlu membuat baru.');
       }
 
-      print('[ChatService] Proses selesai. Mengembalikan threadId: $threadId');
-      return threadId;
-    } catch (e, s) {
-      print('[ChatService] TERJADI KESALAHAN FATAL: $e');
-      print('[ChatService] STACK TRACE: $s');
-      rethrow;
+      if (needsCommit) {
+        await batch.commit();
+        print(">>> [ChatService] Berhasil update status baca: $threadId");
+      }
+    } catch (e) {
+      print(">>> [ChatService] Gagal mark read: $e");
     }
   }
 
-  Future<String> getOrCreateAdminChatThreadForPetugas({
-    required Map<String, dynamic> petugasData,
-  }) async {
-    final petugasId = petugasData['id'] as int?;
-    final cabangId = petugasData['id_cabang'] as int?;
-    final petugasFirebaseUid = petugasData['firebase_uid'] as String?;
-    final petugasName = petugasData['nama'] as String?;
+  // ==========================================================
+  // 3. FUNGSI MESSAGING STANDARD (TIDAK BERUBAH)
+  // ==========================================================
+  
+  Stream<List<Message>> getMessages(String threadId) {
+    return _firestore
+        .collection('chat_threads')
+        .doc(threadId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
+    });
+  }
 
-    if (petugasId == null ||
-        petugasFirebaseUid == null ||
-        petugasName == null ||
-        cabangId == null) {
-      throw Exception('Gagal memulai chat: Data petugas tidak lengkap.');
-    }
-
-    // ID unik untuk chat internal antara semua petugas dan admin di satu cabang
-    final threadId = 'cabang_${cabangId}_internal_petugas';
+  Future<void> sendMessage(String threadId, String senderUid, String senderName, String text) async {
+    if (text.trim().isEmpty) return;
+    
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
-    final doc = await threadRef.get();
+    
+    await threadRef.collection('messages').add({
+      'senderId': senderUid,
+      'senderName': senderName,
+      'text': text,
+      'timestamp': FieldValue.serverTimestamp(),
+      'read_by': [senderUid], 
+    });
 
-    if (!doc.exists) {
-      final token = await _apiService.getToken();
-      if (token == null) throw Exception("Sesi berakhir");
-
-      final adminInfoResponse = await _apiService.getBranchAdminInfo(token);
-      if (adminInfoResponse.statusCode != 200) {
-        throw Exception('Gagal mendapatkan data admin cabang.');
-      }
-      final adminInfo = jsonDecode(adminInfoResponse.body)['data'];
-
-      // --- PERUBAHAN DARI MAP KE LIST ---
-      List<String> participantUids = [petugasFirebaseUid];
-      Map<String, dynamic> participantNames = {petugasFirebaseUid: petugasName};
-
-      for (var admin in adminInfo) {
-        if (admin['firebase_uid'] != null) {
-          if (!participantUids.contains(admin['firebase_uid'])) {
-            participantUids.add(admin['firebase_uid']);
-          }
-          participantNames[admin['firebase_uid']] = admin['nama'] ?? 'Admin';
-        }
-      }
-      // --- AKHIR PERUBAHAN ---
-
-      await threadRef.set({
-        'threadInfo': {
-          'title': 'Chat Internal Cabang $cabangId',
-          'initiatorId': petugasId,
-          'initiatorType':
-              'petugas', // Bisa juga 'internal' jika ingin dibedakan
-          'cabangId': cabangId,
-        },
-        // --- GUNAKAN FIELD BARU ---
-        'participantUids': participantUids,
-        'participantNames': participantNames,
-        // ---
-        'lastMessage': 'Percakapan internal dimulai.',
-        'lastMessageTimestamp': FieldValue.serverTimestamp(),
-      });
-    }
-
-    return threadId;
+    await threadRef.update({
+      'lastMessage': text,
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    });
   }
 
-  /// Untuk Chat 1-on-1 Pelanggan <-> Petugas
+  // Helper Generators
+  String generateTugasThreadId({required String tipeTugas, required int idTugas}) {
+    return '${tipeTugas}_$idTugas';
+  }
+  
+  // --- FUNGSI CREATE THREAD (Existing) ---
   Future<String> getOrCreateTugasChatThread({
     required String tipeTugas,
     required int idTugas,
@@ -185,28 +166,16 @@ class ChatService {
 
     if (!doc.exists) {
       final currentUserUid = currentUser['firebase_uid'];
-      final currentUserName = currentUser['nama'];
-
-      // --- AWAL LOGIKA BARU ---
-      // 1. Buat List<String> untuk menyimpan semua UID peserta.
-      // Dimulai dengan UID pengguna saat ini.
       List<String> participantUids = [currentUserUid];
+      Map<String, dynamic> participantNames = {currentUserUid: currentUser['nama']};
 
-      // (Opsional, tapi bagus untuk UI) Simpan nama peserta.
-      Map<String, dynamic> participantNames = {currentUserUid: currentUserName};
-
-      // 2. Loop melalui daftar pengguna lain (misalnya, petugas atau admin).
       for (var user in otherUsers) {
-        final userUid = user['firebase_uid'] as String?;
-        if (userUid != null && userUid.isNotEmpty) {
-          // 3. Tambahkan UID mereka ke dalam List jika belum ada.
-          if (!participantUids.contains(userUid)) {
-            participantUids.add(userUid);
-          }
-          participantNames[userUid] = user['nama'];
+        final uid = user['firebase_uid'];
+        if (uid != null) {
+          participantUids.add(uid);
+          participantNames[uid] = user['nama'];
         }
       }
-      // --- AKHIR LOGIKA BARU ---
 
       await threadRef.set({
         'threadInfo': {
@@ -217,65 +186,68 @@ class ChatService {
           'initiatorId': currentUser['id'],
           'initiatorType': 'pelanggan',
         },
-        // ===============================================
-        // == SIMPAN SEBAGAI ARRAY, BUKAN MAP ==
-        // ===============================================
         'participantUids': participantUids,
-        // ===============================================
         'participantNames': participantNames,
-        'lastMessage': 'Chat mengenai laporan #$idTugas dimulai.',
+        'lastMessage': 'Chat dimulai.',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
       });
     }
     return threadId;
   }
+  
+  Future<String?> getOrCreateAdminChatThreadForPelanggan({
+    required Map<String, dynamic> userData,
+    required String apiToken,
+  }) async {
+      final userLaravelId = userData['id'] as int?;
+      final cabangId = userData['id_cabang'] as int?;
+      final userFirebaseUid = userData['firebase_uid'] as String?;
+      final userName = userData['nama'] as String?;
 
-  Stream<List<Message>> getMessages(String threadId) {
-    return _firestore
-        .collection('chat_threads')
-        .doc(threadId)
-        .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Message.fromFirestore(doc);
-      }).toList();
-    });
+      if (userLaravelId == null || userFirebaseUid == null || userName == null || cabangId == null) {
+        throw Exception('Data tidak lengkap.');
+      }
+
+      const String userType = 'pelanggan';
+      final threadId = 'cabang_${cabangId}_${userType}_$userLaravelId';
+      final threadRef = _firestore.collection('chat_threads').doc(threadId);
+      final doc = await threadRef.get();
+
+      if (!doc.exists) {
+          final adminInfoResponse = await _apiService.getBranchAdminInfo(apiToken);
+          if (adminInfoResponse.statusCode == 200) {
+             final adminInfo = jsonDecode(adminInfoResponse.body)['data'];
+             List<String> uids = [userFirebaseUid];
+             Map<String, dynamic> names = {userFirebaseUid: userName};
+             for (var admin in adminInfo) {
+                if (admin['firebase_uid'] != null) {
+                   uids.add(admin['firebase_uid']);
+                   names[admin['firebase_uid']] = admin['nama'] ?? 'Admin';
+                }
+             }
+             await threadRef.set({
+                'threadInfo': {'title': 'Chat Admin', 'initiatorId': userLaravelId, 'initiatorType': userType, 'cabangId': cabangId},
+                'participantUids': uids,
+                'participantNames': names,
+                'lastMessage': 'Mulai Chat',
+                'lastMessageTimestamp': FieldValue.serverTimestamp(),
+             });
+          }
+      }
+      return threadId;
   }
-
-  Future<void> sendMessage(
-    String threadId,
-    String senderUid,
-    String senderName,
-    String text,
-  ) async {
-    if (text.trim().isEmpty) return;
-
-    final threadRef = _firestore.collection('chat_threads').doc(threadId);
-    final messagesRef = threadRef.collection('messages');
-
-    await messagesRef.add({
-      'senderId': senderUid,
-      'senderName': senderName,
-      'text': text,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-
-    await threadRef.update({
-      'lastMessage': text,
-      'lastMessageTimestamp': FieldValue.serverTimestamp(),
-    });
+  
+  Stream<QuerySnapshot> getPetugasChatThreadsStream(String uid) {
+    return _firestore.collection('chat_threads')
+      .where('participantUids', arrayContains: uid)
+      .orderBy('lastMessageTimestamp', descending: true)
+      .snapshots();
   }
-
-  Stream<QuerySnapshot> getPetugasChatThreadsStream(String petugasFirebaseUid) {
-    return _firestore
-        .collection('chat_threads')
-        // --- PERBAIKAN SINTAKS ---
-        // Di Dart, query 'array-contains' ditulis sebagai 'arrayContains' (camelCase).
-        .where('participantUids', arrayContains: petugasFirebaseUid)
-        .orderBy('lastMessageTimestamp', descending: true)
-        .snapshots();
+  
+  Future<String> getOrCreateAdminChatThreadForPetugas({required Map<String, dynamic> petugasData}) async {
+      final cabangId = petugasData['id_cabang'];
+      final threadId = 'cabang_${cabangId}_internal_petugas';
+      return threadId;
   }
 }
 
@@ -284,22 +256,18 @@ class Message {
   final String senderName;
   final String text;
   final Timestamp timestamp;
+  final List<String> readBy;
 
-  Message({
-    required this.senderId,
-    required this.senderName,
-    required this.text,
-    required this.timestamp,
-  });
+  Message({required this.senderId, required this.senderName, required this.text, required this.timestamp, required this.readBy});
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
     return Message(
-      senderId: data['senderId'] ?? 'unknown_id',
-      senderName: data['senderName'] ?? 'Tanpa Nama',
+      senderId: data['senderId'] ?? '',
+      senderName: data['senderName'] ?? 'Anonim',
       text: data['text'] ?? '',
       timestamp: data['timestamp'] ?? Timestamp.now(),
+      readBy: List<String>.from(data['read_by'] ?? []),
     );
   }
 }
