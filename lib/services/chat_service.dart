@@ -7,29 +7,36 @@ class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ApiService _apiService = ApiService();
 
+  // ====================================================================
+  // HELPER ID (PENTING: Agar ID di Lacak Laporan & Chat Page SAMA)
+  // ====================================================================
+  String generateTugasThreadId({required String tipeTugas, required dynamic idTugas}) {
+    // Pastikan idTugas diubah jadi string dan tidak ada spasi
+    return '${tipeTugas}_${idTugas.toString().trim()}';
+  }
+
   // ==========================================================
-  // 1. STREAM BADGE (VERSI MANUAL FILTER - LEBIH STABIL)
+  // 1. STREAM BADGE (Limit 100 & toString Safe)
   // ==========================================================
   
-  // Digunakan di Lacak Laporan Saya (Per-Item) dan Hubungi Kami
   Stream<int> getUnreadMessageCount(String threadId, String currentUserUid) {
     return _firestore
         .collection('chat_threads')
         .doc(threadId)
         .collection('messages')
-        .orderBy('timestamp', descending: true) // Ambil yang terbaru
-        .limit(50) // Batasi 50 pesan terakhir untuk efisiensi
+        .orderBy('timestamp', descending: true)
+        .limit(100) // Pastikan limit mencakup banyak pesan
         .snapshots()
         .map((snapshot) {
       
       int unreadCount = 0;
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        final String senderId = data['senderId'] ?? '';
+        // Gunakan toString() untuk keamanan jika ID tersimpan sebagai int
+        final String senderId = (data['senderId'] ?? '').toString();
         final List<dynamic> readBy = data['read_by'] ?? [];
 
-        // LOGIKA MANUAL (Sama persis dengan markAsRead)
-        // Jika pengirim BUKAN saya, DAN saya BELUM baca
+        // LOGIKA: Pengirim BUKAN saya, dan SAYA belum ada di list read_by
         if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
           unreadCount++;
         }
@@ -41,12 +48,10 @@ class ChatService {
     });
   }
 
-  // Stream Global (Untuk Beranda - Total Titik Merah)
+  // Stream Global (Untuk Beranda)
   Stream<int> getUnreadCountByPrefix(String currentUserUid, String prefix) {
     return _firestore
         .collectionGroup('messages')
-        // Hapus whereNotIn di sini juga agar konsisten, tapi collectionGroup 
-        // wajib pakai limit agar tidak boros biaya.
         .orderBy('timestamp', descending: true) 
         .limit(100)
         .snapshots()
@@ -54,66 +59,68 @@ class ChatService {
       int count = 0;
       for (var doc in snapshot.docs) {
         final threadRef = doc.reference.parent.parent;
-        // Cek Thread Prefix
         if (threadRef != null && threadRef.id.startsWith(prefix)) {
           final data = doc.data();
-          final String senderId = data['senderId'] ?? '';
+          final String senderId = (data['senderId'] ?? '').toString();
           final List<dynamic> readBy = data['read_by'] ?? [];
 
-          // Filter Manual
           if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
             count++;
           }
         }
       }
       return count;
-    }).handleError((e) {
-      // Silent error jika permission/index bermasalah di awal
-      return 0; 
-    });
+    }).handleError((e) => 0);
   }
 
   // ==========================================================
-  // 2. FUNGSI TANDAI BACA
+  // 2. FUNGSI TANDAI BACA (DENGAN DEBUG PRINT)
   // ==========================================================
   Future<void> markMessagesAsRead(String threadId, String currentUserUid) async {
+    if (currentUserUid.isEmpty) return;
+
     try {
+      // Ambil 100 pesan terakhir
       final querySnapshot = await _firestore
           .collection('chat_threads')
           .doc(threadId)
           .collection('messages')
           .orderBy('timestamp', descending: true)
-          .limit(50)
+          .limit(100) 
           .get();
 
       final batch = _firestore.batch();
       bool needsCommit = false;
+      int markedCount = 0;
 
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
-        final String senderId = data['senderId'] ?? '';
+        final String senderId = (data['senderId'] ?? '').toString();
         final List<dynamic> readBy = data['read_by'] ?? [];
 
-        // Syarat: Pesan orang lain & Saya belum baca
+        // Logika: Pesan dari ORANG LAIN + SAYA BELUM BACA
         if (senderId != currentUserUid && !readBy.contains(currentUserUid)) {
           batch.update(doc.reference, {
             'read_by': FieldValue.arrayUnion([currentUserUid])
           });
           needsCommit = true;
+          markedCount++;
         }
       }
 
       if (needsCommit) {
         await batch.commit();
-        print(">>> [ChatService] Berhasil update status baca: $threadId");
+        print(">>> [ChatService] SUKSES: Menandai $markedCount pesan 'READ' di thread: $threadId");
+      } else {
+        print(">>> [ChatService] INFO: Tidak ada pesan baru di thread: $threadId");
       }
     } catch (e) {
-      print(">>> [ChatService] Gagal mark read: $e");
+      print(">>> [ChatService] ERROR mark read: $e");
     }
   }
 
   // ==========================================================
-  // 3. FUNGSI MESSAGING STANDARD (TIDAK BERUBAH)
+  // 3. FUNGSI LAINNYA (MESSAGING & CREATE THREAD)
   // ==========================================================
   
   Stream<List<Message>> getMessages(String threadId) {
@@ -146,13 +153,8 @@ class ChatService {
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
     });
   }
-
-  // Helper Generators
-  String generateTugasThreadId({required String tipeTugas, required int idTugas}) {
-    return '${tipeTugas}_$idTugas';
-  }
   
-  // --- FUNGSI CREATE THREAD (Existing) ---
+  // FUNGSI CREATE THREAD (PENTING: GUNAKAN generateTugasThreadId DI SINI)
   Future<String> getOrCreateTugasChatThread({
     required String tipeTugas,
     required int idTugas,
@@ -160,7 +162,9 @@ class ChatService {
     required List<dynamic> otherUsers,
     required int cabangId,
   }) async {
-    final threadId = '${tipeTugas}_$idTugas';
+    // PAKAI HELPER AGAR ID KONSISTEN
+    final threadId = generateTugasThreadId(tipeTugas: tipeTugas, idTugas: idTugas);
+    
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
     final doc = await threadRef.get();
 
@@ -263,7 +267,7 @@ class Message {
   factory Message.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Message(
-      senderId: data['senderId'] ?? '',
+      senderId: (data['senderId'] ?? '').toString(),
       senderName: data['senderName'] ?? 'Anonim',
       text: data['text'] ?? '',
       timestamp: data['timestamp'] ?? Timestamp.now(),

@@ -23,52 +23,46 @@ class _ReusableChatPageState extends State<ReusableChatPage> {
   final TextEditingController _chatController = TextEditingController();
   final ChatService _chatService = ChatService();
   bool _isSending = false;
-  StreamSubscription? _msgSub;
+  
+  StreamSubscription? _activeChatMonitor;
 
   @override
   void initState() {
     super.initState();
-    // 1. Paksa tandai baca saat halaman baru dibuka
-    _markAsRead(); 
     
-    // 2. Pasang listener yang lebih pintar
-    _listenToMessages(); 
+    // 1. FORCE MARK READ SAAT HALAMAN DIBUKA
+    final myUid = widget.currentUser['firebase_uid'];
+    if (myUid != null) {
+      print(">>> [ChatPage] Membuka chat thread: ${widget.threadId}. Menandai read...");
+      _chatService.markMessagesAsRead(widget.threadId, myUid);
+    }
+
+    // 2. Mulai monitoring pesan baru secara real-time
+    _startActiveChatMonitor();
   }
 
   @override
   void dispose() {
-    _msgSub?.cancel();
+    _activeChatMonitor?.cancel();
+    _chatController.dispose();
     super.dispose();
   }
 
-  void _markAsRead() {
-    // Memanggil fungsi di service untuk update database
-    _chatService.markMessagesAsRead(
-      widget.threadId,
-      widget.currentUser['firebase_uid'],
-    );
-  }
+  void _startActiveChatMonitor() {
+    final myUid = widget.currentUser['firebase_uid'];
+    if (myUid == null) return;
 
-  void _listenToMessages() {
-    _msgSub = _chatService.getMessages(widget.threadId).listen((messages) {
-      if (messages.isNotEmpty) {
-        final myUid = widget.currentUser['firebase_uid'];
-        
-        // --- PERBAIKAN LOGIKA UTAMA DI SINI ---
-        // Cek apakah ada pesan APAPUN dari orang lain yang belum saya baca.
-        // Kita gunakan .any() untuk mengecek seluruh list pesan yang dimuat,
-        // bukan hanya pesan pertama (.first).
-        
-        bool adaPesanBelumDibaca = messages.any((msg) {
-          bool isDariOrangLain = msg.senderId != myUid;
-          bool sayaBelumBaca = !msg.readBy.contains(myUid);
-          return isDariOrangLain && sayaBelumBaca;
-        });
+    _activeChatMonitor = _chatService.getMessages(widget.threadId).listen((messages) {
+      if (messages.isEmpty) return;
 
-        if (adaPesanBelumDibaca) {
-          print(">>> [ChatPage] Ditemukan pesan belum dibaca. Menandai sekarang...");
-          _markAsRead();
-        }
+      // Cek apakah ada pesan dari ORANG LAIN yang BELUM SAYA BACA
+      bool adaPesanBelumDibaca = messages.any((msg) {
+        return msg.senderId != myUid && !msg.readBy.contains(myUid);
+      });
+
+      // Jika ada, segera tandai sebagai terbaca di database
+      if (adaPesanBelumDibaca) {
+        _chatService.markMessagesAsRead(widget.threadId, myUid);
       }
     });
   }
@@ -80,14 +74,13 @@ class _ReusableChatPageState extends State<ReusableChatPage> {
     setState(() => _isSending = true);
     _chatController.clear();
 
-    // Tips: Sebelum kirim, pastikan semua pesan sebelumnya ditandai baca
-    _markAsRead();
-
+    final myUid = widget.currentUser['firebase_uid'];
+    
     try {
       await _chatService.sendMessage(
         widget.threadId,
-        widget.currentUser['firebase_uid'],
-        widget.currentUser['nama'],
+        myUid,
+        widget.currentUser['nama'] ?? 'User',
         text,
       );
     } catch (e) {
@@ -132,8 +125,7 @@ class _ReusableChatPageState extends State<ReusableChatPage> {
                     final msg = msgs[index];
                     final isMe = msg.senderId == widget.currentUser['firebase_uid'];
                     
-                    // Cek status baca untuk indikator (opsional)
-                    // Pesan dianggap terbaca jika readBy memiliki lebih dari 1 ID (pengirim + penerima)
+                    // Pesan dianggap terbaca jika readBy > 1 (pengirim + penerima)
                     bool isRead = msg.readBy.length > 1; 
 
                     return _buildBubble(msg, isMe, isRead);
@@ -172,7 +164,6 @@ class _ReusableChatPageState extends State<ReusableChatPage> {
               ),
             Text(msg.text, style: const TextStyle(fontSize: 15)),
             
-            // Indikator Centang (Hanya muncul di pesan kita)
             if (isMe) ...[
                const SizedBox(height: 4),
                Icon(

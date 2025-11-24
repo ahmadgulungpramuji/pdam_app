@@ -998,6 +998,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                       "Tidak ada admin yang dapat dihubungi untuk cabang ini.");
                 }
 
+                // Logic Chat Admin - Sesuai File Anda
                 final threadId = 'cabang_${laporan.idCabang}_pelanggan_${_currentUserData!['id']}';
 
                 if (mounted) {
@@ -1039,7 +1040,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                     'pengaduan',
                     laporan.id,
                   );
-
+                  
+                  // PERUBAHAN DISINI: Menggunakan fungsi yang sudah pakai generateTugasThreadId
                   final threadId =
                       await _chatService.getOrCreateTugasChatThread(
                     tipeTugas: 'pengaduan',
@@ -1167,19 +1169,36 @@ class _TimelineCardWithUnreadBadgeState
   @override
   void initState() {
     super.initState();
+    _setupStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant TimelineCardWithUnreadBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.laporan.id != widget.laporan.id) {
+      _setupStream();
+    }
+  }
+
+  void _setupStream() {
     if (widget.currentUserData != null && widget.currentUserData!['firebase_uid'] != null) {
       
+      // GUNAKAN HELPER YANG SAMA PERSIS DENGAN CHAT SERVICE
+      // Ini memastikan ID-nya sinkron (misal: pengaduan_2 vs pengaduan_02)
       final String petugasThreadId = widget.chatService.generateTugasThreadId(
         tipeTugas: 'pengaduan',
         idTugas: widget.laporan.id,
       );
 
-      // --- PERBAIKAN STREAM (SYNC DENGAN MARK AS READ) ---
-      // Gunakan logika manual filter agar sinkron
-      _unreadPetugasChatCountStream = widget.chatService.getUnreadMessageCount(
-        petugasThreadId,
-        widget.currentUserData!['firebase_uid'],
-      );
+      // Debug (Opsional, bisa dihapus nanti)
+      // print("Badge Monitoring ID: $petugasThreadId");
+
+      setState(() {
+        _unreadPetugasChatCountStream = widget.chatService.getUnreadMessageCount(
+          petugasThreadId,
+          widget.currentUserData!['firebase_uid'],
+        );
+      });
     }
   }
 

@@ -1,6 +1,7 @@
 // lib/chat_page.dart
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async'; // Tambahkan ini untuk StreamSubscription
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pdam_app/api_service.dart';
@@ -32,21 +33,27 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLiveChatActive = false;
   bool _isLoading = false;
 
-  // --- TAMBAHAN BARU ---
   Stream<int>? _unreadAdminChatCountStream;
   late String _adminThreadId;
+  
+  // Tambahan: Monitor untuk Live Chat
+  StreamSubscription? _liveChatMonitor;
 
   @override
   void initState() {
     super.initState();
-    // Secara proaktif mendengarkan unread count dari thread admin
     _initializeAdminChatStream();
+  }
+
+  @override
+  void dispose() {
+    // Matikan monitor saat halaman ditutup
+    _liveChatMonitor?.cancel();
+    super.dispose();
   }
 
   void _initializeAdminChatStream() {
     try {
-      // Kita susun ID thread admin yang BISA DIPREDIKSI
-      // berdasarkan logika di chat_service.dart
       final int cabangId = widget.userData['id_cabang'];
       final int laravelId = widget.userData['id'];
       _adminThreadId = 'cabang_${cabangId}_pelanggan_$laravelId';
@@ -59,10 +66,8 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (e) {
       print("Gagal inisialisasi stream admin: $e");
-      // Gagal secara diam-diam, tidak menghentikan UI
     }
   }
-  // --- AKHIR TAMBAHAN ---
 
   void _sendMessage() {
     final text = _chatController.text.trim();
@@ -77,8 +82,6 @@ class _ChatPageState extends State<ChatPage> {
         text,
       );
     } else {
-      // --- MODIFIKASI ---
-      // Tambahkan pesan pengguna ke UI sebelum dikirim ke bot
       setState(() {
         _botMessages.insert(0, {"sender": "user", "text": text});
       });
@@ -92,7 +95,6 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     _apiService.sendMessage(text).then((witResponse) {
-      // --- MODIFIKASI --- Memanggil handler Wit.ai yang sudah diperbarui
       _handleWitAiResponse(witResponse);
     }).catchError((e) {
       _addBotMessage(
@@ -100,17 +102,13 @@ class _ChatPageState extends State<ChatPage> {
     }).whenComplete(() => setState(() => _isLoading = false));
   }
 
-  // --- BARU --- Fungsi helper untuk menambahkan pesan dari bot ke UI
   void _addBotMessage(String text) {
     setState(() {
       _botMessages.insert(0, {"sender": "bot", "text": text});
     });
   }
 
-  // --- MODIFIKASI TOTAL ---
-  // Ini adalah logika utama yang telah dikembangkan untuk menangani respon dari Wit.ai
   void _handleWitAiResponse(Map<String, dynamic>? response) {
-    // Penanganan jika response tidak valid atau intent tidak terdeteksi
     if (response == null ||
         response.containsKey("error") ||
         response['intents'] == null ||
@@ -123,14 +121,12 @@ class _ChatPageState extends State<ChatPage> {
     final intent = (response['intents'] as List).first['name'];
     final confidence = (response['intents'] as List).first['confidence'];
 
-    // Abaikan jika confidence (tingkat kepercayaan) bot terlalu rendah
     if (confidence < 0.8) {
       _addBotMessage(
           "Saya kurang yakin dengan maksud Anda. Bisa coba gunakan kalimat yang lebih spesifik?");
       return;
     }
 
-    // Logika berdasarkan intent yang terdeteksi
     switch (intent) {
       case 'sapaan':
         _addBotMessage("Halo! Ada yang bisa saya bantu terkait layanan PDAM?");
@@ -147,12 +143,10 @@ class _ChatPageState extends State<ChatPage> {
 
       case 'lacak_laporan':
         final entities = response['entities'] as Map<String, dynamic>?;
-        // Mencari entity 'nomor_laporan' yang sudah kita latih di Wit.ai
         final nomorLaporanEntity =
             entities?['nomor_laporan:nomor_laporan'] as List?;
         if (nomorLaporanEntity != null && nomorLaporanEntity.isNotEmpty) {
           final nomorLaporan = nomorLaporanEntity.first['value'].toString();
-          // Memanggil fungsi untuk mengambil detail dari API
           _fetchAndDisplayReportStatus(nomorLaporan);
         } else {
           _addBotMessage(
@@ -173,19 +167,16 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // --- BARU --- Fungsi untuk mengambil status laporan dari API dan menampilkannya
   Future<void> _fetchAndDisplayReportStatus(String nomorLaporan) async {
     setState(() => _isLoading = true);
     _addBotMessage("Baik, sedang saya periksa laporan nomor $nomorLaporan...");
 
     try {
-      // Pastikan fungsi getDetailLaporan sudah ada di api_service.dart
       final Pengaduan laporan =
           await _apiService.getDetailLaporan(nomorLaporan);
 
       String statusText = "Status laporan Anda: **${laporan.friendlyStatus}**.";
 
-      // Memberikan konteks tambahan berdasarkan status
       if (laporan.status == 'menunggu_pelanggan') {
         statusText +=
             "\n\nTim kami membutuhkan konfirmasi dari Anda. Silakan periksa detailnya di halaman 'Lacak Laporan Saya' untuk memberikan respon.";
@@ -206,10 +197,8 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // (FUNGSI TIDAK BERUBAH)
   Future<void> reauthenticateWithFirebase() async {
     try {
-      // Anda perlu membuat fungsi ini di ApiService yang mengembalikan custom token dari server Anda
       final String? customToken = await _apiService.getFirebaseCustomToken();
 
       if (customToken != null) {
@@ -224,34 +213,27 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // --- MODIFIKASI TOTAL ---
-  // Fungsi ini sekarang beralih secara instan menggunakan ID yang sudah ada,
-  // dan tidak lagi memanggil getOrCreate...
+  // --- LOGIKA UTAMA PERALIHAN KE LIVE CHAT ---
   Future<void> _switchToLiveChat() async {
     setState(() => _isLoading = true);
     try {
-      // --- MODIFIKASI ---
-      // Kita sekarang menggunakan _adminThreadId yang sudah ada
-      // Ini membuat perpindahan ke live chat menjadi instan
       final threadId = _adminThreadId;
-      // --- AKHIR MODIFIKASI ---
 
       setState(() {
         _isLiveChatActive = true;
         _liveChatThreadId = threadId;
       });
 
-      // --- TAMBAHAN LOGIS ---
-      // Saat kita beralih, tandai semua pesan sebagai terbaca
-      // agar badge unread-nya hilang.
-      _chatService.markMessagesAsRead(
+      // 1. Tandai pesan yang SUDAH ADA sebagai terbaca
+      await _chatService.markMessagesAsRead(
         threadId,
         widget.userData['firebase_uid'],
       );
 
-      // Kita juga *tetap* memanggil getOrCreate... di background
-      // untuk memastikan dokumennya ada, kalau-kalau ini adalah
-      // pertama kalinya user chat.
+      // 2. MULAI MONITOR pesan baru secara real-time
+      _startLiveChatMonitor(threadId);
+
+      // Pastikan thread exist di background (jika belum pernah dibuat)
       try {
         await reauthenticateWithFirebase();
         final token = await _apiService.getToken();
@@ -262,7 +244,6 @@ class _ChatPageState extends State<ChatPage> {
           );
         }
       } catch (bgError) {
-        // Gagal secara diam-diam, user sudah di dalam chat
         print("Gagal memastikan thread di background: $bgError");
       }
       
@@ -270,7 +251,6 @@ class _ChatPageState extends State<ChatPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal terhubung ke live chat: $e')),
       );
-      // Rollback jika gagal
       setState(() {
         _isLiveChatActive = false;
         _liveChatThreadId = null;
@@ -279,7 +259,28 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  // --- AKHIR MODIFIKASI ---
+
+  // --- FUNGSI MONITOR PESAN ADMIN ---
+  void _startLiveChatMonitor(String threadId) {
+    // Hapus listener lama jika ada
+    _liveChatMonitor?.cancel();
+
+    final myUid = widget.userData['firebase_uid'];
+
+    _liveChatMonitor = _chatService.getMessages(threadId).listen((messages) {
+      if (messages.isEmpty) return;
+
+      // Cek pesan dari orang lain yang belum dibaca
+      bool adaPesanBelumDibaca = messages.any((msg) {
+        return msg.senderId != myUid && !msg.readBy.contains(myUid);
+      });
+
+      if (adaPesanBelumDibaca) {
+        print(">>> [ChatPage] Live chat pesan baru masuk. Menandai 'Read'...");
+        _chatService.markMessagesAsRead(threadId, myUid);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +294,12 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: primaryColor,
         actions: [
           if (!_isLiveChatActive)
-            // --- MODIFIKASI DI SINI ---
             StreamBuilder<int>(
               stream: _unreadAdminChatCountStream,
               builder: (context, snapshot) {
                 final unreadCount = snapshot.data ?? 0;
 
                 return Badge(
-                  // Widget Badge
                   label: Text(unreadCount.toString()),
                   isLabelVisible: unreadCount > 0,
                   child: TextButton.icon(
@@ -314,7 +313,6 @@ class _ChatPageState extends State<ChatPage> {
                 );
               },
             ),
-          // --- AKHIR MODIFIKASI ---
         ],
       ),
       body: Column(
@@ -415,8 +413,6 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
-            // TODO: Pertimbangkan untuk menggunakan widget
-            // yang dapat mem-parsing Markdown jika 'text' mengandung **tebal**.
             Text(text, style: const TextStyle(color: Colors.black87)),
           ],
         ),
