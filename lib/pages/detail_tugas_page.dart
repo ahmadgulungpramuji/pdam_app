@@ -3,7 +3,7 @@
 // ignore_for_file: unused_element
 
 import 'dart:convert';
-import 'dart:async'; // <-- TAMBAHKAN INI
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -43,8 +43,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   void initState() {
     super.initState();
     _tugasSaatIni = widget.tugas;
-    _loadCurrentUser();
     _currentTugas = widget.tugas;
+    _loadCurrentUser();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -75,15 +75,10 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   String _formatPhoneNumberForWhatsApp(String phone) {
-    // Hapus karakter yang tidak diperlukan (spasi, strip, plus)
     String cleanedPhone = phone.replaceAll(RegExp(r'[\s\-+]'), '');
-
-    // Jika nomor dimulai dengan '0', ganti dengan '62'
     if (cleanedPhone.startsWith('0')) {
       cleanedPhone = '62${cleanedPhone.substring(1)}';
     }
-    // Jika sudah dimulai dengan '62', biarkan saja.
-    // Jika tidak, asumsikan sudah format internasional tanpa awalan.
     return cleanedPhone;
   }
 
@@ -120,19 +115,18 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
           );
         }
       }
-   } catch (e) {
+    } catch (e) {
       if (mounted) {
-        // --- AWAL PERUBAHAN ---
         String errorMessage;
         if (e is SocketException) {
           errorMessage = 'Periksa koneksi internet Anda.';
         } else if (e is TimeoutException) {
           errorMessage = 'Koneksi timeout. Gagal mengubah status.';
         } else {
-          errorMessage = 'Gagal mengubah status: ${e.toString().replaceFirst("Exception: ", "")}';
+          errorMessage =
+              'Gagal mengubah status: ${e.toString().replaceFirst("Exception: ", "")}';
         }
         _showSnackbar(errorMessage);
-        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       if (mounted) _setLoading(false);
@@ -178,24 +172,23 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         );
       }
     } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Gagal mengunggah foto.';
       } else {
-        errorMessage = 'Gagal upload foto: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage =
+            'Gagal upload foto: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       _showSnackbar(errorMessage);
-      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) _setLoading(false);
     }
   }
 
   Widget _buildKontakSection(KontakInfo kontak) {
-    // Logika untuk menentukan apakah tombol chat harus ditampilkan
+    // Logika tombol chat
     final bool canChat = _tugasSaatIni.isPetugasPelapor &&
         _tugasSaatIni.tipeTugas == 'pengaduan' &&
         _currentUserData != null &&
@@ -272,29 +265,21 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton.icon(
-                icon: const Icon(
-                  Ionicons.chatbubble_ellipses_outline,
-                  size: 18,
-                ),
+                // --- MODIFIKASI BADGE NOTIFIKASI DI TOMBOL DETAIL ---
+                icon: _buildChatIconWithBadge(kontak), 
                 label: const Text('Chat'),
                 onPressed: !canChat || _isLoading
                     ? null
                     : () async {
-                        // ====================== PERUBAHAN DI SINI ======================
-
-                        // Cek apakah objek cabang dan ID-nya ada.
-                        // Anda mungkin perlu menyesuaikan ini dengan struktur model Tugas Anda.
-                        // Asumsi: _tugasSaatIni.cabang adalah Map<String, dynamic>
                         final cabangData =
                             _tugasSaatIni.cabang as Map<String, dynamic>?;
                         final int? cabangId = cabangData?['id'] as int?;
 
                         if (cabangId == null) {
                           _showSnackbar(
-                              'Gagal memulai chat: Informasi cabang untuk tugas ini tidak ditemukan.');
+                              'Gagal memulai chat: Informasi cabang tidak valid.');
                           return;
                         }
-                        // ===============================================================
 
                         _setLoading(true);
                         try {
@@ -310,8 +295,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                             idTugas: _tugasSaatIni.idTugas,
                             currentUser: _currentUserData!,
                             otherUsers: [pelangganInfo],
-                            cabangId:
-                                cabangId, // <-- Gunakan cabangId yang sudah divalidasi
+                            cabangId: cabangId,
                           );
 
                           if (mounted) {
@@ -327,18 +311,18 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                               ),
                             );
                           }
-                       } catch (e) {
-                          // --- AWAL PERUBAHAN ---
+                        } catch (e) {
                           String errorMessage;
                           if (e is SocketException) {
                             errorMessage = 'Periksa koneksi internet Anda.';
                           } else if (e is TimeoutException) {
-                            errorMessage = 'Koneksi timeout. Gagal memulai chat.';
+                            errorMessage =
+                                'Koneksi timeout. Gagal memulai chat.';
                           } else {
-                            errorMessage = 'Gagal memulai chat: ${e.toString().replaceFirst("Exception: ", "")}';
+                            errorMessage =
+                                'Gagal memulai chat: ${e.toString().replaceFirst("Exception: ", "")}';
                           }
                           _showSnackbar(errorMessage);
-                          // --- AKHIR PERUBAHAN ---
                         } finally {
                           _setLoading(false);
                         }
@@ -358,6 +342,41 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
+  // --- WIDGET HELPER UNTUK BADGE ---
+  Widget _buildChatIconWithBadge(KontakInfo kontak) {
+    // Jika data user belum siap, tampilkan ikon biasa
+    if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
+      return const Icon(Ionicons.chatbubble_ellipses_outline, size: 18);
+    }
+
+    // Buat Thread ID yang konsisten
+    final threadId = _chatService.generateTugasThreadId(
+      tipeTugas: _tugasSaatIni.tipeTugas,
+      idTugas: _tugasSaatIni.idTugas,
+    );
+
+    return StreamBuilder<int>(
+      stream: _chatService.getUnreadMessageCount(
+        threadId,
+        _currentUserData!['firebase_uid'],
+      ),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        
+        // Gunakan Widget Badge bawaan Flutter
+        return Badge(
+          isLabelVisible: count > 0,
+          label: Text(count > 99 ? '99+' : count.toString()),
+          child: const Icon(Ionicons.chatbubble_ellipses_outline, size: 18),
+        );
+      },
+    );
+  }
+
+  // ... (Sisa kode seperti _buildActionSection, _buildInfoSection, dll TETAP SAMA) ...
+  // ... Paste sisa kode DetailTugasPage Anda di sini agar file tetap utuh ...
+  // (Untuk menghemat ruang, saya asumsikan sisa fungsi di bawah ini tidak berubah dari file asli Anda)
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -399,8 +418,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             ),
             if (_isLoading)
               Container(
-                color: Colors.black
-                    .withAlpha(128), // 128 adalah 50% dari 255 (alpha penuh)
+                color: Colors.black.withAlpha(128),
                 child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
@@ -435,20 +453,15 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               'Tgl Kejadian:',
               _formatDate(_tugasSaatIni.tanggalTugas),
             ),
-            
-            // --- PERUBAHAN DI SINI ---
-            // Ambil waktu dari server (asumsi UTC) dan ubah ke waktu lokal
             () {
-              final DateTime waktuLokalDitugaskan = _tugasSaatIni.tanggalDibuatPenugasan.toLocal();
+              final DateTime waktuLokalDitugaskan =
+                  _tugasSaatIni.tanggalDibuatPenugasan.toLocal();
               return _buildInfoRow(
                 Ionicons.time_outline,
                 'Ditugaskan:',
-                // Gunakan waktu lokal untuk memformat tanggal dan jam
                 '${_dateFormatter.format(waktuLokalDitugaskan)}, ${_timeFormatter.format(waktuLokalDitugaskan)}',
               );
             }(),
-            // --- AKHIR PERUBAHAN ---
-            
             _buildInfoRow(
               Ionicons.locate_outline,
               'Deskripsi Lokasi:',
@@ -501,8 +514,7 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             if (_tugasSaatIni is PengaduanTugas)
               _buildPhotoViewer(
                 'Foto Rumah Pelanggan:',
-                (_tugasSaatIni as PengaduanTugas)
-                    .fotoRumahUrl, // Cast untuk akses fotoRumahUrl
+                (_tugasSaatIni as PengaduanTugas).fotoRumahUrl,
               ),
           ],
         ),
@@ -510,9 +522,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
     );
   }
 
-  // Sisa file (semua widget helper lainnya) sama seperti sebelumnya...
-  // Contoh: _buildActionSection, _showCancelDialog, _buildFotoProgresSection, dll.
-  // ...
   Future<void> _showSuccessAndNavigateHome() async {
     if (!mounted) return;
 
@@ -563,26 +572,21 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
         tipeTugas: _currentTugas.tipeTugas,
         alasan: alasan,
       );
-
-      // Jika berhasil, tampilkan dialog sukses dan kembali ke halaman utama
       if (mounted) {
-        // Hapus panggilannya di sini, karena akan dipanggil di dalam _showSuccessAndNavigateHome
-        // Navigator.of(context).pop();
         await _showSuccessAndNavigateHome();
       }
     } catch (e) {
       if (mounted) {
-        // --- AWAL PERUBAHAN ---
         String errorMessage;
         if (e is SocketException) {
           errorMessage = 'Periksa koneksi internet Anda.';
         } else if (e is TimeoutException) {
           errorMessage = 'Koneksi timeout. Gagal membatalkan tugas.';
         } else {
-          errorMessage = 'Gagal membatalkan tugas: ${e.toString().replaceFirst("Exception: ", "")}';
+          errorMessage =
+              'Gagal membatalkan tugas: ${e.toString().replaceFirst("Exception: ", "")}';
         }
         _showSnackbar(errorMessage);
-        // --- AKHIR PERUBAHAN ---
       }
     } finally {
       if (mounted) _setLoading(false);
@@ -725,7 +729,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
               onPressed: () {
                 final String reason = reasonController.text.trim();
                 if (reason.isEmpty) {
-                  // Jangan tutup dialog, cukup tampilkan pesan
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Alasan pembatalan wajib diisi!'),
@@ -733,9 +736,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                     ),
                   );
                 } else {
-                  Navigator.pop(dialogContext); // Tutup dialog dulu
-                  _batalkanTugas(
-                      reason); // Panggil fungsi pembatalan yang benar
+                  Navigator.pop(dialogContext);
+                  _batalkanTugas(reason);
                 }
               },
               style: ElevatedButton.styleFrom(

@@ -1,9 +1,9 @@
 // lib/pages/home_petugas_page.dart
-// ignore_for_file: unused_import
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- [MODIFIKASI] Import untuk SystemNavigator
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:intl/intl.dart';
@@ -21,7 +21,12 @@ import 'package:pdam_app/pages/petugas_chat_home_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pdam_app/models/kinerja_model.dart';
 import 'package:pdam_app/services/notification_service.dart';
+import 'package:pdam_app/services/chat_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+// ===============================================================
+// == MAIN HOME PAGE (INDUK)
+// ===============================================================
 class HomePetugasPage extends StatefulWidget {
   final int idPetugasLoggedIn;
   const HomePetugasPage({super.key, required this.idPetugasLoggedIn});
@@ -31,17 +36,22 @@ class HomePetugasPage extends StatefulWidget {
 }
 
 class _HomePetugasPageState extends State<HomePetugasPage> {
-  // [MODIFIKASI 1] Menambahkan variabel _lastPressed untuk melacak waktu
   DateTime? _lastPressed;
-  
+
   int _selectedIndex = 0;
   late final List<Widget> _widgetOptions;
   StreamSubscription? _newTaskSubscription;
   final GlobalKey<_AssignmentsPageState> _assignmentsPageKey = GlobalKey();
 
+  // Tambahan untuk Badge Navigasi
+  final ChatService _chatService = ChatService();
+  Map<String, dynamic>? _currentUserData;
+
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser(); // Load user untuk Nav Bar
+
     _widgetOptions = <Widget>[
       AssignmentsPage(
         key: _assignmentsPageKey,
@@ -52,6 +62,7 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
       const PetugasChatHomePage(),
       const ProfilePage(),
     ];
+
     _newTaskSubscription =
         NotificationService().onNotificationTap.listen((payload) {
       if (mounted && payload['tipe_notifikasi'] == 'penugasan_baru') {
@@ -59,6 +70,16 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
         _assignmentsPageKey.currentState?.refreshTugas();
       }
     });
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('user_data');
+    if (jsonString != null && mounted) {
+      setState(() {
+        _currentUserData = jsonDecode(jsonString);
+      });
+    }
   }
 
   @override
@@ -95,7 +116,6 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
     final bool isProfilePage = _selectedIndex == 4;
     final bool isKinerjaPage = _selectedIndex == 1;
 
-    // [MODIFIKASI 2] Membungkus Scaffold dengan WillPopScope
     return WillPopScope(
       onWillPop: () async {
         final now = DateTime.now();
@@ -111,9 +131,8 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
               duration: Duration(seconds: 2),
             ),
           );
-          return false; // Mencegah aplikasi keluar pada tekanan pertama
+          return false;
         } else {
-          // [MODIFIKASI 3] Memaksa aplikasi untuk keluar
           SystemNavigator.pop();
           return true;
         }
@@ -161,28 +180,29 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
+          items: <BottomNavigationBarItem>[
+            const BottomNavigationBarItem(
               icon: Icon(Ionicons.list_circle_outline),
               activeIcon: Icon(Ionicons.list_circle),
               label: 'Tugas',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Ionicons.stats_chart_outline),
               activeIcon: Icon(Ionicons.stats_chart),
               label: 'Kinerja',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Ionicons.time_outline),
               activeIcon: Icon(Ionicons.time),
               label: 'Riwayat',
             ),
+            // Ikon Chat dengan Badge
             BottomNavigationBarItem(
-              icon: Icon(Ionicons.chatbubbles_outline),
-              activeIcon: Icon(Ionicons.chatbubbles),
+              icon: _buildChatIconWithBadge(active: false),
+              activeIcon: _buildChatIconWithBadge(active: true),
               label: 'Chat',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Ionicons.person_circle_outline),
               activeIcon: Icon(Ionicons.person_circle),
               label: 'Profil',
@@ -202,6 +222,30 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
       ),
     );
   }
+
+  Widget _buildChatIconWithBadge({required bool active}) {
+    final iconData =
+        active ? Ionicons.chatbubbles : Ionicons.chatbubbles_outline;
+
+    if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
+      return Icon(iconData);
+    }
+
+    return StreamBuilder<int>(
+      stream: _chatService.getUnreadCountByPrefix(
+          _currentUserData!['firebase_uid'], 'pengaduan_'),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+
+        return Badge(
+          isLabelVisible: count > 0,
+          label: Text(count > 99 ? '99+' : count.toString()),
+          backgroundColor: Colors.red,
+          child: Icon(iconData),
+        );
+      },
+    );
+  }
 }
 
 // ===============================================================
@@ -218,10 +262,25 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   late Future<List<Tugas>> _tugasFuture;
   final ApiService _apiService = ApiService();
   final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'id_ID');
+
+  final ChatService _chatService = ChatService();
+  Map<String, dynamic>? _currentUserData;
+
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _loadTugas();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('user_data');
+    if (jsonString != null && mounted) {
+      setState(() {
+        _currentUserData = jsonDecode(jsonString);
+      });
+    }
   }
 
   void refreshTugas() {
@@ -230,7 +289,8 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
 
   void _loadTugas() {
     setState(() {
-      _tugasFuture = _apiService.getPetugasSemuaTugas(widget.idPetugasLoggedIn);
+      _tugasFuture =
+          _apiService.getPetugasSemuaTugas(widget.idPetugasLoggedIn);
     });
   }
 
@@ -281,6 +341,38 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChatBadge(Tugas tugas) {
+    if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
+      return const SizedBox.shrink();
+    }
+
+    final threadId = _chatService.generateTugasThreadId(
+      tipeTugas: tugas.tipeTugas,
+      idTugas: tugas.idTugas,
+    );
+
+    return StreamBuilder<int>(
+      stream: _chatService.getUnreadMessageCount(
+          threadId, _currentUserData!['firebase_uid']),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(right: 12.0),
+          child: Badge(
+            label: Text(count > 99 ? '99+' : count.toString()),
+            child: const Icon(
+              Ionicons.chatbubble_ellipses_outline,
+              size: 20,
+              color: Color(0xFF0D47A1),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -384,9 +476,10 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                   ),
                   const Divider(height: 24),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Container(
+                        margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 4,
@@ -405,6 +498,8 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                           ),
                         ),
                       ),
+                      const Spacer(),
+                      _buildChatBadge(tugas),
                       Row(
                         children: [
                           Text(
@@ -505,10 +600,8 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 }
 
-// ... Sisa kode untuk HistoryPage, ProfilePage, KinerjaPage tetap sama ...
-// Kode di bawah ini tidak perlu diubah.
 // ===============================================================
-// == HALAMAN RIWAYAT (TAB 3)
+// == HALAMAN RIWAYAT (TAB 3) - FIXED
 // ===============================================================
 class HistoryPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -516,6 +609,7 @@ class HistoryPage extends StatefulWidget {
   @override
   State<HistoryPage> createState() => _HistoryPageState();
 }
+
 class _HistoryPageState extends State<HistoryPage> {
   final ApiService _apiService = ApiService();
   final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'id_ID');
@@ -524,6 +618,7 @@ class _HistoryPageState extends State<HistoryPage> {
   int _currentPage = 1;
   bool _isLoading = false;
   bool _hasMore = true;
+
   @override
   void initState() {
     super.initState();
@@ -535,11 +630,13 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     });
   }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
+
   Future<void> _fetchRiwayat() async {
     if (_isLoading || !_hasMore) return;
     setState(() => _isLoading = true);
@@ -573,6 +670,7 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
   }
+
   Future<void> _onRefresh() async {
     setState(() {
       _isLoading = false;
@@ -582,6 +680,7 @@ class _HistoryPageState extends State<HistoryPage> {
     });
     await _fetchRiwayat();
   }
+
   IconData _getIconForTugas(Tugas tugas) {
     if (tugas is PengaduanTugas) return Ionicons.document_text_outline;
     if (tugas is TemuanTugas) return Ionicons.warning_outline;
@@ -593,6 +692,7 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     return Ionicons.help_circle_outline;
   }
+
   Color _getColorForStatus(String status) {
     switch (status.toLowerCase()) {
       case 'selesai':
@@ -606,6 +706,7 @@ class _HistoryPageState extends State<HistoryPage> {
         return Colors.grey.shade600;
     }
   }
+
   Widget _buildInfoRow(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 4.0),
@@ -624,6 +725,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+
   Widget _buildTugasCard(Tugas tugas) {
     KontakInfo? kontak = tugas.infoKontakPelapor;
     String formattedDate = tugas.tanggalTugas;
@@ -634,7 +736,7 @@ class _HistoryPageState extends State<HistoryPage> {
         );
       }
     } catch (e) {
-      /* Biarkan tanggal asli */
+      // Biarkan tanggal asli
     }
     Color statusColor = _getColorForStatus(tugas.status);
     final bool hasRating = (tugas.ratingHasil ?? 0) > 0;
@@ -659,11 +761,11 @@ class _HistoryPageState extends State<HistoryPage> {
     if (tugas.status.toLowerCase() == 'survey selesai') {
       headerBackgroundColor = Colors.teal.shade50;
       headerTextColor = Colors.teal.shade700;
-      headerIcon = Ionicons.map; // Ikon lebih solid
+      headerIcon = Ionicons.map;
     } else if (tugas.status.toLowerCase() == 'terpasang') {
       headerBackgroundColor = Colors.blue.shade50;
       headerTextColor = Colors.blue.shade800;
-      headerIcon = Ionicons.build; // Ikon lebih solid
+      headerIcon = Ionicons.build;
     }
     return Card(
       elevation: 4,
@@ -829,6 +931,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+
   void _showRatingDialog(BuildContext context, Tugas tugas) {
     showDialog(
       context: context,
@@ -872,6 +975,7 @@ class _HistoryPageState extends State<HistoryPage> {
       },
     );
   }
+
   Widget _buildRatingRow(String label, int rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -892,6 +996,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+
   Widget _buildErrorUI(
     String message, {
     IconData icon = Ionicons.cloud_offline_outline,
@@ -902,7 +1007,11 @@ class _HistoryPageState extends State<HistoryPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 60, color: Colors.grey[400]),
+            const Icon(
+              Ionicons.cloud_offline_outline,
+              size: 60,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               message,
@@ -924,6 +1033,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -967,6 +1077,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 }
+
 // ===============================================================
 // == HALAMAN PROFIL (TAB 4)
 // ===============================================================
@@ -975,6 +1086,7 @@ class ProfilePage extends StatefulWidget {
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
+
 class _ProfilePageState extends State<ProfilePage> {
   final ApiService _apiService = ApiService();
   Future<Petugas>? _petugasFuture;
@@ -983,11 +1095,13 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _loadProfileData();
   }
+
   void _loadProfileData() {
     setState(() {
       _petugasFuture = _apiService.getPetugasProfile();
     });
   }
+
   Future<void> _logout() async {
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
@@ -1017,6 +1131,7 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
   }
+
   Widget _buildProfileHeader(Petugas petugas) {
     final String? profilePhotoPath = petugas.fotoProfil;
     final String fullImageUrl =
@@ -1081,6 +1196,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
   Widget _buildInfoTile({
     required IconData icon,
     required String title,
@@ -1138,6 +1254,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
   Widget _buildActionButtons(Petugas petugas) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1201,6 +1318,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
   Widget _buildErrorUI(String message) {
     return Center(
       child: Padding(
@@ -1230,6 +1348,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -1297,8 +1416,9 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+
 // ===============================================================
-// == HALAMAN KINERJA (TAB 2) - VERSI MODIFIKASI LENGKAP
+// == HALAMAN KINERJA (TAB 2)
 // ===============================================================
 class KinerjaPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -1306,6 +1426,7 @@ class KinerjaPage extends StatefulWidget {
   @override
   State<KinerjaPage> createState() => _KinerjaPageState();
 }
+
 class _KinerjaPageState extends State<KinerjaPage> {
   final ApiService _apiService = ApiService();
   late Future<KinerjaResponse> _kinerjaFuture;
@@ -1315,6 +1436,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
     super.initState();
     _loadKinerjaData();
   }
+
   void _loadKinerjaData() {
     setState(() {
       _kinerjaFuture = _apiService.getKinerja(
@@ -1323,6 +1445,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       );
     });
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1410,6 +1533,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildFilterPeriode() {
     return SegmentedButton<String>(
       segments: const <ButtonSegment<String>>[
@@ -1441,6 +1565,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildKpiGrid(KpiUtama kpi) {
     return GridView.count(
       crossAxisCount: 2,
@@ -1482,6 +1607,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ],
     );
   }
+
   Widget _buildKpiCard(String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 5,
@@ -1527,6 +1653,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildChartTitle(String title) {
     return Text(
       title,
@@ -1537,6 +1664,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildPieChart(List<KomposisiTugas> data) {
     if (data.isEmpty) return const SizedBox.shrink();
     final colors = [
@@ -1618,6 +1746,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildRincianList(List<RincianPerTipe> data) {
     if (data.isEmpty) return const SizedBox.shrink();
     return Card(
@@ -1647,6 +1776,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   void _showRatingDetailsDialog(BuildContext context, KpiUtama kpi) {
     showDialog(
       context: context,
@@ -1680,6 +1810,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       },
     );
   }
+
   Widget _buildRatingRowDialog(String label, double rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1707,6 +1838,7 @@ class _KinerjaPageState extends State<KinerjaPage> {
       ),
     );
   }
+
   Widget _buildErrorUI(String message) {
     return Center(
       child: Padding(
