@@ -1,6 +1,3 @@
-// lib/home_pelanggan_page.dart
-// ignore_for_file: unused_element, unused_field, use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,23 +17,19 @@ import 'package:pdam_app/services/chat_service.dart';
 
 import 'dart:async';
 
-// --- WIDGET ANIMASI ---
+// --- WIDGET ANIMASI (TETAP SAMA) ---
 class FadeInAnimation extends StatefulWidget {
   final int delay;
   final Widget child;
-
   const FadeInAnimation({super.key, this.delay = 0, required this.child});
-
   @override
   State<FadeInAnimation> createState() => _FadeInAnimationState();
 }
-
 class _FadeInAnimationState extends State<FadeInAnimation>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<Offset> _position;
-
   @override
   void initState() {
     super.initState();
@@ -44,24 +37,20 @@ class _FadeInAnimationState extends State<FadeInAnimation>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-
     final curve =
         CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
     _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
         .animate(curve);
-
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _controller.forward();
     });
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -78,14 +67,12 @@ class StaggeredFadeIn extends StatelessWidget {
   final List<Widget> children;
   final int delay;
   final bool isHorizontal;
-
   const StaggeredFadeIn({
     super.key,
     required this.children,
     this.delay = 100,
     this.isHorizontal = false,
   });
-
   @override
   Widget build(BuildContext context) {
     if (isHorizontal) {
@@ -115,23 +102,19 @@ class AnimatedCounter extends StatefulWidget {
   final double value;
   final TextStyle? style;
   final Duration duration;
-
   const AnimatedCounter({
     super.key,
     required this.value,
     this.style,
     this.duration = const Duration(milliseconds: 800),
   });
-
   @override
   State<AnimatedCounter> createState() => _AnimatedCounterState();
 }
-
 class _AnimatedCounterState extends State<AnimatedCounter>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
   @override
   void initState() {
     super.initState();
@@ -144,7 +127,6 @@ class _AnimatedCounterState extends State<AnimatedCounter>
     );
     _controller.forward();
   }
-
   @override
   void didUpdateWidget(covariant AnimatedCounter oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -158,13 +140,11 @@ class _AnimatedCounterState extends State<AnimatedCounter>
         ..forward();
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -289,27 +269,55 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       final data = await _apiService.getUserProfile();
       if (mounted) {
         if (data != null) {
+          // 1. SIMPAN DATA USER
           setState(() {
             _userData = data;
-            _isLoading = false;
-
-            if (_userData != null && _userData!['firebase_uid'] != null) {
-              final uid = _userData!['firebase_uid'];
-              
-              // 1. Lacak Laporan -> Global Search 'pengaduan_'
-              _unreadLaporanStream = _chatService.getUnreadCountByPrefix(uid, 'pengaduan_');
-              
-              // 2. Hubungi Kami -> Global Search 'cabang_'
-              _unreadAdminStream = _chatService.getUnreadCountByPrefix(uid, 'cabang_');
-            }
           });
+
+          if (_userData != null && _userData!['firebase_uid'] != null) {
+            final String uid = _userData!['firebase_uid'].toString();
+            final int? laravelId = _userData!['id'] as int?;
+
+            // 2. AMBIL SEMUA LAPORAN USER UTK BIKIN WHITELIST
+            List<String> myReportThreadIds = [];
+            try {
+              final List<dynamic> rawLaporan = await _apiService.getLaporanPengaduan();
+              myReportThreadIds = rawLaporan
+                  .whereType<Map<String, dynamic>>()
+                  .map((item) => 'pengaduan_${item['id']}') // Format: pengaduan_123
+                  .toList();
+            } catch (e) {
+              print("Gagal load daftar ID laporan: $e");
+            }
+
+            // 3. SETUP STREAM DENGAN FILTER
+            setState(() {
+              _isLoading = false;
+              
+              _unreadLaporanStream = null;
+              _unreadAdminStream = null;
+
+              // Filter 1: Lacak Laporan (Hanya hitung thread yg ada di myReportThreadIds)
+              _unreadLaporanStream = _chatService.getUnreadCountByPrefix(
+                uid, 
+                'pengaduan_',
+                allowedThreadIds: myReportThreadIds // <--- INI KUNCINYA
+              );
+
+              // Filter 2: Chat Admin (Hanya hitung thread milik userLaravelId ini)
+              _unreadAdminStream = _chatService.getUnreadCountByPrefix(
+                uid, 
+                'cabang_',
+                userLaravelId: laravelId // <--- INI KUNCINYA
+              );
+            });
+          }
+          
+          // 4. LOAD SISANYA
           _fetchUnreadCount();
           _fetchLaporanTerbaru();
         } else {
-          _showSnackbar(
-            'Sesi berakhir. Silakan login kembali.',
-            isError: true,
-          );
+          _showSnackbar('Sesi berakhir. Silakan login kembali.', isError: true);
           await _logout();
         }
       }
@@ -343,6 +351,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       ),
     );
   }
+
+  // ... (Sisa method helper seperti _showBeritaDetailModal, _showInfoDialog, _buildStepTile TETAP SAMA) ...
+  // ... COPY PASTE DARI FILE LAMA ANDA JIKA INGIN MENGHEMAT RUANG, ATAU GUNAKAN FILE ASLI ...
+  // ... UNTUK KELENGKAPAN SAYA TULIS ULANG DI BAWAH ...
 
   void _showBeritaDetailModal(Berita berita) {
     showDialog(
@@ -621,7 +633,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
-  Widget _buildHomeContent(Color primaryColor, Color secondaryColor,
+ Widget _buildHomeContent(Color primaryColor, Color secondaryColor,
       Color textColor, Color subtleTextColor) {
     return RefreshIndicator(
       onRefresh: _loadInitialData,
@@ -660,6 +672,8 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           const SizedBox(height: 28),
           _buildSectionHeader("Untuk Anda", textColor),
           const SizedBox(height: 16),
+          
+          // --- BAGIAN INI YANG SAYA KEMBALIKAN LENGKAP ---
           StaggeredFadeIn(
             delay: 150,
             children: [
@@ -752,14 +766,14 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               ),
             ],
           ),
+          // --- AKHIR BAGIAN YANG DIKEMBALIKAN ---
+          
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  // --- METODE YANG TADI HILANG (DITAMBAHKAN KEMBALI) ---
-  
   Widget _buildSectionHeader(String title, Color textColor, {String? actionText, VoidCallback? onActionTap}) {
     return FadeInAnimation(
       delay: 300,
@@ -855,7 +869,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       ),
     );
   }
-  // ---------------------------------------------------
 
   Widget _buildMainServicesGrid(Color primaryColor, Color textColor) {
     final services = [
@@ -867,7 +880,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       {
         'icon': Ionicons.headset_outline,
         'label': 'Hubungi Kami',
-        'route': '/hubungi_kami' // Target Badge (Angka)
+        'route': '/hubungi_kami'
       },
       {
         'icon': Ionicons.camera_outline,
@@ -877,7 +890,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       {
         'icon': Ionicons.map_outline,
         'label': 'Lacak Laporan',
-        'route': '/lacak_laporan_saya' // Target Badge (Titik Merah)
+        'route': '/lacak_laporan_saya'
       },
       {
         'icon': Ionicons.receipt_outline,
@@ -945,15 +958,19 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
         // Widget dasar yang bisa diklik
         Widget baseIcon = _AnimatedIconButton(
-          onTap: () {
+          onTap: () async { // WAJIB ASYNC AGAR BISA MENUNGGU NAVIGASI SELESAI
             if (route == '/hubungi_kami') {
               if (_userData != null) {
-                Navigator.push(
+                await Navigator.push( 
                     context,
                     MaterialPageRoute(
                         builder: (context) =>
                             ChatPage(userData: _userData!)));
+                _loadUserData(); // Refresh saat kembali
               }
+            } else if (route == '/lacak_laporan_saya') {
+               await Navigator.pushNamed(context, route);
+               _loadUserData(); // Refresh saat kembali
             } else {
               Navigator.pushNamed(context, route);
             }
@@ -1019,13 +1036,13 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
               return FadeInAnimation(
                 delay: 100 * index,
                 child: Stack(
-                  fit: StackFit.expand, // <<< INI PENTING: Agar ikon tetap besar
+                  fit: StackFit.expand, 
                   clipBehavior: Clip.none, 
                   children: [
                     baseIcon, 
                     Positioned(
-                      top: -5,    // Geser ke atas
-                      right: -5,  // Geser ke kanan
+                      top: -5,    
+                      right: -5,  
                       child: IgnorePointer(child: badgeWidget),
                     ),
                   ],
