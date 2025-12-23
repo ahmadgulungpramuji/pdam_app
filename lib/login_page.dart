@@ -3,7 +3,7 @@
 
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io'; 
+import 'dart:io';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -71,8 +71,10 @@ class StaggeredFadeIn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-        children: List.generate(children.length,
-            (index) => FadeInAnimation(delay: delay * index, child: children[index])));
+        children: List.generate(
+            children.length,
+            (index) =>
+                FadeInAnimation(delay: delay * index, child: children[index])));
   }
 }
 // --- END WIDGET ANIMASI ---
@@ -103,7 +105,7 @@ class _LoginPageState extends State<LoginPage> {
   final String _storageKeyIdentifier = 'saved_identifier';
   final String _storageKeyPassword = 'saved_password';
   // --- AKHIR MODIFIKASI ---
-  
+
   final String _checkBillUrl =
       'http://182.253.104.60:1818/info/info_tagihan_rekening.php';
 
@@ -188,7 +190,7 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception(
             'Format kode tracking tidak valid. Pastikan kode diawali "TK-" atau "CP-".');
       }
-   } catch (e) {
+    } catch (e) {
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
@@ -214,7 +216,7 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception(
             'Gagal mendapatkan token otentikasi Firebase dari server.');
       }
-   } catch (e) {
+    } catch (e) {
       log('[LoginPage] Re-otentikasi Firebase GAGAL: $e');
       if (e is SocketException) {
         throw Exception('Periksa koneksi internet Anda.');
@@ -230,10 +232,12 @@ class _LoginPageState extends State<LoginPage> {
     // 1. Cek koneksi internet di awal
     final connectivityResult = await (Connectivity().checkConnectivity());
     if (connectivityResult == ConnectivityResult.none) {
-      _showSnackbar("Tidak ada koneksi internet. Silakan periksa jaringan Anda.", isError: true);
+      _showSnackbar(
+          "Tidak ada koneksi internet. Silakan periksa jaringan Anda.",
+          isError: true);
       return;
     }
-    
+
     // 2. Lanjutkan proses login jika ada koneksi
     if (!_formKey.currentState!.validate()) {
       return;
@@ -241,11 +245,12 @@ class _LoginPageState extends State<LoginPage> {
 
     // --- MODIFIKASI: Panggil fungsi "Ingat Saya" ---
     // Panggil fungsi untuk menyimpan atau menghapus kredensial
-    await _handleRememberMe(); 
+    await _handleRememberMe();
     // --- AKHIR MODIFIKASI ---
 
     setState(() => _isLoading = true);
     try {
+      // 1. Login ke Backend
       final Map<String, dynamic> responseData = await _apiService.unifiedLogin(
         identifier: _identifierController.text.trim(),
         password: _passwordController.text,
@@ -256,22 +261,35 @@ class _LoginPageState extends State<LoginPage> {
       final Map<String, dynamic> userData =
           responseData['user'] as Map<String, dynamic>;
 
+      // 2. Simpan token SEMENTARA (Jika gagal nanti, kita hapus)
       await _apiService.saveToken(token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_data', jsonEncode(userData));
 
+      // 3. Update FCM
       log("Mencoba mengirim FCM token ke server setelah login...");
       await NotificationService().sendFcmTokenToServer();
-      await _reauthenticateWithFirebase();
+
+      // 4. Coba Re-auth Firebase
+      try {
+        await _reauthenticateWithFirebase();
+      } catch (e) {
+        // OPSIONAL: Jika Anda ingin login BATAL jika Firebase Error:
+        /*
+        await _apiService.removeToken(); // Hapus token
+        throw Exception("Gagal sinkronisasi Firebase: $e"); // Lempar error agar masuk ke catch utama
+        */
+
+        // ATAU: Biarkan login tetap jalan tapi log errornya (User bisa masuk tapi chat mungkin error)
+        log("Warning: Firebase auth failed, but proceeding login. Error: $e");
+      }
 
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
 
+      // 5. Navigasi
       if (userType == 'pelanggan') {
         Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/home_pelanggan',
-          (route) => false,
-        );
+            context, '/home_pelanggan', (route) => false);
       } else if (userType == 'petugas') {
         final int petugasId = userData['id'] as int;
         Navigator.pushNamedAndRemoveUntil(
@@ -284,6 +302,10 @@ class _LoginPageState extends State<LoginPage> {
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }
     } catch (e) {
+      // JIKA GAGAL DI TAHAP UTAMA
+      // Pastikan token dihapus agar tidak terjadi kasus "Hot Reload Login"
+      await _apiService.removeToken();
+
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
@@ -342,12 +364,13 @@ class _LoginPageState extends State<LoginPage> {
               if (email.isNotEmpty && email.contains('@')) {
                 Navigator.pop(context);
                 setState(() => _isLoading = true);
-               try {
-                  final connectivityResult = await (Connectivity().checkConnectivity());
+                try {
+                  final connectivityResult =
+                      await (Connectivity().checkConnectivity());
                   if (connectivityResult == ConnectivityResult.none) {
                     throw SocketException("Tidak ada koneksi internet.");
                   }
-                  
+
                   await FirebaseAuth.instance
                       .sendPasswordResetEmail(email: email);
                   _showSnackbar(
@@ -497,7 +520,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
- Widget _buildLoginForm(Color primaryColor) {
+  Widget _buildLoginForm(Color primaryColor) {
     // --- MODIFIKASI: Dibungkus dengan AutofillGroup ---
     return AutofillGroup(
       child: Form(
@@ -511,11 +534,14 @@ class _LoginPageState extends State<LoginPage> {
 
               // --- PERBAIKAN (AUTOFIL) ---
               keyboardType: TextInputType.emailAddress, // 1. Keyboard email
-              autofillHints: const [AutofillHints.username], // 2. Petunjuk Autofill
+              autofillHints: const [
+                AutofillHints.username
+              ], // 2. Petunjuk Autofill
               // --- AKHIR PERBAIKAN ---
 
-              validator: (val) =>
-                  val == null || val.isEmpty ? 'Kolom ini tidak boleh kosong' : null,
+              validator: (val) => val == null || val.isEmpty
+                  ? 'Kolom ini tidak boleh kosong'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -537,13 +563,16 @@ class _LoginPageState extends State<LoginPage> {
               obscureText: !_passwordVisible,
 
               // --- PERBAIKAN (AUTOFIL) ---
-              autofillHints: const [AutofillHints.password], // 3. Petunjuk Autofill
+              autofillHints: const [
+                AutofillHints.password
+              ], // 3. Petunjuk Autofill
               // --- AKHIR PERBAIKAN ---
 
-              validator: (val) =>
-                  val == null || val.isEmpty ? 'Password tidak boleh kosong' : null,
+              validator: (val) => val == null || val.isEmpty
+                  ? 'Password tidak boleh kosong'
+                  : null,
             ),
-            
+
             // --- AWAL PERUBAHAN: Menggabungkan "Ingat Saya" dan "Lupa Password?" ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -562,8 +591,10 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                       activeColor: primaryColor,
-                      visualDensity: VisualDensity.compact, // Mengurangi padding
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // Mengurangi area tap
+                      visualDensity:
+                          VisualDensity.compact, // Mengurangi padding
+                      materialTapTargetSize: MaterialTapTargetSize
+                          .shrinkWrap, // Mengurangi area tap
                     ),
                     GestureDetector(
                       onTap: () {
@@ -572,7 +603,7 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                       // Tambahkan padding kecil di sini jika teks terlalu dekat checkbox
-                      // padding: const EdgeInsets.only(right: 8.0), 
+                      // padding: const EdgeInsets.only(right: 8.0),
                       child: Text(
                         "Ingat Saya",
                         style: GoogleFonts.manrope(color: Colors.grey.shade800),
@@ -716,7 +747,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
- Widget _buildRegisterFooter(Color primaryColor) {
+  Widget _buildRegisterFooter(Color primaryColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
