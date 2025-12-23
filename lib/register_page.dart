@@ -119,12 +119,16 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _otomatisPilihCabang() {
     final idPdam = _idPelangganController.text.trim();
     _selectedCabangId = null;
-    if (idPdam.length >= 2) {
-      final duaDigit = idPdam.substring(0, 2);
+    
+    // UBAH DARI 2 MENJADI 3
+    if (idPdam.length >= 3) { 
+      // Ambil 3 digit pertama (contoh: 100 dari 1005664558)
+      final tigaDigit = idPdam.substring(0, 3); 
+
       const Map<String, int> cabangMapping = {
         '120': 1,
         '400': 2,
-        '100': 3,
+        '100': 3, // Sekarang "100" akan cocok dengan input Anda
         '200': 4,
         '300': 5,
         '500': 6,
@@ -136,9 +140,10 @@ class _RegisterPageState extends State<RegisterPage> {
         '320': 12,
         '310': 13,
         '410': 14
-
       };
-      _selectedCabangId = cabangMapping[duaDigit];
+      
+      // Cari menggunakan 3 digit
+      _selectedCabangId = cabangMapping[tigaDigit]; 
     }
     return _selectedCabangId != null;
   }
