@@ -122,14 +122,21 @@ class _RegisterPageState extends State<RegisterPage> {
     if (idPdam.length >= 2) {
       final duaDigit = idPdam.substring(0, 2);
       const Map<String, int> cabangMapping = {
-        '10': 1,
-        '12': 2,
-        '15': 3,
-        '20': 4,
-        '30': 5,
-        '40': 6,
-        '50': 7,
-        '60': 8
+        '120': 1,
+        '400': 2,
+        '100': 3,
+        '200': 4,
+        '300': 5,
+        '500': 6,
+        '230': 7,
+        '600': 8,
+        '220': 9,
+        '110': 10,
+        '210': 11,
+        '320': 12,
+        '310': 13,
+        '410': 14
+
       };
       _selectedCabangId = cabangMapping[duaDigit];
     }
