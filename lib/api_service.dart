@@ -20,7 +20,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pdam-production.up.railway.app/api';
+  final String baseUrl = 'http://192.168.0.101:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -32,7 +32,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pdam-production.up.railway.app/api',
+            baseUrl: 'http://192.168.0.101:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -57,20 +57,16 @@ class ApiService {
           log('DIO Error: ${e.response?.statusCode} Pesan: ${e.message}');
           if (e.response?.statusCode == 401) {
             log("Token tidak valid atau sesi berakhir. Melakukan logout otomatis.");
-            // Hapus data lokal
             await removeToken();
 
-            // Arahkan ke halaman login menggunakan GlobalKey
             final navigator = navigatorKey.currentState;
             if (navigator != null) {
               navigator.pushNamedAndRemoveUntil('/login', (route) => false);
             }
           }
 
-          // --- AWAL MODIFIKASI ---
           final errorString = e.toString().toLowerCase();
 
-          // Cek apakah ini error koneksi (termasuk yg di screenshot)
           if (e.type == DioExceptionType.connectionError ||
               e.type == DioExceptionType.connectionTimeout ||
               e.type == DioExceptionType.sendTimeout ||
@@ -80,19 +76,16 @@ class ApiService {
               errorString.contains('socketfailed')) {
             log('Dio Error: Masalah koneksi terdeteksi. Mengganti pesan error...');
 
-            // Buat error baru yang "friendly"
             final friendlyError = DioException(
               requestOptions: e.requestOptions,
-              // Ganti pesannya menjadi pesan yang kita inginkan
               message: 'Periksa koneksi internet Anda.',
               error: 'Periksa koneksi internet Anda.',
               type: DioExceptionType
-                  .unknown, // Ganti tipe agar tidak di-handle lagi
+                  .unknown, 
             );
             return handler
-                .next(friendlyError); // Kirim error yang sudah dimodifikasi
+                .next(friendlyError); 
           }
-          // --- AKHIR MODIFIKASI ---
 
           return handler.next(e);
         },
