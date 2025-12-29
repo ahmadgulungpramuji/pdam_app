@@ -235,27 +235,44 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
   }
 
   void _onPdamIdChanged(int? pdamId) {
-    // Ganti parameter ke int?
     if (pdamId == null) return;
+    
+    // Cari data PDAM berdasarkan ID yang dipilih
     final selectedPdam = _pdamIdList.firstWhere((p) => p.id == pdamId);
     final pdamNumber = selectedPdam.nomor;
 
     setState(() {
       _selectedPdamId = pdamId;
-      _selectedCabangId = null;
-      if (pdamNumber.length >= 2) {
-        final duaDigit = pdamNumber.substring(0, 2);
+      _selectedCabangId = null; // Reset dulu agar tidak salah
+
+      // LOGIKA BARU: Gunakan 3 Digit Pertama
+      if (pdamNumber.length >= 3) {
+        final tigaDigit = pdamNumber.substring(0, 3);
+        
+        // MAPPING AKURAT SESUAI ADMIN CONTROLLER
         const Map<String, int> cabangMapping = {
-          '10': 1,
-          '12': 2,
-          '15': 3,
-          '20': 4,
-          '30': 5,
-          '40': 6,
-          '50': 7,
-          '60': 8
+          '120': 1,  // Sindang
+          '400': 2,  // Lohbener
+          '100': 3,  // Indramayu (Pusat)
+          '200': 4,  // Balongan
+          '300': 5,  // Juntinyuat
+          '500': 6,  // Jatibarang
+          '230': 7,  // Sliyeg
+          '600': 8,  // Kertasemaya
+          '220': 9,  // Karangampel
+          '110': 10, // Krangkeng
+          '210': 11, // Kedokan Bunder
+          '320': 12, // Sukagumiwang
+          '310': 13, // Bangodua
+          '410': 14, // Unit Losarang
+          // Tambahkan unit lain jika ada, misal Gabuswetan
         };
-        _selectedCabangId = cabangMapping[duaDigit];
+
+        // Ambil ID cabang dari map, jika tidak ada default ke 0
+        _selectedCabangId = cabangMapping[tigaDigit] ?? 0;
+        
+        // Debugging (Opsional: Cek di console apakah ID cabang sudah benar)
+        print("Nomor: $pdamNumber, Prefix: $tigaDigit, Cabang ID: $_selectedCabangId");
       }
     });
   }
@@ -334,13 +351,14 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
       // 3. Siapkan data laporan dalam bentuk Map
       Map<String, String> dataLaporan = {
         'id_pelanggan': _loggedInPelangganId!,
-        'id_pdam': selectedPdamNomor, // <-- PERBAIKAN: Kirim nomor, bukan ID
+        'id_pdam': selectedPdamNomor,
         'id_cabang': _selectedCabangId.toString(),
         'kategori': _selectedJenisLaporan!,
         'latitude': _currentPosition!.latitude.toString(),
         'longitude': _currentPosition!.longitude.toString(),
+        // Menggunakan format URL maps standar
         'lokasi_maps':
-            'http://maps.google.com/?q=${_currentPosition!.latitude},${_currentPosition!.longitude}',
+            'http://maps.google.com/maps?q=${_currentPosition!.latitude},${_currentPosition!.longitude}',
         'deskripsi_lokasi': _deskripsiLokasiManualController.text.trim(),
         'deskripsi': _deskripsiController.text.trim(),
       };
@@ -360,16 +378,21 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
 
       // 5. Proses respons dari server
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _showSuccessDialog();
+        // --- BAGIAN YANG DIPERBARUI ---
+        final responseData = jsonDecode(response.body);
+        // Ambil pesan dari server (misal: pesan jam kerja atau sukses biasa)
+        final serverMessage = responseData['message'] ?? 'Laporan berhasil dikirim.';
+        
+        // Panggil dialog dengan pesan dari server
+        _showSuccessDialog(serverMessage);
+        // ------------------------------
       } else {
         final responseData = jsonDecode(response.body);
-        // Ambil pesan error dari server jika ada, jika tidak tampilkan pesan default
         final errorMessage =
             responseData['message'] ?? 'Terjadi error yang tidak diketahui.';
         throw Exception(errorMessage);
       }
     } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda';
@@ -378,10 +401,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
             'Gagal mengirim laporan: ${e.toString().replaceFirst("Exception: ", "")}';
       }
       _showSnackbar(errorMessage, isError: true);
-      // --- AKHIR PERUBAHAN ---
       
     } finally {
-      // Pastikan loading indicator berhenti meskipun terjadi error
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
@@ -911,24 +932,24 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     );
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Laporan Terkirim!',
+        title: Text('Info Laporan', // Judul lebih netral
             style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
         content: Text(
-            'Terima kasih. Laporan Anda telah kami terima dan akan segera diproses.',
+            message, // Menampilkan pesan dinamis dari server
             style: GoogleFonts.manrope()),
         actions: [
           TextButton(
             child: Text('OK',
                 style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
             onPressed: () {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop(); // Tutup dialog
+              Navigator.of(context).pop(); // Kembali ke halaman sebelumnya
             },
           ),
         ],
