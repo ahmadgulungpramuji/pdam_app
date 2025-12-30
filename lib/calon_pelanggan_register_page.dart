@@ -78,38 +78,66 @@ class _CalonPelangganRegisterPageState
   final _picker = ImagePicker();
 
   // --- KECAMATAN TO CABANG MAPPING (LOGIC IS PRESERVED) ---
+ // --- KECAMATAN TO CABANG MAPPING (UPDATED SESUAI SEEDER) ---
   final Map<String, int> _kecamatanToCabangMapping = {
-    'ANJATAN': 13,
-    'ARAHAN': 12,
-    'BALONGAN': 14,
-    'BANGODUA': 9,
-    'BONGAS': 11,
-    'CANTIGI': 12,
-    'CIKEDUNG': 7,
-    'GABUSWETAN': 11,
-    'GANTAR': 13,
-    'HAURGEULIS': 11,
-    'INDRAMAYU': 1,
-    'JATIBARANG': 4,
-    'JUNTINYUAT': 8,
-    'KANDANGHAUR': 6,
-    'KARANGAMPEL': 8,
-    'KEDOKAN BUNDER': 5,
-    'KERTASEMAYA': 5,
-    'KRANGKENG': 8,
-    'KROYA': 11,
-    'LELEA': 7,
-    'LOHBENER': 7,
-    'LOSARANG': 2,
+    // ID 1: SINDANG
+    'SINDANG': 1,
     'PASEKAN': 1,
-    'PATROL': 6,
-    'SINDANG': 3,
-    'SLIYEG': 10,
-    'SUKAGUMIWANG': 10,
-    'SUKRA': 6,
-    'TERISI': 7,
-    'TUKDANA': 9,
-    'WIDASARI': 4,
+
+    // ID 2: LOHBENER
+    'LOHBENER': 2,
+    'LELEA': 2,
+    'TERISI': 2,
+    'CIKEDUNG': 2,
+
+    // ID 3: INDRAMAYU
+    'INDRAMAYU': 3, // <--- SUDAH DIPERBAIKI (Sebelumnya 1)
+
+    // ID 4: JATIBARANG
+    'JATIBARANG': 4,
+    'SLIYEG': 4,
+
+    // ID 5: KANDANGHAUR
+    'KANDANGHAUR': 5,
+
+    // ID 6: JUNTINYUAT
+    'JUNTINYUAT': 6,
+    'KARANGAMPEL': 6,
+    'KRANGKENG': 6,
+
+    // ID 7: KEDOKAN BUNDER
+    'KEDOKAN BUNDER': 7,
+    'KERTASEMAYA': 7,
+    'SUKAGUMIWANG': 7,
+
+    // ID 8: PATROL
+    'PATROL': 8,
+    'SUKRA': 8,
+    'ANJATAN': 8, 
+
+    // ID 9: UNIT JATISAWIT
+    'WIDASARI': 9,
+
+    // ID 10: UNIT BALONGAN
+    'BALONGAN': 10,
+
+    // ID 11: UNIT BANGODUA
+    'BANGODUA': 11,
+    'TUKDANA': 11,
+
+    // ID 12: UNIT LOSARANG
+    'LOSARANG': 12,
+
+    // ID 13: UNIT GABUSWETAN
+    'GABUSWETAN': 13,
+    'BONGAS': 13,
+    'KROYA': 13,
+    'GANTAR': 13,
+    'HAURGEULIS': 13,
+
+    // ID 14: UNIT ARAHAN
+    'ARAHAN': 14,
+    'CANTIGI': 14,
   };
 
   @override
@@ -496,18 +524,18 @@ class _CalonPelangganRegisterPageState
 
   String _getFriendlyErrorMessage(Object error) {
     log('Terjadi error saat registrasi: $error');
+  return error.toString().replaceAll("Exception:", "").trim();
+    // final errorString = error.toString().toLowerCase();
 
-    final errorString = error.toString().toLowerCase();
+    // if (errorString.contains('socket') ||
+    //     errorString.contains('broken pipe') ||
+    //     errorString.contains('connection failed') ||
+    //     errorString.contains('timeout') ||
+    //     errorString.contains('host lookup')) {
+    //   return 'Gagal terhubung ke server. Mohon periksa koneksi internet Anda dan coba lagi.';
+    // }
 
-    if (errorString.contains('socket') ||
-        errorString.contains('broken pipe') ||
-        errorString.contains('connection failed') ||
-        errorString.contains('timeout') ||
-        errorString.contains('host lookup')) {
-      return 'Gagal terhubung ke server. Mohon periksa koneksi internet Anda dan coba lagi.';
-    }
-
-    return 'Pendaftaran gagal karena terjadi kesalahan. Silakan coba kembali beberapa saat lagi.';
+    // return 'Pendaftaran gagal karena terjadi kesalahan. Silakan coba kembali beberapa saat lagi.';
   }
 
   @override
