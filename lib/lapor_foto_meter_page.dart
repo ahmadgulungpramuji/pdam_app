@@ -169,8 +169,8 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
   }
 
   void _updateCabangOtomatis(String? nomorPdam) {
-    // ... (Implementasi _updateCabangOtomatis tidak berubah)
-    if (nomorPdam == null || nomorPdam.length < 2) {
+    // 1. Validasi panjang karakter (Ubah dari < 2 menjadi < 3)
+    if (nomorPdam == null || nomorPdam.length < 3) {
       setState(() {
         _selectedPdamId = null;
         _selectedCabangId = null;
@@ -178,40 +178,37 @@ class _LaporFotoMeterPageState extends State<LaporFotoMeterPage> {
       });
       return;
     }
-    final duaDigit = nomorPdam.substring(0, 2);
-    int? idCabang;
-    switch (duaDigit) {
-      case '10':
-        idCabang = 1;
-        break;
-      case '12':
-        idCabang = 2;
-        break;
-      case '15':
-        idCabang = 3;
-        break;
-      case '20':
-        idCabang = 4;
-        break;
-      case '30':
-        idCabang = 5;
-        break;
-      case '40':
-        idCabang = 6;
-        break;
-      case '50':
-        idCabang = 7;
-        break;
-      case '60':
-        idCabang = 8;
-        break;
-      default:
-        idCabang = null;
-    }
+
+    // 2. Ambil 3 digit pertama (Sesuai register_page.dart)
+    final tigaDigit = nomorPdam.substring(0, 3);
+    
+    // 3. Mapping baru sesuai register_page.dart
+    const Map<String, int> cabangMapping = {
+      '120': 1,
+      '400': 2,
+      '100': 3,
+      '200': 4,
+      '300': 5,
+      '500': 6,
+      '230': 7,
+      '600': 8,
+      '220': 9,
+      '110': 10,
+      '210': 11,
+      '320': 12,
+      '310': 13,
+      '410': 14
+    };
+
+    // Ambil ID Cabang berdasarkan map
+    final idCabang = cabangMapping[tigaDigit];
+
     setState(() {
       _selectedPdamId = nomorPdam;
       _selectedCabangId = idCabang;
+
       if (idCabang != null) {
+        // Cari nama cabang di list yang sudah di-fetch dari API
         final cabangTerpilih = _daftarCabang.firstWhere(
           (c) => c.id == idCabang,
           orElse: () => Cabang(id: 0, namaCabang: 'Cabang Tidak Dikenali'),
