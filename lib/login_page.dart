@@ -269,19 +269,15 @@ class _LoginPageState extends State<LoginPage> {
       // 3. Update FCM
       log("Mencoba mengirim FCM token ke server setelah login...");
       await NotificationService().sendFcmTokenToServer();
-
-      // 4. Coba Re-auth Firebase
-      try {
-        await _reauthenticateWithFirebase();
+  // 3. Update FCM
+      log("Mencoba mengirim FCM token ke server setelah login...");
+      await NotificationService().sendFcmTokenToServer(); // <--- INI BIANG KEROKNYA! Baris ini tidak ada pengaman (try-catch)
+  try {
+        log("Mencoba mengirim FCM token ke server setelah login...");
+        await NotificationService().sendFcmTokenToServer();
       } catch (e) {
-        // OPSIONAL: Jika Anda ingin login BATAL jika Firebase Error:
-        /*
-        await _apiService.removeToken(); // Hapus token
-        throw Exception("Gagal sinkronisasi Firebase: $e"); // Lempar error agar masuk ke catch utama
-        */
-
-        // ATAU: Biarkan login tetap jalan tapi log errornya (User bisa masuk tapi chat mungkin error)
-        log("Warning: Firebase auth failed, but proceeding login. Error: $e");
+        log("Gagal update FCM (Error diabaikan agar login lanjut): $e");
+        // Kita tidak menampilkan snackbar error di sini agar user tidak bingung
       }
 
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
@@ -529,7 +525,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             TextFormField(
               controller: _identifierController,
-              decoration: _inputDecoration("ID PDAM / No. HP / Email",
+              decoration: _inputDecoration("ID PDAM / NIK / No. HP / Email",
                   Ionicons.person_circle_outline, primaryColor),
 
               // --- PERBAIKAN (AUTOFIL) ---

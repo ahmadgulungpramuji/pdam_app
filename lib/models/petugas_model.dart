@@ -16,17 +16,19 @@ class CabangInfo {
 class Petugas {
   final int id;
   final String nama;
+  final String? nik; // <--- TAMBAHKAN BARIS INI
   final String email;
   final String nomorHp;
-   final String? fotoProfil; // <-- TAMBAHKAN BARIS INI
-  final CabangInfo? cabang; // Menggunakan CabangInfo
+  final String? fotoProfil; 
+  final CabangInfo? cabang; 
 
   Petugas({
     required this.id,
     required this.nama,
+    this.nik, // <--- TAMBAHKAN BARIS INI
     required this.email,
     required this.nomorHp,
-      this.fotoProfil, // <-- TAMBAHKAN BARIS INI
+    this.fotoProfil,
     this.cabang,
   });
 
@@ -34,22 +36,25 @@ class Petugas {
     return Petugas(
       id: json['id'] as int,
       nama: json['nama'] as String? ?? 'N/A',
+      nik: json['nik'] as String?, // <--- TAMBAHKAN BARIS INI
       email: json['email'] as String? ?? 'N/A',
       nomorHp: json['nomor_hp'] as String? ?? 'N/A',
-      fotoProfil: json['foto_profil'], // <-- TAMBAHKAN BARIS INI
+      fotoProfil: json['foto_profil'],
       cabang: json['cabang'] != null
               ? CabangInfo.fromJson(json['cabang'] as Map<String, dynamic>)
-              : null, // Asumsi API mengirim objek 'cabang'
+              : null,
     );
   }
 
-  Petugas copyWith({String? nama, String? email, String? nomorHp}) {
+  Petugas copyWith({String? nama, String? email, String? nomorHp, String? nik}) {
     return Petugas(
       id: id,
       nama: nama ?? this.nama,
+      nik: nik ?? this.nik, // <--- TAMBAHKAN
       email: email ?? this.email,
       nomorHp: nomorHp ?? this.nomorHp,
-      cabang: cabang, // Cabang biasanya tidak diubah oleh petugas
+      cabang: cabang,
+      fotoProfil: fotoProfil,
     );
   }
 }
