@@ -1076,8 +1076,8 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-// ===============================================================
-// == HALAMAN PROFIL (TAB 4)
+/// ===============================================================
+// == HALAMAN PROFIL (TAB 4) - DIPERBARUI DENGAN NIK
 // ===============================================================
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -1088,6 +1088,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final ApiService _apiService = ApiService();
   Future<Petugas>? _petugasFuture;
+
   @override
   void initState() {
     super.initState();
@@ -1369,6 +1370,17 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.symmetric(vertical: 24.0),
                   child: Column(
                     children: [
+                      // --- NIK DITAMBAHKAN DI SINI ---
+                      FadeInUp(
+                        from: 20,
+                        delay: const Duration(milliseconds: 200),
+                        child: _buildInfoTile(
+                          icon: Ionicons.card_outline,
+                          title: 'NIK',
+                          subtitle: petugas.nik ?? '-',
+                        ),
+                      ),
+                      
                       FadeInUp(
                         from: 20,
                         delay: const Duration(milliseconds: 300),
