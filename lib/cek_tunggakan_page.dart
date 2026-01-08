@@ -521,12 +521,16 @@ class _CekTunggakanPageState extends State<CekTunggakanPage> {
               color: Colors.white,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Total tagihan di atas belum termasuk: Retribusi Kebersihan, PMI, dan biaya admin Bank.',
+            style: GoogleFonts.manrope(fontSize: 12, color: Colors.white70),
+          ),
         ],
       ),
     );
   }
 
-  // --- Helper untuk styling agar konsisten ---
   InputDecoration _inputDecoration(
       {required String hintText, required IconData icon}) {
     return InputDecoration(

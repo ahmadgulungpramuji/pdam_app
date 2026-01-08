@@ -20,7 +20,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.0.101:8000/api';
+  final String baseUrl = 'https://pelayananperumdamtda.com/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -32,7 +32,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.168.0.101:8000/api',
+            baseUrl: 'https://pelayananperumdamtda.com/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -1734,37 +1734,60 @@ class ApiService {
     return await http.post(url, headers: headers, body: body);
   }
 
-  Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
-    //
-    final token = await getToken(); //
-    print('Fetching tunggakan untuk ID: $pdamId'); //
-    await Future.delayed(const Duration(seconds: 2)); //
-    if (pdamId == "PDAM001") {
-      //
+Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
+    final token = await getToken(); 
+    // Endpoint baru yang kita buat di Laravel
+    final url = Uri.parse('$baseUrl/cek-tagihan-pdam/$pdamId'); 
+
+    print('ApiService DEBUG: Fetching tagihan real untuk ID: $pdamId');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseBody['success'] == true) {
+        final data = responseBody['data'];
+        
+        // Mapping data dari struktur baru ke struktur yang diharapkan UI Anda
+        return {
+          'id_pdam': data['info']['id_pelanggan'],
+          'nama': data['info']['nama'], // UI Anda butuh nama
+          'jumlah': data['rekap']['total_tagihan'],
+          'bulan': "${data['rekap']['jumlah_bulan']} Bulan", // Info periode
+          'jatuh_tempo': 'Segera', // Data ini tidak ada di HTML, kita set default
+          'detail': data['detail_tunggakan'] // Simpan detail jika ingin ditampilkan nanti
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'id_pdam': pdamId,
+          'jumlah': 0,
+          'bulan': '-',
+          'error': 'Data tidak ditemukan untuk ID tersebut.',
+        };
+      } else {
+        return {
+          'id_pdam': pdamId,
+          'jumlah': 0,
+          'bulan': '-',
+          'error': responseBody['message'] ?? 'Gagal mengambil data.',
+        };
+      }
+    } catch (e) {
+      print('Error fetching tagihan: $e');
       return {
-        //
-        'id_pdam': pdamId, //
-        'jumlah': 150000, //
-        'bulan': 'April 2025', //
-        'jatuh_tempo': '2025-05-20', //
-      };
-    } else if (pdamId == "PDAM002") {
-      //
-      return {
-        //
-        'id_pdam': pdamId, //
-        'jumlah': 75000, //
-        'bulan': 'April 2025', //
-        'jatuh_tempo': '2025-05-20', //
+        'id_pdam': pdamId,
+        'jumlah': 0,
+        'bulan': '-',
+        'error': 'Terjadi kesalahan koneksi.',
       };
     }
-    return {
-      //
-      'id_pdam': pdamId, //
-      'jumlah': 0, //
-      'bulan': '-', //
-      'error': 'ID Tidak ditemukan atau belum ada tagihan', //
-    };
   }
 
   Future<List<String>> fetchPdamNumbersByPelanggan(String idPelanggan) async {

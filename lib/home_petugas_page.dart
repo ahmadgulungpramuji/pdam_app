@@ -22,9 +22,6 @@ import 'package:pdam_app/services/notification_service.dart';
 import 'package:pdam_app/services/chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ===============================================================
-// == MAIN HOME PAGE (INDUK)
-// ===============================================================
 class HomePetugasPage extends StatefulWidget {
   final int idPetugasLoggedIn;
   const HomePetugasPage({super.key, required this.idPetugasLoggedIn});
