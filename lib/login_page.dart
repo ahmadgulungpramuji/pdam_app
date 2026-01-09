@@ -269,10 +269,11 @@ class _LoginPageState extends State<LoginPage> {
       // 3. Update FCM
       log("Mencoba mengirim FCM token ke server setelah login...");
       await NotificationService().sendFcmTokenToServer();
-  // 3. Update FCM
+      // 3. Update FCM
       log("Mencoba mengirim FCM token ke server setelah login...");
-      await NotificationService().sendFcmTokenToServer(); // <--- INI BIANG KEROKNYA! Baris ini tidak ada pengaman (try-catch)
-  try {
+      await NotificationService()
+          .sendFcmTokenToServer(); // <--- INI BIANG KEROKNYA! Baris ini tidak ada pengaman (try-catch)
+      try {
         log("Mencoba mengirim FCM token ke server setelah login...");
         await NotificationService().sendFcmTokenToServer();
       } catch (e) {
@@ -294,6 +295,12 @@ class _LoginPageState extends State<LoginPage> {
           (route) => false,
           arguments: {'idPetugasLoggedIn': petugasId},
         );
+      } else if (userType == 'admin_cabang') {
+        // --- LOGIKA BARU UNTUK ADMIN CABANG ---
+        Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home_admin_cabang', // Pastikan route ini didaftarkan di main.dart
+            (route) => false);
       } else {
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }

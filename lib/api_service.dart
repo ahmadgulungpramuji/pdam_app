@@ -17,6 +17,7 @@ import 'package:pdam_app/models/kinerja_model.dart';
 import 'package:pdam_app/models/berita_model.dart';
 import 'package:pdam_app/main.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
@@ -80,11 +81,9 @@ class ApiService {
               requestOptions: e.requestOptions,
               message: 'Periksa koneksi internet Anda.',
               error: 'Periksa koneksi internet Anda.',
-              type: DioExceptionType
-                  .unknown, 
+              type: DioExceptionType.unknown,
             );
-            return handler
-                .next(friendlyError); 
+            return handler.next(friendlyError);
           }
 
           return handler.next(e);
@@ -164,8 +163,6 @@ class ApiService {
     }
   }
 
-
-
   Future<String?> getFirebaseCustomToken() async {
     // 1. Ambil token otentikasi Laravel dari SharedPreferences
     final prefs = await SharedPreferences.getInstance();
@@ -232,6 +229,38 @@ class ApiService {
       log('[ApiService] Kredensial "Ingat Saya" berhasil dihapus saat removeToken.');
     } catch (e) {
       log('[ApiService] Gagal menghapus kredensial "Ingat Saya": $e');
+    }
+  }
+
+  Future<String?> getJabatan() async {
+    return await _storage.read(key: 'user_jabatan');
+  }
+
+  Future<Map<String, dynamic>> getAdminDashboardStats() async {
+    final token = await getToken();
+    if (token == null)
+      throw Exception("Token tidak ditemukan, silakan login ulang.");
+
+    // Pastikan URL ini sesuai dengan route yang kita buat di Laravel
+    final url = Uri.parse('$baseUrl/admin-cabang/dashboard-stats');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+            'Gagal memuat statistik dashboard (Status: ${response.statusCode})');
+      }
+    } catch (e) {
+      throw Exception('Error koneksi: $e');
     }
   }
 
@@ -1566,106 +1595,116 @@ class ApiService {
     return await http.post(url, headers: headers, body: body); //
   }
 
+  // Pastikan import ini ada di paling atas file:
+  // import 'package:firebase_auth/firebase_auth.dart';
+  // import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
   Future<Map<String, dynamic>> unifiedLogin({
-    //
-    required String identifier, // Menggunakan 'identifier' generik
-    required String password, //
+    required String identifier,
+    required String password,
   }) async {
-    final url = Uri.parse('$baseUrl/auth/login/unified'); //
-    print('ApiService DEBUG: unifiedLogin - URL: $url'); //
+    // URL disesuaikan dengan kode Anda
+    final url = Uri.parse('$baseUrl/auth/login/unified');
+    print('ApiService DEBUG: unifiedLogin - URL: $url');
 
     try {
-      //
-      final response = await http //
+      final response = await http
           .post(
-            //
-            url, //
+            url,
             headers: {
-              //
-              'Content-Type': 'application/json', //
-              'Accept': 'application/json', //
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
             },
             body: jsonEncode({
-              //
-              'identifier': identifier, // Mengirim 'identifier'
-              'password': password, //
+              'identifier': identifier,
+              'password': password,
             }),
           )
-          .timeout(const Duration(seconds: 25)); //
+          .timeout(const Duration(seconds: 25));
 
       print(
-        //
-        'ApiService DEBUG: unifiedLogin - Status Code: ${response.statusCode}', //
-      );
+          'ApiService DEBUG: unifiedLogin - Status Code: ${response.statusCode}');
 
-      final responseData = jsonDecode(response.body); //
+      final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        //
-        if (responseData is Map<String, dynamic> && //
+        if (responseData is Map<String, dynamic> &&
             responseData['success'] == true) {
-          //
-          if (responseData.containsKey('token') && //
-              responseData.containsKey('user_type') && //
-              responseData.containsKey('user') && //
-              responseData['user'] is Map<String, dynamic>) {
-            //
-            return responseData; //
-          } else {
-            throw Exception(
-              'Format respons login tidak lengkap dari server.',
-            ); //
+          // ============================================================
+          // --- [BAGIAN INI YANG SAYA TAMBAHKAN] ---
+          // ============================================================
+
+          // 1. Simpan Token Laravel (Agar sesi terjaga)
+          if (responseData.containsKey('token')) {
+            await _storage.write(key: 'token', value: responseData['token']);
           }
+
+          // 2. Simpan Tipe User & Jabatan (Agar Dashboard sesuai Role)
+          if (responseData.containsKey('user_type')) {
+            await _storage.write(
+                key: 'user_type', value: responseData['user_type']);
+          }
+          if (responseData.containsKey('jabatan')) {
+            // Dari API Controller Laravel
+            await _storage.write(
+                key: 'user_jabatan', value: responseData['jabatan']);
+          }
+
+          // 3. LOGIN KE FIREBASE (Agar Chat Berjalan)
+          if (responseData.containsKey('firebase_custom_token')) {
+            String? fbToken = responseData['firebase_custom_token'];
+            if (fbToken != null && fbToken.isNotEmpty) {
+              try {
+                await FirebaseAuth.instance.signInWithCustomToken(fbToken);
+                print("✅ [ApiService] Sukses Login Firebase (Chat Ready!)");
+              } catch (e) {
+                print("❌ [ApiService] Gagal Login Firebase: $e");
+              }
+            }
+          }
+          // ============================================================
+          // --- [AKHIR TAMBAHAN] ---
+          // ============================================================
+
+          return responseData;
         } else {
           throw Exception(
-            //
-            responseData['message'] ?? //
-                'Login gagal (format respons tidak dikenal).', //
+            'Format respons login tidak lengkap dari server.',
           );
         }
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        //
         throw Exception(
-          //
-          responseData['message'] ?? 'ID, Nomor HP, atau password salah.', //
+          responseData['message'] ?? 'ID, Nomor HP, atau password salah.',
         );
       } else if (response.statusCode == 422) {
-        //
-        String errorMsg = "Input tidak valid:"; //
-        if (responseData.containsKey('errors') && //
+        String errorMsg = "Input tidak valid:";
+        if (responseData.containsKey('errors') &&
             responseData['errors'] is Map) {
-          //
           (responseData['errors'] as Map).forEach((key, value) {
-            //
             if (value is List && value.isNotEmpty) {
-              //
-              errorMsg += "\n- ${value[0]}"; //
+              errorMsg += "\n- ${value[0]}";
             }
           });
         } else {
-          errorMsg = responseData['message'] ?? errorMsg; //
+          errorMsg = responseData['message'] ?? errorMsg;
         }
-        throw Exception(errorMsg); //
+        throw Exception(errorMsg);
       } else {
         throw Exception(
-          //
-          'Gagal login. Status: ${response.statusCode}. Pesan: ${responseData['message'] ?? response.body}', //
+          'Gagal login. Status: ${response.statusCode}. Pesan: ${responseData['message'] ?? response.body}',
         );
       }
     } on TimeoutException {
-      //
-      print('ApiService DEBUG: unifiedLogin - Timeout'); //
+      print('ApiService DEBUG: unifiedLogin - Timeout');
       throw Exception(
         'Server tidak merespons. Periksa koneksi internet Anda.',
-      ); //
+      );
     } catch (e) {
-      //
-      print('ApiService DEBUG: unifiedLogin - Error: $e'); //
+      print('ApiService DEBUG: unifiedLogin - Error: $e');
       if (e is Exception && e.toString().contains("Exception: ")) {
-        //
-        rethrow; //
+        rethrow;
       }
-      throw Exception('Terjadi kesalahan: ${e.toString()}'); //
+      throw Exception('Terjadi kesalahan: ${e.toString()}');
     }
   }
 
@@ -1734,10 +1773,10 @@ class ApiService {
     return await http.post(url, headers: headers, body: body);
   }
 
-Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
-    final token = await getToken(); 
+  Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
+    final token = await getToken();
     // Endpoint baru yang kita buat di Laravel
-    final url = Uri.parse('$baseUrl/cek-tagihan-pdam/$pdamId'); 
+    final url = Uri.parse('$baseUrl/cek-tagihan-pdam/$pdamId');
 
     print('ApiService DEBUG: Fetching tagihan real untuk ID: $pdamId');
 
@@ -1754,15 +1793,17 @@ Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
 
       if (response.statusCode == 200 && responseBody['success'] == true) {
         final data = responseBody['data'];
-        
+
         // Mapping data dari struktur baru ke struktur yang diharapkan UI Anda
         return {
           'id_pdam': data['info']['id_pelanggan'],
           'nama': data['info']['nama'], // UI Anda butuh nama
           'jumlah': data['rekap']['total_tagihan'],
           'bulan': "${data['rekap']['jumlah_bulan']} Bulan", // Info periode
-          'jatuh_tempo': 'Segera', // Data ini tidak ada di HTML, kita set default
-          'detail': data['detail_tunggakan'] // Simpan detail jika ingin ditampilkan nanti
+          'jatuh_tempo':
+              'Segera', // Data ini tidak ada di HTML, kita set default
+          'detail': data[
+              'detail_tunggakan'] // Simpan detail jika ingin ditampilkan nanti
         };
       } else if (response.statusCode == 404) {
         return {

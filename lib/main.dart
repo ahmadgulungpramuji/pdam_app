@@ -27,6 +27,7 @@ import 'package:pdam_app/tracking_page.dart';
 import 'package:pdam_app/view_profil_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:pdam_app/home_admin_cabang_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -114,21 +115,24 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        cardTheme: CardThemeData( // <--- Tanda kurung '(' pembuka di sini
-  elevation: 4,
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  ),
-  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
-),
+        cardTheme: CardThemeData(
+          // <--- Tanda kurung '(' pembuka di sini
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+        ),
       ),
-      initialRoute: '/auth_check', // Menggunakan AuthCheckPage sebagai rute awal
+      initialRoute:
+          '/auth_check', // Menggunakan AuthCheckPage sebagai rute awal
       routes: {
         '/auth_check': (context) => const AuthCheckPage(),
         '/': (context) => const LoginPage(),
         '/login': (context) => const LoginPage(),
         '/welcome': (context) => const WelcomePage(),
         '/register': (context) => const RegisterPage(),
+        '/home_admin_cabang': (context) => const HomeAdminCabangPage(),
         '/home_petugas': (context) {
           final arguments = ModalRoute.of(context)?.settings.arguments;
           int petugasId;
@@ -148,10 +152,8 @@ class MyApp extends StatelessWidget {
         '/lacak_laporan_saya': (context) => const LacakLaporanSayaPage(),
         '/cek_tunggakan': (context) => const CekTunggakanPage(),
         '/lapor_foto_meter': (context) => const LaporFotoMeterPage(),
-        '/view_profil': (context) =>
-            const ViewProfilPage(),
-        '/profil_page': (context) =>
-            const ProfilPage(),
+        '/view_profil': (context) => const ViewProfilPage(),
+        '/profil_page': (context) => const ProfilPage(),
         '/register_calon_pelanggan': (context) =>
             const CalonPelangganRegisterPage(),
         '/detail_temuan_page': (context) {
@@ -171,8 +173,7 @@ class MyApp extends StatelessWidget {
           return TrackingPage(kodeTracking: kodeTracking);
         },
         '/temuan_kebocoran': (context) => const TemuanKebocoranPage(),
-        '/notifikasi_page': (context) =>
-            const NotifikasiPage(),
+        '/notifikasi_page': (context) => const NotifikasiPage(),
         '/chat_page': (context) {
           final userData = ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>?;
@@ -232,25 +233,29 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
       if (!mounted) return;
 
       if (userProfile != null) {
-        // Token valid, periksa tipe pengguna dari data yang tersimpan
         final userDataString = prefs.getString('user_data');
         if (userDataString != null) {
           final userData = jsonDecode(userDataString) as Map<String, dynamic>;
-          
-          // [PERUBAHAN UTAMA DI SINI]
-          // Kita cek berdasarkan keberadaan field 'is_active' yang hanya ada pada Petugas
-          if (userData.containsKey('is_active')) {
-            // Ini adalah PETUGAS
+
+          // --- PERBAIKAN LOGIKA AUTO LOGIN ---
+
+          // 1. Cek Admin Cabang (Biasanya punya kolom 'jabatan')
+          if (userData.containsKey('jabatan')) {
+            Navigator.pushReplacementNamed(context, '/home_admin_cabang');
+          }
+          // 2. Cek Petugas (Punya kolom 'is_active')
+          else if (userData.containsKey('is_active')) {
             final int petugasId = userData['id'] as int;
-            // Penting: Gunakan pushReplacement untuk navigasi tanpa bisa kembali
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => HomePetugasPage(idPetugasLoggedIn: petugasId),
+                builder: (context) =>
+                    HomePetugasPage(idPetugasLoggedIn: petugasId),
               ),
             );
-          } else {
-            // Ini adalah PELANGGAN
+          }
+          // 3. Sisanya adalah Pelanggan
+          else {
             Navigator.pushReplacementNamed(context, '/home_pelanggan');
           }
         } else {
