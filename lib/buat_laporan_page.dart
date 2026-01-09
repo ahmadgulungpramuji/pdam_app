@@ -136,57 +136,67 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
 
   Future<void> _fetchPdamIds(String idPelanggan) async {
     try {
-      // 1. Ambil token terlebih dahulu menggunakan service Anda
       final token = await _apiService.getToken();
       if (token == null) {
         throw Exception("Sesi tidak valid, silakan login ulang.");
       }
 
-      // 2. Siapkan header dengan token
       final headers = {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       };
 
-      // 3. Lakukan panggilan API dengan menyertakan header
       final response = await http.get(
         Uri.parse('${_apiService.baseUrl}/id-pdam/$idPelanggan'),
-        headers: headers, // <-- SERTAKAN HEADER DI SINI
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
-        // Cek apakah responsnya benar-benar JSON sebelum di-decode
-        if (response.body.trim().startsWith('[')) {
-          final List<dynamic> responseData = jsonDecode(response.body);
-          if (mounted) {
-            setState(() {
-              _pdamIdList =
-                  responseData.map((data) => PdamId.fromJson(data)).toList();
-            });
-          }
-        } else {
-          // Jika bukan JSON, lempar error dengan isi responsnya
-          throw FormatException(
-              "Server tidak mengembalikan data JSON yang valid.");
+        // --- BAGIAN YANG DIPERBAIKI ---
+        // Decode JSON terlebih dahulu tanpa memaksa pengecekan startsWith('[')
+        final dynamic decodedResponse = jsonDecode(response.body);
+        List<dynamic> listData = [];
+
+        // Logika Fleksibel:
+        // 1. Jika server mengirim List langsung: [ ... ]
+        if (decodedResponse is List) {
+          listData = decodedResponse;
+        } 
+        // 2. Jika server mengirim Object dengan key 'data': { "data": [ ... ] }
+        else if (decodedResponse is Map<String, dynamic> &&
+            decodedResponse.containsKey('data') &&
+            decodedResponse['data'] is List) {
+          listData = decodedResponse['data'];
+        } 
+        // 3. Jika format tidak dikenali
+        else {
+          throw const FormatException("Format respon server tidak valid (bukan List atau Data Wrapper).");
         }
+
+        if (mounted) {
+          setState(() {
+            _pdamIdList =
+                listData.map((data) => PdamId.fromJson(data)).toList();
+          });
+        }
+        // --- AKHIR PERBAIKAN ---
       } else {
         throw Exception(
             'Gagal mengambil data dari server (Status: ${response.statusCode})');
       }
     } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda';
       } else {
-        errorMessage = 'Gagal mengambil daftar nomor PDAM: ${e.toString().replaceFirst("Exception: ", "")}';
+        // Membersihkan pesan error agar lebih rapi
+        errorMessage = 'Gagal mengambil daftar nomor PDAM: ${e.toString().replaceAll(RegExp(r'Exception:|FormatException:'), '').trim()}';
       }
       _showSnackbar(errorMessage, isError: true);
-      // --- AKHIR PERUBAHAN ---
 
       if (mounted) {
         setState(() {
-          _pdamIdList = []; // Kosongkan daftar jika gagal
+          _pdamIdList = []; 
         });
       }
     }
