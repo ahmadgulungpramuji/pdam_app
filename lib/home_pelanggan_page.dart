@@ -177,6 +177,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  String _usageAmount = "0"; // Untuk menampung data liter
+  int _billAmount = 0;       // Untuk menampung total rupiah
+  bool _isBillLoading = true; // Indikator loading khusus kartu biru
   String? _errorMessage;
   int _unreadNotifCount = 0;
   int _currentIndex = 0;
@@ -197,6 +200,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     await Future.wait([
       _loadUserData(),
       _fetchBerita(),
+      _fetchHomeBillInfo(),
     ]);
   }
 
@@ -235,6 +239,61 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
+// --- TAMBAHKAN FUNGSI INI ---
+  Future<void> _fetchHomeBillInfo() async {
+    if (!mounted) return;
+    
+    // Set loading true saat mulai mengambil data
+    setState(() {
+      _isBillLoading = true;
+    });
+
+    try {
+      // 1. Ambil daftar semua ID PDAM milik user yang login
+      final ids = await _apiService.getAllUserPdamIds();
+      
+      if (ids.isNotEmpty) {
+        // 2. Ambil ID yang PERTAMA (sesuai permintaan Anda)
+        final firstIdData = ids.first;
+        
+        // Ambil nomor ID pelanggannya (pastikan key-nya sesuai respon API, biasanya 'nomor' atau 'id_pelanggan')
+        final String idPdam = firstIdData['nomor']?.toString() ?? firstIdData['id_pdam']?.toString() ?? '';
+
+        if (idPdam.isNotEmpty) {
+          // 3. Panggil API getTunggakan (yang sudah diupdate di langkah sebelumnya)
+          // Ini akan memicu scraping di server Laravel
+          final billData = await _apiService.getTunggakan(idPdam);
+          
+          if (mounted) {
+            setState(() {
+              // Update Pemakaian (Liter)
+              _usageAmount = billData['pemakaian']?.toString() ?? "0";
+              
+              // Update Total Tagihan (Rupiah) - Pastikan dikonversi ke int
+              _billAmount = int.tryParse(billData['jumlah'].toString()) ?? 0;
+            });
+          }
+        }
+      } else {
+        // Jika user belum punya ID PDAM terdaftar
+        if (mounted) {
+          setState(() {
+            _usageAmount = "0";
+            _billAmount = 0;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching home bill info: $e");
+    } finally {
+      // Matikan loading selesai (sukses ataupun gagal)
+      if (mounted) {
+        setState(() {
+          _isBillLoading = false;
+        });
+      }
+    }
+  }
   Future<void> _fetchBerita() async {
     if (!mounted) return;
     setState(() {
@@ -793,7 +852,15 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     );
   }
 
+  
   Widget _buildWaterUsageCard(Color primary, Color secondary) {
+    // Formatter Rupiah (contoh: Rp 2.174.992)
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'id_ID', 
+      symbol: 'Rp ', 
+      decimalDigits: 0
+    );
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -811,62 +878,78 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           )
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Penggunaan Air Bulan Lalu",
-                style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
-              ),
-              Icon(Ionicons.water,
-                  color: Colors.white.withOpacity(0.8), size: 28),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              AnimatedCounter(
-                value: 24.5,
-                style: GoogleFonts.manrope(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
-                child: Text(
-                  'm³',
-                  style: GoogleFonts.manrope(
-                      fontSize: 20,
-                      color: Colors.white.withOpacity(0.9),
-                      fontWeight: FontWeight.w300),
+      // Cek status Loading
+      child: _isBillLoading
+          ? const Center(
+              child: SizedBox(
+                height: 30, 
+                width: 30, 
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+              )
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // --- LABEL 1: PENGGUNAAN TERAKHIR ---
+                    Text(
+                      "Penggunaan Air Terakhir", 
+                      style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
+                    ),
+                    Icon(Ionicons.water,
+                        color: Colors.white.withOpacity(0.8), size: 28),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Divider(color: Colors.white30, height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Tagihan Tertunggak",
-                  style:
-                      GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
-              Text("Rp 0",
-                  style: GoogleFonts.manrope(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    // --- ANGKA LITER (Misal: 23.613) ---
+                    Text(
+                      _usageAmount, 
+                      style: GoogleFonts.manrope(
+                          fontSize: 40, 
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    const SizedBox(width: 6),
+                    // --- SATUAN ---
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Text(
+                        'Liter', 
+                        style: GoogleFonts.manrope(
+                            fontSize: 20,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w300),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Divider(color: Colors.white30, height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // --- LABEL 2: TAGIHAN TERTUNGGAK ---
+                    Text("Tagihan Tertunggak", 
+                        style: GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
+                    
+                    // --- NOMINAL RUPIAH (Misal: Rp 2.174.992) ---
+                    Text(
+                      currencyFormatter.format(_billAmount), 
+                      style: GoogleFonts.manrope(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 

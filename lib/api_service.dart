@@ -21,7 +21,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pelayananperumdamtda.com/api';
+  final String baseUrl = 'http://192.250.1.155:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -33,7 +33,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pelayananperumdamtda.com/api',
+            baseUrl: 'http://192.250.1.155:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -1033,7 +1033,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> postPdamId(
+   Future<Map<String, dynamic>> postPdamId(
     String idPdam,
     String idPelanggan,
   ) async {
@@ -1086,8 +1086,8 @@ class ApiService {
       return responseData;
     } else {
       // Untuk error lainnya (misal: 500), lempar Exception
-      throw Exception(
-          'Gagal menyimpan ID PDAM ke server (Status: ${response.statusCode})');
+      String serverMessage = responseData['message'] ?? 'Terjadi kesalahan server.';
+      throw Exception('Gagal: $serverMessage (Status: ${response.statusCode})');
     }
   }
 
@@ -1775,10 +1775,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
     final token = await getToken();
-    // Endpoint baru yang kita buat di Laravel
     final url = Uri.parse('$baseUrl/cek-tagihan-pdam/$pdamId');
-
-    print('ApiService DEBUG: Fetching tagihan real untuk ID: $pdamId');
 
     try {
       final response = await http.get(
@@ -1787,37 +1784,37 @@ class ApiService {
           'Accept': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 30));
 
       final responseBody = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseBody['success'] == true) {
         final data = responseBody['data'];
-
-        // Mapping data dari struktur baru ke struktur yang diharapkan UI Anda
+        
+        // --- DATA MAPPING LENGKAP ---
         return {
           'id_pdam': data['info']['id_pelanggan'],
-          'nama': data['info']['nama'], // UI Anda butuh nama
-          'jumlah': data['rekap']['total_tagihan'],
-          'bulan': "${data['rekap']['jumlah_bulan']} Bulan", // Info periode
-          'jatuh_tempo':
-              'Segera', // Data ini tidak ada di HTML, kita set default
-          'detail': data[
-              'detail_tunggakan'] // Simpan detail jika ingin ditampilkan nanti
-        };
-      } else if (response.statusCode == 404) {
-        return {
-          'id_pdam': pdamId,
-          'jumlah': 0,
-          'bulan': '-',
-          'error': 'Data tidak ditemukan untuk ID tersebut.',
+          'nama': data['info']['nama'],
+          'alamat': data['info']['alamat'] ?? '-',
+          'jumlah': data['tagihan']['total_tagihan'] ?? 0,
+          'pemakaian': data['tagihan']['pemakaian_saat_ini'] ?? "0",
+          'status': data['tagihan']['status'] ?? '-',
+          // Data Baru
+          'jumlah_bulan': data['tagihan']['jumlah_bulan_nunggak'] ?? 0,
+          'rincian': data['tagihan']['rincian'] ?? [], // List rincian
+          'error': null,
+
+
+
         };
       } else {
         return {
           'id_pdam': pdamId,
           'jumlah': 0,
-          'bulan': '-',
-          'error': responseBody['message'] ?? 'Gagal mengambil data.',
+          'pemakaian': "0",
+          'jumlah_bulan': 0,
+          'rincian': [],
+          'error': responseBody['message'] ?? 'Data tidak ditemukan.',
         };
       }
     } catch (e) {
@@ -1825,11 +1822,52 @@ class ApiService {
       return {
         'id_pdam': pdamId,
         'jumlah': 0,
-        'bulan': '-',
-        'error': 'Terjadi kesalahan koneksi.',
+        'pemakaian': "0",
+        'jumlah_bulan': 0,
+        'rincian': [],
+        'error': 'Gagal koneksi server.',
       };
     }
   }
+  // Menghapus ID PDAM yang tersimpan
+ Future<bool> deleteUserPdamId(int databaseId) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/id-pdam/$databaseId'); 
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      // PERBAIKAN DI SINI:
+      // Terima status 200 (OK) ATAU 204 (No Content - Sukses Hapus)
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else {
+        // Log error untuk developer
+        print('Gagal menghapus ID. Status: ${response.statusCode}. Body: ${response.body}');
+        
+        // Coba ambil pesan error dari server jika ada
+        String serverMessage = 'Gagal menghapus ID.';
+        try {
+          final body = jsonDecode(response.body);
+          if (body['message'] != null) serverMessage = body['message'];
+        } catch (_) {}
+        
+        // Lempar error agar bisa ditangkap di halaman UI
+        throw Exception(serverMessage); 
+      }
+    } catch (e) {
+      print('Error deleteUserPdamId: $e');
+      // Lempar ulang error
+      rethrow; 
+    }
+  }
+
 
   Future<List<String>> fetchPdamNumbersByPelanggan(String idPelanggan) async {
     //

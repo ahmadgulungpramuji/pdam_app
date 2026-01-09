@@ -1182,7 +1182,7 @@ class _ProfilePageState extends State<ProfilePage> {
               FadeInUp(
                 delay: const Duration(milliseconds: 200),
                 child: Text(
-                  petugas.email,
+                  petugas.email ?? '-', // Beri nilai default strip jika null
                   style: GoogleFonts.lato(fontSize: 15, color: Colors.white70),
                 ),
               ),
@@ -1384,7 +1384,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: _buildInfoTile(
                           icon: Ionicons.call_outline,
                           title: 'Nomor HP',
-                          subtitle: petugas.nomorHp,
+                          subtitle: petugas.nomorHp ?? '-',
                         ),
                       ),
                       FadeInUp(
@@ -1393,7 +1393,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: _buildInfoTile(
                           icon: Ionicons.mail_outline,
                           title: 'Email',
-                          subtitle: petugas.email,
+                          subtitle: petugas.email ?? '-',
                         ),
                       ),
                       FadeInUp(

@@ -20,6 +20,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pdam_app/models/petugas_model.dart';
+import 'package:pdam_app/pages/complete_biodata_page.dart';
+import 'package:pdam_app/home_petugas_page.dart';
 
 // --- WIDGET ANIMASI ---
 class FadeInAnimation extends StatefulWidget {
@@ -243,10 +246,8 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // --- MODIFIKASI: Panggil fungsi "Ingat Saya" ---
     // Panggil fungsi untuk menyimpan atau menghapus kredensial
     await _handleRememberMe();
-    // --- AKHIR MODIFIKASI ---
 
     setState(() => _isLoading = true);
     try {
@@ -261,52 +262,69 @@ class _LoginPageState extends State<LoginPage> {
       final Map<String, dynamic> userData =
           responseData['user'] as Map<String, dynamic>;
 
-      // 2. Simpan token SEMENTARA (Jika gagal nanti, kita hapus)
+      // 2. Simpan token SEMENTARA
       await _apiService.saveToken(token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_data', jsonEncode(userData));
 
-      // 3. Update FCM
-      log("Mencoba mengirim FCM token ke server setelah login...");
-      await NotificationService().sendFcmTokenToServer();
-      // 3. Update FCM
-      log("Mencoba mengirim FCM token ke server setelah login...");
-      await NotificationService()
-          .sendFcmTokenToServer(); // <--- INI BIANG KEROKNYA! Baris ini tidak ada pengaman (try-catch)
+      // 3. Update FCM (Dengan Try-Catch agar tidak crash jika gagal)
       try {
         log("Mencoba mengirim FCM token ke server setelah login...");
         await NotificationService().sendFcmTokenToServer();
       } catch (e) {
         log("Gagal update FCM (Error diabaikan agar login lanjut): $e");
-        // Kita tidak menampilkan snackbar error di sini agar user tidak bingung
       }
 
       _showSnackbar('Login berhasil sebagai $userType!', isError: false);
 
-      // 5. Navigasi
+      // 5. Navigasi Berdasarkan Tipe User
       if (userType == 'pelanggan') {
         Navigator.pushNamedAndRemoveUntil(
             context, '/home_pelanggan', (route) => false);
+            
       } else if (userType == 'petugas') {
-        final int petugasId = userData['id'] as int;
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/home_petugas',
-          (route) => false,
-          arguments: {'idPetugasLoggedIn': petugasId},
-        );
+        // ============================================================
+        // === LOGIKA BARU: CEK KELENGKAPAN DATA PETUGAS (NO HP) ===
+        // ============================================================
+        
+        // 1. Parsing data user ke model Petugas
+        Petugas userLoggedIn = Petugas.fromJson(userData);
+
+        // 2. Cek apakah nomor_hp null atau string kosong
+        if (userLoggedIn.nomorHp == null || userLoggedIn.nomorHp!.trim().isEmpty) {
+          
+          // -> Data Belum Lengkap: Arahkan ke Halaman Lengkapi Biodata
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompleteBiodataPage(petugas: userLoggedIn),
+            ),
+          );
+
+        } else {
+          
+          // -> Data Lengkap: Masuk ke Beranda
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomePetugasPage(idPetugasLoggedIn: userLoggedIn.id),
+            ),
+          );
+        }
+        // ============================================================
+
       } else if (userType == 'admin_cabang') {
-        // --- LOGIKA BARU UNTUK ADMIN CABANG ---
         Navigator.pushNamedAndRemoveUntil(
             context,
-            '/home_admin_cabang', // Pastikan route ini didaftarkan di main.dart
+            '/home_admin_cabang', 
             (route) => false);
       } else {
         _showSnackbar('Tipe pengguna tidak dikenal.', isError: true);
       }
     } catch (e) {
       // JIKA GAGAL DI TAHAP UTAMA
-      // Pastikan token dihapus agar tidak terjadi kasus "Hot Reload Login"
       await _apiService.removeToken();
 
       String errorMessage;
