@@ -21,7 +21,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.250.1.155:8000/api';
+  final String baseUrl = 'http://192.168.1.6:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'https://api.wit.ai/message';
@@ -33,7 +33,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.250.1.155:8000/api',
+            baseUrl: 'http://192.168.1.6:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -160,6 +160,42 @@ class ApiService {
         "error": true, //
         "message": "Terjadi kesalahan jaringan atau sistem: $e", //
       };
+    }
+  }
+ 
+Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
+    // 1. Bersihkan spasi
+    final cleanCode = trackingCode.trim();
+
+    // 2. PERBAIKAN URL (PENTING!)
+    // Sebelumnya salah: '$baseUrl/temuan-kebocoran/track/$cleanCode'
+    // Yang benar (sesuai api.php): '$baseUrl/track/temuan/$cleanCode'
+    final String url = '$baseUrl/track/temuan/$cleanCode';
+
+    try {
+      print('DEBUG TRACKING: Request ke $url'); // Cek log ini untuk memastikan URL benar
+
+      final response = await _dio.get(
+        url,
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      // Kembalikan data lengkap dari response
+      return response.data;
+    } on DioException catch (e) {
+      print('DEBUG ERROR: ${e.response?.statusCode} - ${e.response?.data}');
+
+      if (e.response?.statusCode == 404) {
+        // Ini jika route benar tapi datanya tidak ada di database
+        throw Exception("Laporan dengan kode '$cleanCode' tidak ditemukan di sistem.");
+      } else {
+        // Ini jika error lain (misal server mati, internet putus)
+        throw Exception("Gagal melacak: ${e.message}");
+      }
     }
   }
 
