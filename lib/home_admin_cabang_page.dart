@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:pdam_app/api_service.dart';
-// Import halaman lain nanti di sini (ChatPage, PengaduanPage, dll)
 
 class HomeAdminCabangPage extends StatefulWidget {
   const HomeAdminCabangPage({super.key});
@@ -11,200 +10,153 @@ class HomeAdminCabangPage extends StatefulWidget {
 }
 
 class _HomeAdminCabangPageState extends State<HomeAdminCabangPage> {
-  final ApiService _apiService = ApiService();
-  
-  // Variable Data
-  Map<String, dynamic>? _stats;
-  String? _jabatan;
-  String? _namaUser;
+  late final WebViewController _controller;
   bool _isLoading = true;
+  String? _errorMessage;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _initializeWebView();
   }
 
-  Future<void> _loadDashboardData() async {
+  Future<void> _initializeWebView() async {
+    // 1. Konfigurasi Controller WebView
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted) // Wajib on agar fitur web jalan
+      ..setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            if (mounted) setState(() => _isLoading = true);
+          },
+          onPageFinished: (String url) {
+            _controller.runJavaScript("document.body.style.zoom = '50%'");
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onWebResourceError: (WebResourceError error) {
+            // Error handling jika web gagal dimuat
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                // _errorMessage = "Gagal memuat halaman: ${error.description}"; 
+              });
+            }
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            // Mencegah membuka link keluar (misal youtube/iklan) jika tidak diinginkan
+            return NavigationDecision.navigate;
+          },
+        ),
+      );
+
+    // 2. Minta URL Magic Link dari Server
     try {
-      // 1. Ambil data jabatan lokal dulu untuk render kerangka
-      final localJabatan = await _apiService.getJabatan();
+      // Memanggil fungsi yang kita buat sebelumnya di ApiService
+      // Ini akan return: "https://domain-anda.com/auth/sso-login?token=xyz..."
+      final String autoLoginUrl = await _apiService.getAutoLoginUrl();
       
-      // 2. Ambil data real-time dari server
-      final response = await _apiService.getAdminDashboardStats();
-      
-      if (mounted) {
-        setState(() {
-          _stats = response['data'];
-          _namaUser = response['user_info']['nama'];
-          _jabatan = response['user_info']['jabatan'] ?? localJabatan;
-          _isLoading = false;
-        });
-      }
+      // 3. Load URL tersebut
+      await _controller.loadRequest(Uri.parse(autoLoginUrl));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal memuat data: $e")),
-        );
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "Gagal terhubung ke server: $e";
+        });
       }
     }
   }
 
+  // Fungsi Logout dari Aplikasi Mobile
   Future<void> _logout() async {
-    await _apiService.logout();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    // Tampilkan dialog konfirmasi
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Logout'),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ya, Keluar')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _apiService.logout();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Helper boolean untuk logika tampilan
-    bool isDistribusi = _jabatan == 'supervisor_distribusi';
-    bool isHublang = _jabatan == 'supervisor_hublang';
-    bool isAdmin = _jabatan == 'admin_cabang'; // Super Admin Cabang
-
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Dashboard Admin", style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text(_jabatan?.replaceAll('_', ' ').toUpperCase() ?? "Loading...", 
-              style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w400)),
+    // PopScope digunakan agar tombol BACK di HP tidak langsung menutup aplikasi,
+    // tapi kembali ke halaman web sebelumnya (history browser).
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        if (await _controller.canGoBack()) {
+          await _controller.goBack();
+        } else {
+          // Jika tidak bisa back lagi di web, tanya mau logout/keluar?
+          // Atau biarkan default behaviour (Navigator.pop)
+          if (context.mounted) Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        // AppBar tetap dipertahankan agar user bisa Logout dari Aplikasi Mobile
+        appBar: AppBar(
+          title: const Text("Admin Panel"),
+          backgroundColor: Colors.blue[900],
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _controller.reload(), // Tombol refresh web
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: _logout, // Tombol Logout
+            ),
           ],
         ),
-        backgroundColor: Colors.blue[900],
-        foregroundColor: Colors.white,
-        actions: [
-          // Tombol Chat (Inbox)
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: () {
-               // Nanti arahkan ke halaman Inbox Chat
-               // Navigator.push(context, MaterialPageRoute(builder: (_) => AdminInboxPage()));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
-      ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
-            onRefresh: _loadDashboardData,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        body: _errorMessage != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _errorMessage = null;
+                          _isLoading = true;
+                        });
+                        _initializeWebView();
+                      },
+                      child: const Text("Coba Lagi"),
+                    )
+                  ],
+                ),
+              )
+            : Stack(
                 children: [
-                  // Sapaan
-                  Text(
-                    "Halo, $_namaUser 👋",
-                    style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue[900]),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // --- GRID STATISTIK (DAPAT DIKLIK) ---
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.3,
-                    children: [
-                      // 1. KARTU PENGADUAN (Semua Role Punya)
-                      _buildStatCard(
-                        title: "Pengaduan Baru",
-                        count: _stats?['pengaduan_baru'] ?? 0,
-                        icon: Icons.assignment_late,
-                        color: Colors.red,
-                        onTap: () {
-                          // Navigasi ke List Pengaduan
-                        },
+                  WebViewWidget(controller: _controller),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.white,
+                      child: const Center(
+                        child: CircularProgressIndicator(),
                       ),
-
-                      // 2. KARTU KEBOCORAN (Distribusi & Admin)
-                      if (!isHublang)
-                        _buildStatCard(
-                          title: "Temuan Kebocoran",
-                          count: _stats?['kebocoran_baru'] ?? 0,
-                          icon: Icons.water_damage,
-                          color: Colors.orange,
-                          onTap: () {
-                            // Navigasi ke List Kebocoran
-                          },
-                        ),
-
-                      // 3. KARTU WATER METER (Hublang & Admin)
-                      if (!isDistribusi)
-                        _buildStatCard(
-                          title: "Verifikasi Meter",
-                          count: _stats?['verifikasi_wm'] ?? 0,
-                          icon: Icons.camera_alt,
-                          color: Colors.blue,
-                          onTap: () {
-                             // Navigasi ke Verifikasi WM
-                          },
-                        ),
-                      
-                      // 4. KARTU CALON PELANGGAN (Hublang & Admin)
-                      if (!isDistribusi)
-                        _buildStatCard(
-                          title: "Calon Pelanggan",
-                          count: _stats?['calon_pelanggan'] ?? 0,
-                          icon: Icons.person_add,
-                          color: Colors.green,
-                          onTap: () {
-                             // Navigasi ke Verifikasi Pelanggan
-                          },
-                        ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
-            ),
-          ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required String title, 
-    required int count, 
-    required IconData icon, 
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 32, color: color),
-              const SizedBox(height: 8),
-              Text(
-                count.toString(),
-                style: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.manrope(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

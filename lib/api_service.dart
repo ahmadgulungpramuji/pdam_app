@@ -21,10 +21,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'http://192.168.1.6:8000/api';
+  final String baseUrl = 'http://10.194.203.148:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
-  final String _witAiApiUrl = 'https://api.wit.ai/message';
+  final String _witAiApiUrl = 'http://api.wit.ai/message';
   final String _witAiApiVersion = '20240514';
   final _storage = const FlutterSecureStorage();
   final String _storageKeyIdentifier = 'saved_identifier';
@@ -33,7 +33,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://192.168.1.6:8000/api',
+            baseUrl: 'http://10.194.203.148:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -2100,6 +2100,30 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     }
   }
 
+  Future<String> getAutoLoginUrl() async {
+    final token = await getToken();
+    if (token == null) throw Exception('Sesi berakhir, silakan login ulang.');
+
+    final url = Uri.parse('$baseUrl/auth/generate-web-url');
+    
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return data['url']; // Ini URL magic link-nya
+      }
+    }
+    
+    throw Exception('Gagal mendapatkan akses web admin.');
+  }
+
   Future<Map<String, dynamic>> uploadFotoTugas({
     //
     required int idTugas, //
@@ -2581,5 +2605,6 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     }
   }
 }
+
 
 // Di dalam class ApiService
