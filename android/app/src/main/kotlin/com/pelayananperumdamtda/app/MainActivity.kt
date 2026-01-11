@@ -1,4 +1,4 @@
-package com.example.pdam_app
+package com.pelayananperumdamtda.app
 
 import io.flutter.embedding.android.FlutterActivity
 

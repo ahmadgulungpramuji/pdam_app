@@ -9,8 +9,9 @@
 
     <application
         android:usesCleartextTraffic="true"
-        android:label="pdam_app"
+        android:label="Banyu Digital"  
         android:name="${applicationName}"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
