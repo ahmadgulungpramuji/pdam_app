@@ -89,14 +89,15 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
   String? _errorMessage;
 
   final _komentarRatingController = TextEditingController();
-  
+
   double _dialogRatingKecepatan = 0;
   double _dialogRatingPelayanan = 0;
   double _dialogRatingHasil = 0;
   bool _isDialogRatingLoading = false;
   final ChatService _chatService = ChatService();
   Map<String, dynamic>? _currentUserData;
-  final TextEditingController _trackingTokenController = TextEditingController();
+  final TextEditingController _trackingTokenController =
+      TextEditingController();
   bool _isTrackingLoading = false;
   Map<String, dynamic>? _trackingResult; // Menyimpan hasil pencarian
   String? _trackingError;
@@ -212,7 +213,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
 
         setState(() {
           _masterLaporanList = tempList;
-          _filterAndCategorizeLaporan(); 
+          _filterAndCategorizeLaporan();
           _isLoading = false;
         });
 
@@ -284,7 +285,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
           if (index != -1) {
             setState(() {
               _masterLaporanList[index] = updatedLaporan;
-              _filterAndCategorizeLaporan(); 
+              _filterAndCategorizeLaporan();
             });
           }
         }
@@ -379,7 +380,7 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             ),
           ),
         ),
-        
+
         // --- BODY DARI KODE KEDUA ---
         body: _isLoading
             ? Center(child: CircularProgressIndicator(color: primaryColor))
@@ -424,9 +425,11 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
             });
             _showTrackingModal(context); // Panggil fungsi modal
           },
-          backgroundColor: Colors.orange[700], // Warna mencolok agar kontras dengan biru
+          backgroundColor:
+              Colors.orange[700], // Warna mencolok agar kontras dengan biru
           icon: const Icon(Icons.search, color: Colors.white),
-          label: const Text("Lacak Temuan", style: TextStyle(color: Colors.white)),
+          label:
+              const Text("Lacak Temuan", style: TextStyle(color: Colors.white)),
         ),
       ),
     );
@@ -440,7 +443,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24 + 80), // +80 agar list terbawah tidak tertutup FAB
+      padding: const EdgeInsets.fromLTRB(
+          20, 24, 20, 24 + 80), // +80 agar list terbawah tidak tertutup FAB
       itemCount: laporanList.length,
       itemBuilder: (context, index) {
         final laporan = laporanList[index];
@@ -939,153 +943,182 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
       },
     );
   }
+
   // --- FUNGSI 1: MEMUNCULKAN MODAL POPUP ---
-void _showTrackingModal(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true, // Agar bisa full screen saat keyboard muncul
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      // Menggunakan StatefulBuilder agar tampilan DALAM modal bisa berubah (loading/hasil)
-      return StatefulBuilder(
-        builder: (BuildContext context, StateSetter setModalState) {
-          return DraggableScrollableSheet(
-            initialChildSize: 0.6, // Tinggi awal 60% layar
-            minChildSize: 0.4,
-            maxChildSize: 0.9,
-            builder: (_, scrollController) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                padding: const EdgeInsets.all(20),
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    // Garis Indikator Drag
-                    Center(
-                      child: Container(width: 40, height: 4, 
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text("Lacak Temuan Kebocoran", 
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                    const SizedBox(height: 10),
-                    
-                    // Input Field Token
-                    TextField(
-                      controller: _trackingTokenController,
-                      decoration: InputDecoration(
-                        hintText: "Tempel Kode Token (mis: TRK-123)",
-                        filled: true,
-                        fillColor: Colors.grey[100],
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        prefixIcon: const Icon(Icons.qr_code),
+  void _showTrackingModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Agar bisa full screen saat keyboard muncul
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        // Menggunakan StatefulBuilder agar tampilan DALAM modal bisa berubah (loading/hasil)
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6, // Tinggi awal 60% layar
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              builder: (_, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: ListView(
+                    controller: scrollController,
+                    children: [
+                      // Garis Indikator Drag
+                      Center(
+                        child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(2))),
                       ),
-                    ),
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 20),
+                      const Text("Lacak Temuan Kebocoran",
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 10),
 
-                    // Tombol Cari
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isTrackingLoading 
-                          ? null 
-                          : () => _prosesCariTracking(setModalState), // Panggil fungsi cari
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[800]),
-                        child: _isTrackingLoading
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text("CARI STATUS", style: TextStyle(color: Colors.white)),
+                      // Input Field Token
+                      TextField(
+                        controller: _trackingTokenController,
+                        decoration: InputDecoration(
+                          hintText: "Tempel Kode Token (mis: TRK-123)",
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none),
+                          prefixIcon: const Icon(Icons.qr_code),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
 
-                    // Tampilan Error
-                    if (_trackingError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 20),
-                        child: Text(_trackingError!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                      // Tombol Cari
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isTrackingLoading
+                              ? null
+                              : () => _prosesCariTracking(
+                                  setModalState), // Panggil fungsi cari
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[800]),
+                          child: _isTrackingLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
+                              : const Text("CARI STATUS",
+                                  style: TextStyle(color: Colors.white)),
+                        ),
                       ),
 
-                    // Tampilan Hasil (Jika Ditemukan)
-                    if (_trackingResult != null)
-                      _buildTrackingResultUI(_trackingResult!['data']), // Render hasil
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
-}
+                      // Tampilan Error
+                      if (_trackingError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 20),
+                          child: Text(_trackingError!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center),
+                        ),
+
+                      // Tampilan Hasil (Jika Ditemukan)
+                      if (_trackingResult != null)
+                        _buildTrackingResultUI(
+                            _trackingResult!['data']), // Render hasil
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 
 // --- FUNGSI 2: LOGIKA KE API ---
-Future<void> _prosesCariTracking(StateSetter setModalState) async {
-  if (_trackingTokenController.text.isEmpty) return;
+  Future<void> _prosesCariTracking(StateSetter setModalState) async {
+    if (_trackingTokenController.text.isEmpty) return;
 
-  setModalState(() => _isTrackingLoading = true); // Set loading di modal
+    setModalState(() => _isTrackingLoading = true); // Set loading di modal
 
-  try {
-    final result = await _apiService.trackTemuanKebocoran(_trackingTokenController.text);
-    setModalState(() {
-      _trackingResult = result;
-      _trackingError = null;
-      _isTrackingLoading = false;
-    });
-  } catch (e) {
-    setModalState(() {
-      _trackingError = e.toString().replaceAll("Exception: ", "");
-      _trackingResult = null;
-      _isTrackingLoading = false;
-    });
+    try {
+      final result =
+          await _apiService.trackTemuanKebocoran(_trackingTokenController.text);
+      setModalState(() {
+        _trackingResult = result;
+        _trackingError = null;
+        _isTrackingLoading = false;
+      });
+    } catch (e) {
+      setModalState(() {
+        _trackingError = e.toString().replaceAll("Exception: ", "");
+        _trackingResult = null;
+        _isTrackingLoading = false;
+      });
+    }
   }
-}
 
 // --- FUNGSI 3: UI HASIL PENCARIAN (KARTU DETAIL) ---
-Widget _buildTrackingResultUI(Map<String, dynamic> data) {
-  // Ambil history untuk timeline
-  List history = data['status_histories'] ?? []; 
-  
-  return Container(
-    margin: const EdgeInsets.only(top: 20),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      border: Border.all(color: Colors.blue.shade100),
-      borderRadius: BorderRadius.circular(12),
-      color: Colors.blue.shade50,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Status Terkini: ${data['status']}", 
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-        const Divider(),
-        Text("Pelapor: ${data['nama_pelapor']}"),
-        Text("Lokasi: ${data['lokasi_maps'] ?? '-'}"),
-        const SizedBox(height: 15),
-        const Text("Riwayat Pengerjaan:", style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        
-        // Loop Timeline sederhana
-        ...history.map((h) => Padding(
-          padding: const EdgeInsets.only(bottom: 8.0, left: 8.0),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle, size: 16, color: Colors.green),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text("${h['status_baru']} (${h['created_at']})", 
-                   style: const TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-        )).toList(),
-      ],
-    ),
-  );
-}
+  Widget _buildTrackingResultUI(Map<String, dynamic> data) {
+    // Ambil history untuk timeline
+    List history = data['status_histories'] ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.blue.shade100),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.blue.shade50,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Status Terkini: ${data['status']}",
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.blue)),
+          const Divider(),
+          Text("Pelapor: ${data['nama_pelapor']}"),
+          Text("Lokasi: ${data['lokasi_maps'] ?? '-'}"),
+          const SizedBox(height: 15),
+          const Text("Riwayat Pengerjaan:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+
+          // Loop Timeline sederhana
+          ...history
+              .map((h) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0, left: 8.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle,
+                            size: 16, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                              "${h['status_baru']} (${h['created_at']})",
+                              style: const TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRatingBar({
     required String title,
@@ -1159,26 +1192,32 @@ Widget _buildTrackingResultUI(Map<String, dynamic> data) {
             onPressed: () async {
               try {
                 setState(() => _isDialogRatingLoading = true);
-                final adminInfoList =
-                    await _apiService.getBranchAdminInfoByCabangId(
-                  laporan.idCabang.toString(),
-                );
-                if (adminInfoList.isEmpty) {
-                  throw Exception(
-                      "Tidak ada admin yang dapat dihubungi untuk cabang ini.");
-                }
 
-                // Logic Chat Admin - Sesuai File Anda
-                final threadId = 'cabang_${laporan.idCabang}_pelanggan_${_currentUserData!['id']}';
+                // 1. Ambil Token API (Diperlukan untuk create thread)
+                final token = await _apiService.getToken();
+                if (token == null) throw Exception("Harap login kembali.");
+
+                // 2. PANGGIL METHOD BARU DARI CHAT SERVICE
+                // Ini akan memastikan thread dibuat di Firestore sebelum kita masuk
+                final threadId = await _chatService
+                    .getOrCreateAdminChatThreadForSpecificReport(
+                  userData: _currentUserData!,
+                  apiToken: token,
+                  idLaporan: laporan.id, // Kirim ID Laporan untuk pembeda
+                );
 
                 if (mounted) {
+                  // Tutup BottomSheet dulu
                   Navigator.pop(context);
+
+                  // Masuk ke Chat Page dengan ID Thread yang sudah valid
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ReusableChatPage(
                         threadId: threadId,
-                        chatTitle: "Chat Admin: #${laporan.id}",
+                        chatTitle:
+                            "Bantuan: #${laporan.id}", // Judul lebih spesifik
                         currentUser: _currentUserData!,
                       ),
                     ),
@@ -1210,7 +1249,7 @@ Widget _buildTrackingResultUI(Map<String, dynamic> data) {
                     'pengaduan',
                     laporan.id,
                   );
-                  
+
                   // PERUBAHAN DISINI: Menggunakan fungsi yang sudah pakai generateTugasThreadId
                   final threadId =
                       await _chatService.getOrCreateTugasChatThread(
@@ -1351,8 +1390,8 @@ class _TimelineCardWithUnreadBadgeState
   }
 
   void _setupStream() {
-    if (widget.currentUserData != null && widget.currentUserData!['firebase_uid'] != null) {
-      
+    if (widget.currentUserData != null &&
+        widget.currentUserData!['firebase_uid'] != null) {
       // GUNAKAN HELPER YANG SAMA PERSIS DENGAN CHAT SERVICE
       // Ini memastikan ID-nya sinkron (misal: pengaduan_2 vs pengaduan_02)
       final String petugasThreadId = widget.chatService.generateTugasThreadId(
@@ -1364,7 +1403,8 @@ class _TimelineCardWithUnreadBadgeState
       // print("Badge Monitoring ID: $petugasThreadId");
 
       setState(() {
-        _unreadPetugasChatCountStream = widget.chatService.getUnreadMessageCount(
+        _unreadPetugasChatCountStream =
+            widget.chatService.getUnreadMessageCount(
           petugasThreadId,
           widget.currentUserData!['firebase_uid'],
         );
@@ -1385,7 +1425,6 @@ class _TimelineCardWithUnreadBadgeState
           alignment: const AlignmentDirectional(1.0, -0.45),
           largeSize: 20,
           padding: const EdgeInsets.symmetric(horizontal: 6),
-
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,

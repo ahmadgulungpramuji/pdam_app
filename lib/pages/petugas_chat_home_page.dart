@@ -61,18 +61,17 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
           ],
         ),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _currentUserData == null
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _currentUserData == null
               ? const Center(child: Text("Data user tidak valid."))
               : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildChatList(isInternal: false),
-                  _buildChatList(isInternal: true),
-                ],
-              ),
+                  controller: _tabController,
+                  children: [
+                    _buildChatList(isInternal: false),
+                    _buildChatList(isInternal: true),
+                  ],
+                ),
     );
   }
 
@@ -84,7 +83,7 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           print('STREAM ERROR: ${snapshot.error}');
-          return const Center(child: Text('Terjadi error.'));
+          return const Center(child: Text('Terjadi error memuat chat.'));
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -92,9 +91,13 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
 
         final allDocs = snapshot.data?.docs ?? [];
 
+        // --- BAGIAN 1: CHAT PELANGGAN (Bukan Internal) ---
         if (!isInternal) {
+          // Filter: Ambil yang BUKAN dimulai dengan 'cabang_'
+          // (Karena semua chat admin/internal dimulai dengan cabang_)
           final filteredDocs =
-              allDocs.where((doc) => !doc.id.contains('internal')).toList();
+              allDocs.where((doc) => !doc.id.startsWith('cabang_')).toList();
+
           if (filteredDocs.isEmpty) {
             return const Center(
               child: Text('Tidak ada percakapan dengan pelanggan.'),
@@ -103,57 +106,83 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
           return _buildListView(filteredDocs);
         }
 
-        final String internalThreadId =
-            'cabang_${_currentUserData!['id_cabang']}_internal_petugas';
+        // --- BAGIAN 2: CHAT INTERNAL ADMIN (Perbaikan Utama) ---
+
+        // 1. Tentukan ID Thread yang SAMA dengan logika AdminChat.php
+        final int cabangId = _currentUserData!['id_cabang'];
+        final int petugasId = _currentUserData!['id']; // ID SQL Petugas
+
+        // Format baru: cabang_{idCabang}_petugas_{idPetugas}
+        final String expectedThreadId = 'cabang_${cabangId}_petugas_$petugasId';
+
+        // 2. Cek apakah thread tersebut sudah ada di history (Stream)
         final internalThreadExists = allDocs.any(
-          (doc) => doc.id == internalThreadId,
+          (doc) => doc.id == expectedThreadId,
         );
-        final internalThreadData =
-            internalThreadExists
-                ? allDocs.firstWhere((doc) => doc.id == internalThreadId)
-                : null;
+
+        final internalThreadData = internalThreadExists
+            ? allDocs.firstWhere((doc) => doc.id == expectedThreadId)
+            : null;
+
+        // 3. Ambil data pesan terakhir untuk preview
+        String subtitleText = 'Hubungi admin kantor pusat...';
+        if (internalThreadData != null) {
+          final data = internalThreadData.data() as Map<String, dynamic>;
+          subtitleText = data['lastMessage'] ?? subtitleText;
+        }
 
         return ListView(
           children: [
             ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.group)),
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue[800], // Warna pembeda
+                child:
+                    const Icon(Icons.admin_panel_settings, color: Colors.white),
+              ),
               title: const Text(
-                "Internal Admin",
+                "Admin Internal",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(
-                internalThreadData != null
-                    ? (internalThreadData.data()
-                            as Map<String, dynamic>)['lastMessage'] ??
-                        'Mulai percakapan...'
-                    : 'Mulai percakapan dengan admin',
+                subtitleText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: internalThreadExists ? Colors.black54 : Colors.grey,
+                  fontStyle: internalThreadExists
+                      ? FontStyle.normal
+                      : FontStyle.italic,
+                ),
               ),
               onTap: () async {
                 try {
-                  final threadId = await _chatService
-                      .getOrCreateAdminChatThreadForPetugas(
-                        petugasData: _currentUserData!,
-                      );
+                  // Pastikan Anda sudah memperbarui ChatService.getOrCreateAdminChatThreadForPetugas
+                  // agar menggunakan format ID yang sama ('cabang_X_petugas_Y')
+                  // dan melakukan .set() jika dokumen belum ada.
+
+                  final threadId =
+                      await _chatService.getOrCreateAdminChatThreadForPetugas(
+                    petugasData: _currentUserData!,
+                  );
+
                   if (mounted) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (_) => ReusableChatPage(
-                              threadId: threadId,
-                              chatTitle: "Internal Admin",
-                              currentUser: _currentUserData!,
-                            ),
+                        builder: (_) => ReusableChatPage(
+                          threadId: threadId,
+                          chatTitle: "Admin Internal",
+                          currentUser: _currentUserData!,
+                        ),
                       ),
                     );
                   }
                 } catch (e) {
-                  if (mounted)
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Gagal memulai chat: $e")),
                     );
+                  }
                 }
               },
             ),
@@ -226,12 +255,11 @@ class _PetugasChatHomePageState extends State<PetugasChatHomePage>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) => ReusableChatPage(
-                      threadId: doc.id,
-                      chatTitle: chatTitle, // Kirim judul baru ke halaman chat
-                      currentUser: _currentUserData!,
-                    ),
+                builder: (context) => ReusableChatPage(
+                  threadId: doc.id,
+                  chatTitle: chatTitle, // Kirim judul baru ke halaman chat
+                  currentUser: _currentUserData!,
+                ),
               ),
             );
           },

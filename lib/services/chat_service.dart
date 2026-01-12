@@ -263,11 +263,121 @@ class ChatService {
       .orderBy('lastMessageTimestamp', descending: true)
       .snapshots();
   }
+
+  Future<String> getOrCreateAdminChatThreadForSpecificReport({
+    required Map<String, dynamic> userData,
+    required String apiToken,
+    required int idLaporan, // ID Pengaduan
+  }) async {
+    final userLaravelId = userData['id'] as int?;
+    final cabangId = userData['id_cabang'] as int?;
+    final userFirebaseUid = userData['firebase_uid']?.toString().trim();
+    final userName = userData['nama'] as String?;
+
+    if (userLaravelId == null || userFirebaseUid == null || userName == null || cabangId == null) {
+      throw Exception('Data user tidak lengkap.');
+    }
+
+    // 1. FORMAT ID BARU (Agar terpisah dari chat umum)
+    // Format: cabang_{idCabang}_pelanggan_{idUser}_pengaduan_{idLaporan}
+    final threadId = 'cabang_${cabangId}_pelanggan_${userLaravelId}_pengaduan_$idLaporan';
+    
+    final threadRef = _firestore.collection('chat_threads').doc(threadId);
+    final doc = await threadRef.get();
+
+    // 2. CEK & BUAT DOKUMEN (Agar tidak Permission Denied)
+    if (!doc.exists) {
+      // Ambil daftar admin cabang dari API agar mereka bisa reply
+      final adminInfoResponse = await _apiService.getBranchAdminInfo(apiToken);
+      
+      List<String> uids = [userFirebaseUid];
+      Map<String, dynamic> names = {userFirebaseUid: userName};
+
+      if (adminInfoResponse.statusCode == 200) {
+        final adminData = jsonDecode(adminInfoResponse.body)['data'];
+        for (var admin in adminData) {
+          if (admin['firebase_uid'] != null) {
+            final adminUid = admin['firebase_uid'].toString().trim();
+            uids.add(adminUid);
+            names[adminUid] = admin['nama'] ?? 'Admin';
+          }
+        }
+      }
+
+      // Buat Thread Baru
+      await threadRef.set({
+        'threadInfo': {
+          'title': 'Chat Pengaduan #$idLaporan',
+          'initiatorId': userLaravelId,
+          'initiatorType': 'pelanggan',
+          'cabangId': cabangId,
+          'tipeTugas': 'pengaduan_admin', // Penanda khusus untuk Admin PHP (opsional)
+          'idTugas': idLaporan,
+        },
+        'participantUids': uids,
+        'participantNames': names,
+        'lastMessage': 'Mulai diskusi laporan #$idLaporan',
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'adminLastSeenAt': null,
+      });
+    } else {
+      // (Opsional) Jika thread sudah ada, pastikan UID user saat ini tetap terdaftar
+      // jaga-jaga jika ganti akun firebase tapi ID pelanggan sama
+      final data = doc.data();
+      final List currentUsers = data?['participantUids'] ?? [];
+      if (!currentUsers.contains(userFirebaseUid)) {
+         await threadRef.update({
+          'participantUids': FieldValue.arrayUnion([userFirebaseUid])
+        });
+      }
+    }
+    
+    return threadId;
+  }
   
   Future<String> getOrCreateAdminChatThreadForPetugas({required Map<String, dynamic> petugasData}) async {
-      final cabangId = petugasData['id_cabang'];
-      final threadId = 'cabang_${cabangId}_internal_petugas';
-      return threadId;
+    // 1. Ambil data yang diperlukan
+    final int cabangId = petugasData['id_cabang'];
+    final int petugasId = petugasData['id']; // ID SQL Petugas
+    final String myUid = petugasData['firebase_uid'].toString().trim();
+    final String myName = petugasData['nama'];
+
+    // 2. Gunakan format ID yang SAMA dengan Admin PHP (AdminChat.php)
+    // Format: cabang_{cabangId}_petugas_{petugasId}
+    final threadId = 'cabang_${cabangId}_petugas_$petugasId';
+
+    final docRef = _firestore.collection('chat_threads').doc(threadId);
+    final docSnap = await docRef.get();
+
+    // 3. Cek apakah dokumen thread sudah ada
+    if (!docSnap.exists) {
+      // Jika belum ada, BUAT dokumennya agar Rules tidak error.
+      // Kita masukkan UID kita sendiri ke participantUids agar isParentThreadParticipant() bernilai TRUE.
+      await docRef.set({
+        'threadInfo': {
+          'title': 'Chat Internal Petugas',
+          'initiatorId': petugasId,
+          'initiatorType': 'petugas', // Sesuai PHP
+          'cabangId': cabangId,
+        },
+        'participantUids': [myUid], // PENTING: Masukkan UID sendiri
+        'participantNames': {myUid: myName},
+        'lastMessage': 'Mulai percakapan internal',
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'adminLastSeenAt': null, // Field tambahan admin
+      });
+    } else {
+      // Jika sudah ada, pastikan UID kita terdaftar (jaga-jaga jika admin yang buat tapi UID belum masuk)
+      final data = docSnap.data();
+      final List users = data?['participantUids'] ?? [];
+      if (!users.contains(myUid)) {
+        await docRef.update({
+          'participantUids': FieldValue.arrayUnion([myUid])
+        });
+      }
+    }
+
+    return threadId;
   }
 }
 
