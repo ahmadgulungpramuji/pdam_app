@@ -168,7 +168,7 @@ class ApiService {
     if (token == null) throw Exception('Sesi berakhir.');
 
     final url = Uri.parse('$baseUrl/user/sync-firebase');
-    
+
     try {
       final response = await http.post(
         url,
@@ -191,8 +191,8 @@ class ApiService {
       print("Error calling syncUserToFirebase: $e");
     }
   }
- 
-Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
+
+  Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     // 1. Bersihkan spasi
     final cleanCode = trackingCode.trim();
 
@@ -202,7 +202,8 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     final String url = '$baseUrl/track/temuan/$cleanCode';
 
     try {
-      print('DEBUG TRACKING: Request ke $url'); // Cek log ini untuk memastikan URL benar
+      print(
+          'DEBUG TRACKING: Request ke $url'); // Cek log ini untuk memastikan URL benar
 
       final response = await _dio.get(
         url,
@@ -220,7 +221,8 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
 
       if (e.response?.statusCode == 404) {
         // Ini jika route benar tapi datanya tidak ada di database
-        throw Exception("Laporan dengan kode '$cleanCode' tidak ditemukan di sistem.");
+        throw Exception(
+            "Laporan dengan kode '$cleanCode' tidak ditemukan di sistem.");
       } else {
         // Ini jika error lain (misal server mati, internet putus)
         throw Exception("Gagal melacak: ${e.message}");
@@ -1098,7 +1100,7 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     }
   }
 
-   Future<Map<String, dynamic>> postPdamId(
+  Future<Map<String, dynamic>> postPdamId(
     String idPdam,
     String idPelanggan,
   ) async {
@@ -1151,7 +1153,8 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
       return responseData;
     } else {
       // Untuk error lainnya (misal: 500), lempar Exception
-      String serverMessage = responseData['message'] ?? 'Terjadi kesalahan server.';
+      String serverMessage =
+          responseData['message'] ?? 'Terjadi kesalahan server.';
       throw Exception('Gagal: $serverMessage (Status: ${response.statusCode})');
     }
   }
@@ -1855,7 +1858,7 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
 
       if (response.statusCode == 200 && responseBody['success'] == true) {
         final data = responseBody['data'];
-        
+
         // --- DATA MAPPING LENGKAP ---
         return {
           'id_pdam': data['info']['id_pelanggan'],
@@ -1868,9 +1871,6 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
           'jumlah_bulan': data['tagihan']['jumlah_bulan_nunggak'] ?? 0,
           'rincian': data['tagihan']['rincian'] ?? [], // List rincian
           'error': null,
-
-
-
         };
       } else {
         return {
@@ -1894,10 +1894,11 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
       };
     }
   }
+
   // Menghapus ID PDAM yang tersimpan
- Future<bool> deleteUserPdamId(int databaseId) async {
+  Future<bool> deleteUserPdamId(int databaseId) async {
     final token = await getToken();
-    final url = Uri.parse('$baseUrl/id-pdam/$databaseId'); 
+    final url = Uri.parse('$baseUrl/id-pdam/$databaseId');
 
     try {
       final response = await http.delete(
@@ -1914,25 +1915,25 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
         return true;
       } else {
         // Log error untuk developer
-        print('Gagal menghapus ID. Status: ${response.statusCode}. Body: ${response.body}');
-        
+        print(
+            'Gagal menghapus ID. Status: ${response.statusCode}. Body: ${response.body}');
+
         // Coba ambil pesan error dari server jika ada
         String serverMessage = 'Gagal menghapus ID.';
         try {
           final body = jsonDecode(response.body);
           if (body['message'] != null) serverMessage = body['message'];
         } catch (_) {}
-        
+
         // Lempar error agar bisa ditangkap di halaman UI
-        throw Exception(serverMessage); 
+        throw Exception(serverMessage);
       }
     } catch (e) {
       print('Error deleteUserPdamId: $e');
       // Lempar ulang error
-      rethrow; 
+      rethrow;
     }
   }
-
 
   Future<List<String>> fetchPdamNumbersByPelanggan(String idPelanggan) async {
     //
@@ -2134,7 +2135,7 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     if (token == null) throw Exception('Sesi berakhir, silakan login ulang.');
 
     final url = Uri.parse('$baseUrl/auth/generate-web-url');
-    
+
     final response = await http.get(
       url,
       headers: {
@@ -2149,7 +2150,7 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
         return data['url']; // Ini URL magic link-nya
       }
     }
-    
+
     throw Exception('Gagal mendapatkan akses web admin.');
   }
 
@@ -2634,6 +2635,5 @@ Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     }
   }
 }
-
 
 // Di dalam class ApiService

@@ -43,36 +43,35 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
 
   Future<void> _submitBiodata() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
 
     try {
-      // 1. Update ke MySQL
+      // 1. Siapkan data update
       Map<String, String> dataToUpdate = {
         'nama': widget.petugas.nama,
         'nomor_hp': _hpController.text.trim(),
       };
+
       if (_emailController.text.trim().isNotEmpty) {
         dataToUpdate['email'] = _emailController.text.trim();
       }
+
+      // 2. Panggil API Update Profile (Simpan ke MySQL)
       await _apiService.updatePetugasProfile(data: dataToUpdate);
 
-      // 2. Sync ke Firebase (UID berubah di Server)
+
       try {
         await _apiService.syncUserToFirebase();
       } catch (e) {
-        print("Warning Sync: $e");
+        print("Warning: Gagal sync ke Firebase, tapi update profil sukses. $e");
+        // Opsional: Tampilkan snackbar warning kecil
       }
-
       // ============================================================
-      // 3. [FIX PENTING] UPDATE DATA LOKAL (SharedPreferences)
-      // Ambil profil terbaru dari server yang sudah memuat UID baru
-      // ============================================================
-      await _apiService
-          .getUserProfile(); // Method ini otomatis update SharedPreferences
 
       if (!mounted) return;
 
-      // 4. Navigasi (Data di Home nanti sudah pakai UID baru)
+      // 4. Sukses Update & Sync -> Masuk ke HomePetugasPage
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
