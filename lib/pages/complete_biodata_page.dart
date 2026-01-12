@@ -9,7 +9,8 @@ import 'package:pdam_app/main.dart'; // Untuk navigatorKey jika perlu
 class CompleteBiodataPage extends StatefulWidget {
   final Petugas petugas;
 
-  const CompleteBiodataPage({Key? key, required this.petugas}) : super(key: key);
+  const CompleteBiodataPage({Key? key, required this.petugas})
+      : super(key: key);
 
   @override
   State<CompleteBiodataPage> createState() => _CompleteBiodataPageState();
@@ -18,7 +19,7 @@ class CompleteBiodataPage extends StatefulWidget {
 class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
-  
+
   late TextEditingController _hpController;
   late TextEditingController _emailController;
   bool _isLoading = false;
@@ -38,45 +39,58 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
     super.dispose();
   }
 
+  // Buka complete_biodata_page.dart
+
   Future<void> _submitBiodata() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
     try {
-      // Siapkan data update
+      // 1. Update ke MySQL
       Map<String, String> dataToUpdate = {
-        'nama': widget.petugas.nama, // Nama tetap dikirim
+        'nama': widget.petugas.nama,
         'nomor_hp': _hpController.text.trim(),
       };
-
-      // Tambahkan email hanya jika diisi
       if (_emailController.text.trim().isNotEmpty) {
         dataToUpdate['email'] = _emailController.text.trim();
       }
-
-      // Panggil API Update Profile yang sudah ada di ApiService
       await _apiService.updatePetugasProfile(data: dataToUpdate);
+
+      // 2. Sync ke Firebase (UID berubah di Server)
+      try {
+        await _apiService.syncUserToFirebase();
+      } catch (e) {
+        print("Warning Sync: $e");
+      }
+
+      // ============================================================
+      // 3. [FIX PENTING] UPDATE DATA LOKAL (SharedPreferences)
+      // Ambil profil terbaru dari server yang sudah memuat UID baru
+      // ============================================================
+      await _apiService
+          .getUserProfile(); // Method ini otomatis update SharedPreferences
 
       if (!mounted) return;
 
-      // Sukses Update -> Masuk ke HomePetugasPage
-      // Gunakan pushAndRemoveUntil agar user tidak bisa back ke halaman form ini
+      // 4. Navigasi (Data di Home nanti sudah pakai UID baru)
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) => HomePetugasPage(idPetugasLoggedIn: widget.petugas.id),
+          builder: (context) =>
+              HomePetugasPage(idPetugasLoggedIn: widget.petugas.id),
         ),
         (route) => false,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Biodata berhasil disimpan. Selamat datang!")),
+        const SnackBar(
+            content: Text("Biodata berhasil disimpan. Selamat datang!")),
       );
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal menyimpan: ${e.toString().replaceAll('Exception:', '')}")),
+        SnackBar(
+            content: Text(
+                "Gagal menyimpan: ${e.toString().replaceAll('Exception:', '')}")),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -94,7 +108,8 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text("Lengkapi Biodata", style: GoogleFonts.poppins(color: Colors.black87)),
+          title: Text("Lengkapi Biodata",
+              style: GoogleFonts.poppins(color: Colors.black87)),
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
@@ -111,15 +126,17 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
                 const SizedBox(height: 30),
                 Text(
                   "Data Kontak (Wajib Diisi)",
-                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.poppins(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "Mohon lengkapi nomor HP aktif Anda agar dapat menerima notifikasi tugas.",
-                  style: GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
+                  style:
+                      GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Input No HP
                 TextFormField(
                   controller: _hpController,
@@ -127,7 +144,8 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
                   decoration: InputDecoration(
                     labelText: "Nomor HP (Wajib)",
                     hintText: "Contoh: 0812xxxxxxxx",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     prefixIcon: const Icon(Icons.phone_android),
                   ),
                   validator: (value) {
@@ -149,7 +167,8 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
                   decoration: InputDecoration(
                     labelText: "Email (Opsional)",
                     hintText: "petugas@pdam.com",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     prefixIcon: const Icon(Icons.email_outlined),
                   ),
                 ),
@@ -171,7 +190,8 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
                             "SIMPAN & LANJUTKAN",
-                            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.poppins(
+                                fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                   ),
                 ),

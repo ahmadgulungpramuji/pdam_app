@@ -162,6 +162,35 @@ class ApiService {
       };
     }
   }
+
+  Future<void> syncUserToFirebase() async {
+    final token = await getToken();
+    if (token == null) throw Exception('Sesi berakhir.');
+
+    final url = Uri.parse('$baseUrl/user/sync-firebase');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("Firebase Sync Success: ${body['message']}");
+      } else {
+        // Jika gagal, kita log saja, jangan throw exception agar user tetap bisa masuk Home
+        // Tapi jika Anda ingin memblokir user jika gagal sync, silakan throw Exception.
+        print("Firebase Sync Failed: ${body['message']}");
+      }
+    } catch (e) {
+      print("Error calling syncUserToFirebase: $e");
+    }
+  }
  
 Future<Map<String, dynamic>> trackTemuanKebocoran(String trackingCode) async {
     // 1. Bersihkan spasi
