@@ -42,36 +42,31 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
   // Buka complete_biodata_page.dart
 
   Future<void> _submitBiodata() async {
+    // 1. Validasi Form Frontend
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. Siapkan data update
-      Map<String, String> dataToUpdate = {
+      // 2. Panggil API Update Profile
+      // Data dikirim ke server. Jika No HP duplikat, server akan melempar error (Exception).
+      await _apiService.updatePetugasProfile(data: {
         'nama': widget.petugas.nama,
         'nomor_hp': _hpController.text.trim(),
-      };
+        if (_emailController.text.trim().isNotEmpty)
+          'email': _emailController.text.trim(),
+      });
 
-      if (_emailController.text.trim().isNotEmpty) {
-        dataToUpdate['email'] = _emailController.text.trim();
-      }
-
-      // 2. Panggil API Update Profile (Simpan ke MySQL)
-      await _apiService.updatePetugasProfile(data: dataToUpdate);
-
-
+      // 3. Sync ke Firebase (Opsional, dijalankan jika update sukses)
       try {
         await _apiService.syncUserToFirebase();
       } catch (e) {
-        print("Warning: Gagal sync ke Firebase, tapi update profil sukses. $e");
-        // Opsional: Tampilkan snackbar warning kecil
+        print("Warning: Firebase sync failed: $e");
       }
-      // ============================================================
 
       if (!mounted) return;
 
-      // 4. Sukses Update & Sync -> Masuk ke HomePetugasPage
+      // 4. Navigasi ke Beranda (Hanya tercapai jika tidak ada error)
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
@@ -81,21 +76,58 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
         (route) => false,
       );
 
+      // Tampilkan pesan sukses
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text("Biodata berhasil disimpan. Selamat datang!")),
+          content: Text("Biodata berhasil disimpan. Selamat datang!"),
+          backgroundColor: Colors.green,
+        ),
       );
+
     } catch (e) {
+      // === BAGIAN PENANGANAN ERROR YANG DISESUAIKAN ===
+      
+      String rawError = e.toString();
+      String finalErrorMessage;
+
+      // Deteksi kata kunci error dari server (Laravel)
+      // Kita cek variasi kata-kata yang mungkin muncul saat duplikat
+      if (rawError.toLowerCase().contains("sudah digunakan") || 
+          rawError.toLowerCase().contains("sudah terdaftar") ||
+          rawError.toLowerCase().contains("taken")) {
+        
+        // PAKSA pesan menjadi kalimat yang Anda inginkan
+        finalErrorMessage = "Nomor HP yang Anda masukan sudah terdaftar.";
+        
+      } else {
+        // Jika errornya BUKAN masalah nomor HP (misal koneksi putus),
+        // kita bersihkan pesan error bawaan agar tetap rapi.
+        finalErrorMessage = rawError.replaceAll('Exception:', '').trim();
+        
+        // Bersihkan prefix umum seperti "Data tidak valid:"
+        if (finalErrorMessage.startsWith("Data tidak valid:")) {
+           finalErrorMessage = finalErrorMessage.replaceAll("Data tidak valid:", "").trim();
+        }
+        
+        // Hapus tanda strip (-) di awal jika ada
+        if (finalErrorMessage.startsWith("-")) {
+          finalErrorMessage = finalErrorMessage.substring(1).trim();
+        }
+      }
+
+      // Tampilkan SnackBar dengan pesan yang sudah difilter
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(
-                "Gagal menyimpan: ${e.toString().replaceAll('Exception:', '')}")),
+          content: Text(finalErrorMessage), 
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     // WillPopScope untuk menangani tombol Back fisik
