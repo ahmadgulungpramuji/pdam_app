@@ -178,6 +178,7 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String _usageAmount = "0"; // Untuk menampung data liter
+  String _usagePeriod = "";
   int _billAmount = 0;       // Untuk menampung total rupiah
   bool _isBillLoading = true; // Indikator loading khusus kartu biru
   String? _errorMessage;
@@ -239,46 +240,79 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
-// --- TAMBAHKAN FUNGSI INI ---
   Future<void> _fetchHomeBillInfo() async {
     if (!mounted) return;
     
-    // Set loading true saat mulai mengambil data
     setState(() {
       _isBillLoading = true;
     });
 
     try {
-      // 1. Ambil daftar semua ID PDAM milik user yang login
-      final ids = await _apiService.getAllUserPdamIds();
-      
-      if (ids.isNotEmpty) {
-        // 2. Ambil ID yang PERTAMA (sesuai permintaan Anda)
-        final firstIdData = ids.first;
-        
-        // Ambil nomor ID pelanggannya (pastikan key-nya sesuai respon API, biasanya 'nomor' atau 'id_pelanggan')
-        final String idPdam = firstIdData['nomor']?.toString() ?? firstIdData['id_pdam']?.toString() ?? '';
+      String targetIdPdam = '';
 
-        if (idPdam.isNotEmpty) {
-          // 3. Panggil API getTunggakan (yang sudah diupdate di langkah sebelumnya)
-          // Ini akan memicu scraping di server Laravel
-          final billData = await _apiService.getTunggakan(idPdam);
+      // 1. Ambil Profil Terbaru
+      final userProfile = await _apiService.getUserProfile();
+      
+      if (userProfile != null) {
+        // PRIORITAS 1: Cek kolom 'id_pdam' di database user
+        if (userProfile['id_pdam'] != null && userProfile['id_pdam'].toString() != 'null') {
+          targetIdPdam = userProfile['id_pdam'].toString().trim();
+        } 
+        // PRIORITAS 2: Cek kolom 'nomor_sambungan'
+        else if (userProfile['nomor_sambungan'] != null) {
+          targetIdPdam = userProfile['nomor_sambungan'].toString().trim();
+        }
+        // PRIORITAS 3: Cek Username (Jika username adalah angka/ID Pelanggan)
+        // Logika ini menyamakan dengan halaman Cek Tagihan
+        else if (userProfile['username'] != null) {
+           String username = userProfile['username'].toString().trim();
+           // Cek apakah username hanya berisi angka dan panjangnya masuk akal
+           if (RegExp(r'^[0-9]+$').hasMatch(username) && username.length > 3) {
+             targetIdPdam = username;
+           }
+        }
+      }
+
+      // 2. FALLBACK: Jika di Profil Kosong, Ambil dari List API
+      if (targetIdPdam.isEmpty) {
+        final ids = await _apiService.getAllUserPdamIds();
+        
+        if (ids.isNotEmpty) {
+          // --- PERBAIKAN DI SINI ---
+          // Sebelumnya: ids.first (ID Paling Baru ditambahkan) -> Menyebabkan muncul Rp 160rb
+          // Sekarang: ids.last (ID Paling Lama/Awal didaftarkan) -> Seharusnya muncul Rp 123rb (Sunarto)
+          // Karena API biasanya mengurutkan dari Terbaru ke Terlama (DESC).
           
-          if (mounted) {
-            setState(() {
-              // Update Pemakaian (Liter)
-              _usageAmount = billData['pemakaian']?.toString() ?? "0";
-              
-              // Update Total Tagihan (Rupiah) - Pastikan dikonversi ke int
-              _billAmount = int.tryParse(billData['jumlah'].toString()) ?? 0;
-            });
-          }
+          targetIdPdam = ids.last['nomor']?.toString() ?? 
+                         ids.last['id_pdam']?.toString() ?? ''; 
+        }
+      }
+
+      // 3. EKSEKUSI CEK TAGIHAN
+      if (targetIdPdam.isNotEmpty) {
+        // Panggil API Cek Tagihan spesifik untuk ID Utama tersebut
+        final billData = await _apiService.getTunggakan(targetIdPdam);
+        
+        if (mounted) {
+          setState(() {
+            // Mengambil data pemakaian
+            _usageAmount = billData['pemakaian_saat_ini']?.toString() ?? 
+                           billData['pemakaian']?.toString() ?? "0";
+            
+            // Mengambil periode
+            _usagePeriod = billData['periode_pemakaian']?.toString() ?? ""; 
+            
+            // Mengambil total tagihan (Rupiah)
+            _billAmount = int.tryParse(billData['total_tagihan'].toString()) ?? 
+                          int.tryParse(billData['jumlah'].toString()) ?? 0;
+          });
         }
       } else {
-        // Jika user belum punya ID PDAM terdaftar
+        // Jika benar-benar tidak ada ID sama sekali
         if (mounted) {
           setState(() {
             _usageAmount = "0";
+            _usagePeriod = "-";
             _billAmount = 0;
           });
         }
@@ -286,7 +320,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     } catch (e) {
       print("Error fetching home bill info: $e");
     } finally {
-      // Matikan loading selesai (sukses ataupun gagal)
       if (mounted) {
         setState(() {
           _isBillLoading = false;
@@ -814,8 +847,10 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 subtitle: "Syarat dan alur pemasangan sambungan baru.",
                 onTap: () {
                   final List<String> steps = [
-                    "Datang ke kantor PDAM terdekat dengan membawa fotokopi KTP dan KK.",
-                    "Isi formulir pendaftaran yang telah disediakan oleh petugas.",
+                    "Instal Aplikasi Banyu Digital.",
+                    "Milih menu 'Daftar Sambungan Baru' ",
+                    "Isi semua formulir pendaftaran yg ada di Aplikasi.",
+                    "Unggah dokumen persyaratan KTP dan Foto Rumah.",
                     "Petugas akan melakukan survei ke lokasi pemasangan untuk menentukan kelayakan teknis.",
                     "Jika disetujui, lakukan pembayaran biaya pendaftaran dan pemasangan.",
                     "Tim teknis akan datang ke lokasi Anda untuk melakukan pemasangan pipa dan meteran air."
@@ -854,7 +889,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
 
   
   Widget _buildWaterUsageCard(Color primary, Color secondary) {
-    // Formatter Rupiah (contoh: Rp 2.174.992)
     final currencyFormatter = NumberFormat.currency(
       locale: 'id_ID', 
       symbol: 'Rp ', 
@@ -878,7 +912,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
           )
         ],
       ),
-      // Cek status Loading
       child: _isBillLoading
           ? const Center(
               child: SizedBox(
@@ -893,7 +926,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // --- LABEL 1: PENGGUNAAN TERAKHIR ---
                     Text(
                       "Penggunaan Air Terakhir", 
                       style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
@@ -902,12 +934,30 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                         color: Colors.white.withOpacity(0.8), size: 28),
                   ],
                 ),
-                const SizedBox(height: 8),
+                
+                // --- [BAGIAN BARU] TAMPILAN PERIODE ---
+                if (_usagePeriod.isNotEmpty && _usagePeriod != "-")
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      "Periode: $_usagePeriod", 
+                      style: GoogleFonts.manrope(
+                        color: Colors.white.withOpacity(0.9), 
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic
+                      ),
+                    ),
+                  )
+                else
+                   const SizedBox(height: 8),
+
+                const SizedBox(height: 4),
+
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    // --- ANGKA LITER (Misal: 23.613) ---
                     Text(
                       _usageAmount, 
                       style: GoogleFonts.manrope(
@@ -916,7 +966,6 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                           color: Colors.white),
                     ),
                     const SizedBox(width: 6),
-                    // --- SATUAN ---
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6.0),
                       child: Text(
@@ -929,16 +978,15 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
                     ),
                   ],
                 ),
+                
                 const SizedBox(height: 4),
                 const Divider(color: Colors.white30, height: 32),
+                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // --- LABEL 2: TAGIHAN TERTUNGGAK ---
                     Text("Tagihan Tertunggak", 
                         style: GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
-                    
-                    // --- NOMINAL RUPIAH (Misal: Rp 2.174.992) ---
                     Text(
                       currencyFormatter.format(_billAmount), 
                       style: GoogleFonts.manrope(

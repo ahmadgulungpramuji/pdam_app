@@ -156,7 +156,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
 
       if (status == 'pending' ||
           status == 'menunggu_konfirmasi' ||
-          status == 'menunggu_pelanggan') {
+          status == 'menunggu_pelanggan' ||
+          status == 'menunggu_jam_kerja') {
         _laporanDiproses.add(laporan);
       } else if (status == 'diterima' ||
           status == 'dalam_perjalanan' ||
@@ -537,6 +538,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
     switch (status.toLowerCase()) {
       case 'pending':
         return (color: Colors.blue.shade700, icon: Ionicons.time_outline);
+      
+      // --- PERUBAHAN DI SINI: OPSI C (AMBER/KUNING GELAP) ---
+      case 'menunggu_jam_kerja':
+        return (
+          color: Colors.amber.shade900, // Warna Amber Gelap agar tulisan terbaca
+          icon: Ionicons.time_outline   // Ikon jam penanda waktu
+        );
+      
       case 'menunggu_pelanggan':
         return (
           color: Colors.purple.shade700,
@@ -565,6 +574,8 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
         );
     }
   }
+
+ 
 
   Widget _buildStatusBadge(String status) {
     final meta = _getStatusMeta(status);

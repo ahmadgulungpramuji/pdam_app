@@ -21,7 +21,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pelayananperumdamtda.com/api';
+  final String baseUrl = 'http://192.250.1.156:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'http://api.wit.ai/message';
@@ -33,7 +33,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pelayananperumdamtda.com/api',
+            baseUrl: 'http://192.250.1.156:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -1503,6 +1503,38 @@ class ApiService {
         'Terjadi kesalahan jaringan atau sistem: ${e.toString()}',
       ); //
     }
+
+  }
+
+  Future<void> deleteUserPdamId(int idDb) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Sesi berakhir. Silakan login kembali.');
+    }
+
+    // Endpoint asumsi: DELETE /api/id-pdam/{id}
+    final url = Uri.parse('$baseUrl/id-pdam/$idDb');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // Berhasil dihapus
+        return;
+      } else {
+        // Gagal
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Gagal menghapus ID PDAM dari server.');
+      }
+    } catch (e) {
+      throw Exception('Terjadi kesalahan saat menghapus ID: $e');
+    }
   }
 
   Future<TemuanKebocoran> trackReport(String trackingCode) async {
@@ -1858,25 +1890,34 @@ class ApiService {
 
       if (response.statusCode == 200 && responseBody['success'] == true) {
         final data = responseBody['data'];
-
-        // --- DATA MAPPING LENGKAP ---
+        
+        // --- PERBAIKAN DI SINI ---
         return {
           'id_pdam': data['info']['id_pelanggan'],
           'nama': data['info']['nama'],
           'alamat': data['info']['alamat'] ?? '-',
           'jumlah': data['tagihan']['total_tagihan'] ?? 0,
           'pemakaian': data['tagihan']['pemakaian_saat_ini'] ?? "0",
+          
+          // >>> TAMBAHKAN BARIS INI <<<
+          'periode_pemakaian': data['tagihan']['periode_pemakaian'] ?? '-', 
+          // >>> AGAR DATA DARI PHP SAMPAI KE FLUTTER <<<
+
           'status': data['tagihan']['status'] ?? '-',
-          // Data Baru
+
           'jumlah_bulan': data['tagihan']['jumlah_bulan_nunggak'] ?? 0,
-          'rincian': data['tagihan']['rincian'] ?? [], // List rincian
+          'rincian': data['tagihan']['rincian'] ?? [],
           'error': null,
+
+
+
         };
       } else {
         return {
           'id_pdam': pdamId,
           'jumlah': 0,
           'pemakaian': "0",
+          'periode_pemakaian': "-", // Tambahkan default value juga disini
           'jumlah_bulan': 0,
           'rincian': [],
           'error': responseBody['message'] ?? 'Data tidak ditemukan.',
@@ -1888,50 +1929,11 @@ class ApiService {
         'id_pdam': pdamId,
         'jumlah': 0,
         'pemakaian': "0",
+        'periode_pemakaian': "-", // Tambahkan default value juga disini
         'jumlah_bulan': 0,
         'rincian': [],
         'error': 'Gagal koneksi server.',
       };
-    }
-  }
-
-  // Menghapus ID PDAM yang tersimpan
-  Future<bool> deleteUserPdamId(int databaseId) async {
-    final token = await getToken();
-    final url = Uri.parse('$baseUrl/id-pdam/$databaseId');
-
-    try {
-      final response = await http.delete(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-
-      // PERBAIKAN DI SINI:
-      // Terima status 200 (OK) ATAU 204 (No Content - Sukses Hapus)
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return true;
-      } else {
-        // Log error untuk developer
-        print(
-            'Gagal menghapus ID. Status: ${response.statusCode}. Body: ${response.body}');
-
-        // Coba ambil pesan error dari server jika ada
-        String serverMessage = 'Gagal menghapus ID.';
-        try {
-          final body = jsonDecode(response.body);
-          if (body['message'] != null) serverMessage = body['message'];
-        } catch (_) {}
-
-        // Lempar error agar bisa ditangkap di halaman UI
-        throw Exception(serverMessage);
-      }
-    } catch (e) {
-      print('Error deleteUserPdamId: $e');
-      // Lempar ulang error
-      rethrow;
     }
   }
 
