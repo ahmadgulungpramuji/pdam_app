@@ -29,6 +29,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdam_app/home_admin_cabang_page.dart';
 
+// --- TAMBAHAN IMPORT UNTUK LOGIKA BIODATA ---
+import 'package:pdam_app/models/petugas_model.dart';
+import 'package:pdam_app/pages/complete_biodata_page.dart'; // Pastikan path ini sesuai lokasi file Anda
+// --------------------------------------------
+
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -116,7 +121,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
         cardTheme: CardThemeData(
-          // <--- Tanda kurung '(' pembuka di sini
           elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -216,11 +220,13 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
 
     if (!mounted) return;
 
+    // 1. Cek Welcome Screen
     if (!hasSeenWelcome) {
       Navigator.pushReplacementNamed(context, '/welcome');
       return;
     }
 
+    // 2. Cek Token
     if (token == null) {
       Navigator.pushReplacementNamed(context, '/login');
       return;
@@ -228,48 +234,82 @@ class _AuthCheckPageState extends State<AuthCheckPage> {
 
     try {
       final apiService = ApiService();
-      final userProfile = await apiService.getUserProfile();
+
+      // Ambil data terbaru dari server (Force Refresh)
+      final userProfile = await apiService.getUserProfile(forceRefresh: true);
 
       if (!mounted) return;
 
       if (userProfile != null) {
+        // Ambil string JSON yang baru saja di-update
         final userDataString = prefs.getString('user_data');
+
         if (userDataString != null) {
           final userData = jsonDecode(userDataString) as Map<String, dynamic>;
 
-          // --- PERBAIKAN LOGIKA AUTO LOGIN ---
+          // === PERBAIKAN LOGIKA DETEKSI TIPE USER DI SINI ===
+          
+          // Ambil tipe user dari respon API (misal: 'admin_cabang', 'petugas', 'pelanggan')
+          String? userType = userData['user_type']; 
+          
+          // Fallback: Jika user_type null, cek manual key-nya (untuk kompatibilitas lama)
+          if (userType == null) {
+             if (userData.containsKey('jabatan')) userType = 'admin_cabang';
+             else if (userData.containsKey('is_active') || userData.containsKey('nip') || userData.containsKey('nik')) userType = 'petugas';
+             else userType = 'pelanggan';
+          }
 
-          // 1. Cek Admin Cabang (Biasanya punya kolom 'jabatan')
-          if (userData.containsKey('jabatan')) {
+          print("DEBUG Main: User Type terdeteksi = $userType");
+
+          // A. LOGIKA ADMIN
+          if (userType == 'admin_cabang') {
             Navigator.pushReplacementNamed(context, '/home_admin_cabang');
           }
-          // 2. Cek Petugas (Punya kolom 'is_active')
-          else if (userData.containsKey('is_active')) {
-            final int petugasId = userData['id'] as int;
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    HomePetugasPage(idPetugasLoggedIn: petugasId),
-              ),
-            );
+          
+          // B. LOGIKA PETUGAS
+          else if (userType == 'petugas') {
+            final petugas = Petugas.fromJson(userData);
+
+            // Cek No HP
+            if (petugas.nomorHp == null || 
+                petugas.nomorHp!.trim().isEmpty || 
+                petugas.nomorHp == '-') {
+              
+              print("DEBUG Main: Petugas belum isi No HP -> Ke Biodata");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CompleteBiodataPage(petugas: petugas),
+                ),
+              );
+            } else {
+              print("DEBUG Main: Petugas Data Lengkap -> Ke Home Petugas");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      HomePetugasPage(idPetugasLoggedIn: petugas.id),
+                ),
+              );
+            }
           }
-          // 3. Sisanya adalah Pelanggan
+          
+          // C. LOGIKA PELANGGAN
           else {
             Navigator.pushReplacementNamed(context, '/home_pelanggan');
           }
+          
         } else {
-          // Fallback jika user_data tidak ditemukan
+          // Data user rusak/hilang
           await apiService.logout();
           if (mounted) Navigator.pushReplacementNamed(context, '/login');
         }
       } else {
-        // Token tidak valid (kedaluwarsa atau lainnya)
+        // Token expired di server
         await ApiService().logout();
         if (mounted) Navigator.pushReplacementNamed(context, '/login');
       }
     } catch (e) {
-      // Terjadi error (misal: tidak ada internet), arahkan ke login
       log("Error saat cek status login: $e");
       await ApiService().logout();
       if (mounted) Navigator.pushReplacementNamed(context, '/login');

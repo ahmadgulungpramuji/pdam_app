@@ -1237,109 +1237,71 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getUserProfile() async {
-    //
-    final token = await getToken(); //
-    print(
-      //
-      'ApiService DEBUG: getUserProfile - Token retrieved: ${token != null ? "Exists" : "Null"}', //
-    );
+  Future<Map<String, dynamic>?> getUserProfile({bool forceRefresh = false}) async {
+    final token = await getToken();
+    print('ApiService DEBUG: getUserProfile - Token retrieved: ${token != null ? "Exists" : "Null"}');
 
     if (token == null) {
-      //
-      print(
-        //
-        'ApiService DEBUG: getUserProfile - No token found, returning null.', //
-      );
-      return null; //
+      print('ApiService DEBUG: getUserProfile - No token found, returning null.');
+      return null;
     }
 
-    final prefs = await SharedPreferences.getInstance(); //
-    String? cachedUserData = prefs.getString('user_data'); //
-
-    if (cachedUserData != null) {
-      //
-      try {
-        //
-        print(
-          //
-          'ApiService DEBUG: getUserProfile - Found and parsed cached data.', //
-        );
-        return jsonDecode(cachedUserData) as Map<String, dynamic>; //
-      } catch (e) {
-        //
-        print(
-          //
-          'ApiService DEBUG: getUserProfile - Error parsing cached data: $e. Removing cache.', //
-        );
-        await prefs.remove('user_data'); //
+    final prefs = await SharedPreferences.getInstance();
+    
+    // --- LOGIKA PERBAIKAN DI SINI ---
+    // Jika forceRefresh = false, baru kita cek cache.
+    // Jika forceRefresh = true, kita LEWATI cache dan langsung ke server.
+    if (!forceRefresh) {
+      String? cachedUserData = prefs.getString('user_data');
+      if (cachedUserData != null) {
+        try {
+          print('ApiService DEBUG: getUserProfile - Found and parsed cached data.');
+          return jsonDecode(cachedUserData) as Map<String, dynamic>;
+        } catch (e) {
+          print('ApiService DEBUG: getUserProfile - Error parsing cached data: $e. Removing cache.');
+          await prefs.remove('user_data');
+        }
       }
     }
+    // -------------------------------
 
-    print(
-      'ApiService DEBUG: getUserProfile - Fetching profile from network.',
-    ); //
+    print('ApiService DEBUG: getUserProfile - Fetching profile from network (Force Refresh: $forceRefresh).');
+    
     try {
-      //
       final response = await http.get(
-        //
-        Uri.parse('$baseUrl/user/profile'), //
+        Uri.parse('$baseUrl/user/profile'),
         headers: {
-          //
-          'Authorization': 'Bearer $token', //
-          'Accept': 'application/json', //
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
         },
       );
 
-      print(
-        //
-        'ApiService DEBUG: getUserProfile - API Response Status Code: ${response.statusCode}', //
-      );
-      print(
-        //
-        'ApiService DEBUG: getUserProfile - API Response Body: ${response.body}', //
-      );
+      print('ApiService DEBUG: getUserProfile - API Response Status Code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        //
-        final data = jsonDecode(response.body) as Map<String, dynamic>; //
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data.containsKey('user') && data['user'] is Map<String, dynamic>) {
-          //
-          await prefs.setString('user_data', jsonEncode(data['user'])); //
-          print(
-            //
-            'ApiService DEBUG: getUserProfile - Profile fetched successfully and cached.', //
-          );
-          return data['user'] as Map<String, dynamic>; //
+          
+          // SIMPAN DATA TERBARU DARI SERVER KE LOKAL
+          await prefs.setString('user_data', jsonEncode(data['user']));
+          
+          print('ApiService DEBUG: getUserProfile - Profile fetched successfully and cached.');
+          return data['user'] as Map<String, dynamic>;
         } else {
-          print(
-            //
-            'ApiService DEBUG: getUserProfile - 200 OK, but response format unexpected.', //
-          );
-          return null; //
+          return null;
         }
       } else if (response.statusCode == 401) {
-        //
-        print(
-          //
-          'ApiService DEBUG: getUserProfile - Received 401, token is invalid. Removing token and returning null.', //
-        );
-        await removeToken(); //
-        return null; //
+        print('ApiService DEBUG: getUserProfile - 401 Unauthorized. Removing token.');
+        await removeToken();
+        return null;
       } else {
-        print(
-          //
-          'ApiService DEBUG: getUserProfile - Failed with status code: ${response.statusCode}.', //
-        );
-        return null; //
+        return null;
       }
     } catch (e) {
-      //
-      print(
-        //
-        'ApiService DEBUG: getUserProfile - Exception during network fetch: $e', //
-      );
-      return null; //
+      print('ApiService DEBUG: getUserProfile - Exception: $e');
+      // Jika internet mati dan kita memaksa refresh, kembalikan null atau cache (opsional)
+      // Di sini kita return null agar checkLoginStatus tahu ada masalah
+      return null;
     }
   }
 
