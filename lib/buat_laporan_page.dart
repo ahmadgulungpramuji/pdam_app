@@ -56,7 +56,8 @@ class _BuatLaporanPageState extends State<BuatLaporanPage> {
     {'value': 'air_keruh', 'label': 'Air Keruh'},
     {'value': 'water_meter_rusak', 'label': 'Meteran Rusak'},
     {'value': 'angka_meter_tidak_sesuai', 'label': 'Angka Meter Tidak Sesuai'},
-    {'value': 'tagihan_membengkak', 'label': 'Tagihan Membengkak'},
+    {'value': 'tagihan_membesar', 'label': 'Tagihan Membesar'},
+    {'value': 'air_kecil', 'label': 'Air Kecil'},
     {'value': 'lain_lain', 'label': 'Lain-lain...'},
   ];
 
