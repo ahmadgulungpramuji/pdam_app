@@ -7,12 +7,14 @@ class ReusableChatPage extends StatefulWidget {
   final String threadId;
   final String chatTitle;
   final Map<String, dynamic> currentUser;
+  final bool isReadOnly;
 
   const ReusableChatPage({
     super.key,
     required this.threadId,
     required this.chatTitle,
     required this.currentUser,
+    this.isReadOnly = false,
   });
 
   @override
@@ -134,7 +136,26 @@ class _ReusableChatPageState extends State<ReusableChatPage> {
               },
             ),
           ),
-          _buildInput(),
+          
+          // [PERUBAHAN DISINI]
+          // Jika isReadOnly = true (Anggota Tim), Tampilkan teks saja.
+          // Jika false (Ketua Tim), Tampilkan Input Chat.
+          widget.isReadOnly 
+            ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                color: Colors.grey[200],
+                child: const Text(
+                  "Anda hanya dapat melihat percakapan ini (Mode Anggota).",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey, 
+                    fontWeight: FontWeight.bold,
+                    fontStyle: FontStyle.italic
+                  ),
+                ),
+              )
+            : _buildInput(),
         ],
       ),
     );

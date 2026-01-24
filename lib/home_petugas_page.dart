@@ -32,37 +32,34 @@ class HomePetugasPage extends StatefulWidget {
 
 class _HomePetugasPageState extends State<HomePetugasPage> {
   DateTime? _lastPressed;
-
   int _selectedIndex = 0;
-  late final List<Widget> _widgetOptions;
+  
+  // HAPUS variabel _widgetOptions yang lama (Kita ganti dengan method _buildBody)
+  // late final List<Widget> _widgetOptions; 
+
   StreamSubscription? _newTaskSubscription;
   final GlobalKey<_AssignmentsPageState> _assignmentsPageKey = GlobalKey();
 
-  // Tambahan untuk Badge Navigasi
   final ChatService _chatService = ChatService();
   Map<String, dynamic>? _currentUserData;
+  Stream<int>? _badgeStream;
+  
+  // [TAMBAHAN BARU 1] Variable untuk menyimpan daftar Thread ID dimana saya adalah KETUA
+  List<String> _myLeaderThreadIds = []; 
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentUser(); // Load user untuk Nav Bar
+    _loadCurrentUser();
+    _setupDataAndBadge(); // Gabungan load badge & whitelist
 
-    _widgetOptions = <Widget>[
-      AssignmentsPage(
-        key: _assignmentsPageKey,
-        idPetugasLoggedIn: widget.idPetugasLoggedIn,
-      ),
-      KinerjaPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
-      HistoryPage(idPetugasLoggedIn: widget.idPetugasLoggedIn),
-      const PetugasChatHomePage(),
-      const ProfilePage(),
-    ];
-
+    // Event listener notifikasi
     _newTaskSubscription =
         NotificationService().onNotificationTap.listen((payload) {
       if (mounted && payload['tipe_notifikasi'] == 'penugasan_baru') {
         _onItemTapped(0);
         _assignmentsPageKey.currentState?.refreshTugas();
+        _setupDataAndBadge();
       }
     });
   }
@@ -74,6 +71,63 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
       setState(() {
         _currentUserData = jsonDecode(jsonString);
       });
+    }
+  }
+
+  // [PERBAIKAN LOGIKA UTAMA]
+  Future<void> _setupDataAndBadge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('user_data');
+    if (jsonString == null) return;
+
+    final userData = jsonDecode(jsonString);
+    final String myUid = userData['firebase_uid'] ?? '';
+    final int myIdPetugas = userData['id'];
+
+    if (myUid.isEmpty) return;
+
+    try {
+      final ApiService apiService = ApiService();
+      // Ambil semua tugas terbaru
+      final List<Tugas> semuaTugas = await apiService.getPetugasSemuaTugas(myIdPetugas);
+
+      // List untuk menampung ID Chat dimana user adalah KETUA
+      List<String> leaderIds = [];
+
+      for (var t in semuaTugas) {
+        // Logika: User adalah Petugas Pelapor (Ketua) DAN tipe tugas Pengaduan
+        if (t.isPetugasPelapor && t.tipeTugas == 'pengaduan') {
+          // Format ID harus sama persis dengan di ChatService
+          String threadId = '${t.tipeTugas}_${t.idTugas}'; 
+          leaderIds.add(threadId);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          // 1. Simpan ke variable state agar bisa dikirim ke Halaman Chat
+          _myLeaderThreadIds = leaderIds;
+
+          // 2. Setup Badge Stream (Hanya hitung notif dari tugas Ketua)
+          if (leaderIds.isEmpty) {
+            _badgeStream = Stream.value(0);
+          } else {
+            _badgeStream = _chatService.getUnreadCountByPrefix(
+              myUid,
+              'pengaduan_', 
+              allowedThreadIds: leaderIds, 
+            );
+          }
+        });
+      }
+    } catch (e) {
+      print("Error setup badge/whitelist: $e");
+      if (mounted) {
+        setState(() {
+          _badgeStream = Stream.value(0);
+          _myLeaderThreadIds = [];
+        });
+      }
     }
   }
 
@@ -91,18 +145,37 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
 
   String _getAppBarTitle(int index) {
     switch (index) {
+      case 0: return 'Daftar Tugas';
+      case 1: return 'Kinerja Petugas';
+      case 2: return 'Riwayat Pekerjaan';
+      case 3: return 'Percakapan';
+      case 4: return 'Profil Petugas';
+      default: return 'Dashboard';
+    }
+  }
+
+  // [PERBAIKAN RENDER HALAMAN]
+  // Gunakan Switch Case, bukan List, agar _myLeaderThreadIds selalu ter-update
+  Widget _buildBodyContent() {
+    switch (_selectedIndex) {
       case 0:
-        return 'Daftar Tugas';
+        return AssignmentsPage(
+          key: _assignmentsPageKey,
+          idPetugasLoggedIn: widget.idPetugasLoggedIn,
+        );
       case 1:
-        return 'Kinerja Petugas';
+        return KinerjaPage(idPetugasLoggedIn: widget.idPetugasLoggedIn);
       case 2:
-        return 'Riwayat Pekerjaan';
+        return HistoryPage(idPetugasLoggedIn: widget.idPetugasLoggedIn);
       case 3:
-        return 'Percakapan';
+        // [KUNCI PERBAIKAN] Kirim daftar ID Ketua ke halaman Chat
+        return PetugasChatHomePage(
+          leaderThreadIds: _myLeaderThreadIds, 
+        );
       case 4:
-        return 'Profil Petugas';
+        return const ProfilePage();
       default:
-        return 'Dashboard Petugas';
+        return const Center(child: Text("Halaman tidak ditemukan"));
     }
   }
 
@@ -114,23 +187,12 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
     return WillPopScope(
       onWillPop: () async {
         final now = DateTime.now();
-        final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
-            _lastPressed == null ||
-                now.difference(_lastPressed!) > const Duration(seconds: 2);
-
-        if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
+        if (_lastPressed == null || now.difference(_lastPressed!) > const Duration(seconds: 2)) {
           _lastPressed = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tekan sekali lagi untuk keluar'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tekan sekali lagi untuk keluar')));
           return false;
-        } else {
-          SystemNavigator.pop();
-          return true;
         }
+        return true;
       },
       child: Scaffold(
         backgroundColor: Colors.grey.shade100,
@@ -146,19 +208,17 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
                 elevation: 1.0,
                 centerTitle: true,
               ),
+        // Panggil method pembangun body
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: _widgetOptions.elementAt(_selectedIndex),
+          child: _buildBodyContent(), 
         ),
         bottomNavigationBar: _buildModernNavBar(),
       ),
     );
   }
 
-  Widget _buildModernNavBar() {
+ Widget _buildModernNavBar() {
     return Container(
       margin: const EdgeInsets.all(12).copyWith(bottom: 24),
       decoration: BoxDecoration(
@@ -219,19 +279,14 @@ class _HomePetugasPageState extends State<HomePetugasPage> {
   }
 
   Widget _buildChatIconWithBadge({required bool active}) {
-    final iconData =
-        active ? Ionicons.chatbubbles : Ionicons.chatbubbles_outline;
-
-    if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
+    final iconData = active ? Ionicons.chatbubbles : Ionicons.chatbubbles_outline;
+    if (_badgeStream == null) {
       return Icon(iconData);
     }
-
     return StreamBuilder<int>(
-      stream: _chatService.getUnreadCountByPrefix(
-          _currentUserData!['firebase_uid'], 'pengaduan_'),
+      stream: _badgeStream,
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
-
         return Badge(
           isLabelVisible: count > 0,
           label: Text(count > 99 ? '99+' : count.toString()),
@@ -340,6 +395,13 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 
   Widget _buildChatBadge(Tugas tugas) {
+    // [LOGIKA BARU] 1. Cek Role: Jika bukan Ketua Tim (Petugas Pelapor),
+    // langsung kembalikan widget kosong. Anggota tim tidak dapat notif.
+    if (!tugas.isPetugasPelapor) {
+      return const SizedBox.shrink();
+    }
+
+    // 2. Jika Ketua Tim, jalankan logika pengecekan Firebase seperti biasa
     if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
       return const SizedBox.shrink();
     }

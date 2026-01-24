@@ -188,11 +188,17 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
   }
 
   Widget _buildKontakSection(KontakInfo kontak) {
-    // Logika tombol chat
-    final bool canChat = _tugasSaatIni.isPetugasPelapor &&
+    // [LOGIKA BARU]
+    // 1. isChatButtonActive: Menentukan apakah tombol BISA DIKLIK.
+    // HAPUS syarat '_tugasSaatIni.isPetugasPelapor' disini agar anggota tim bisa klik.
+    final bool isChatButtonActive = 
         _tugasSaatIni.tipeTugas == 'pengaduan' &&
         _currentUserData != null &&
         (kontak.firebaseUid != null && kontak.firebaseUid!.isNotEmpty);
+
+    // 2. isReadOnlyMode: Menentukan apakah user hanya boleh MELIHAT.
+    // Jika SAYA BUKAN KETUA (isPetugasPelapor == false), maka Read Only.
+    final bool isReadOnlyMode = !_tugasSaatIni.isPetugasPelapor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,10 +271,10 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton.icon(
-                // --- MODIFIKASI BADGE NOTIFIKASI DI TOMBOL DETAIL ---
                 icon: _buildChatIconWithBadge(kontak), 
                 label: const Text('Chat'),
-                onPressed: !canChat || _isLoading
+                // Gunakan isChatButtonActive yang baru (tanpa syarat ketua)
+                onPressed: !isChatButtonActive || _isLoading
                     ? null
                     : () async {
                         final cabangData =
@@ -304,9 +310,11 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                               MaterialPageRoute(
                                 builder: (_) => ReusableChatPage(
                                   threadId: threadId,
-                                  chatTitle:
-                                      "Chat Laporan #${_tugasSaatIni.idTugas}",
+                                  chatTitle: "Chat Laporan #${_tugasSaatIni.idTugas}",
                                   currentUser: _currentUserData!,
+                                  
+                                  // [PENTING] Kirim status ini ke halaman chat
+                                  isReadOnly: isReadOnlyMode, 
                                 ),
                               ),
                             );
@@ -328,7 +336,8 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[600],
+                  // Ubah warna sedikit jika Read Only agar user sadar
+                  backgroundColor: isReadOnlyMode ? Colors.blueGrey : Colors.green[600],
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -341,9 +350,14 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       ],
     );
   }
-
-  // --- WIDGET HELPER UNTUK BADGE ---
+  
   Widget _buildChatIconWithBadge(KontakInfo kontak) {
+    // [PERUBAHAN 1] Cek Role: Jika bukan Petugas Pelapor (Ketua),
+    // langsung return ikon biasa tanpa Stream (tanpa badge merah).
+    if (!_tugasSaatIni.isPetugasPelapor) {
+      return const Icon(Ionicons.chatbubble_ellipses_outline, size: 18);
+    }
+
     // Jika data user belum siap, tampilkan ikon biasa
     if (_currentUserData == null || _currentUserData!['firebase_uid'] == null) {
       return const Icon(Ionicons.chatbubble_ellipses_outline, size: 18);
@@ -372,11 +386,6 @@ class _DetailTugasPageState extends State<DetailTugasPage> {
       },
     );
   }
-
-  // ... (Sisa kode seperti _buildActionSection, _buildInfoSection, dll TETAP SAMA) ...
-  // ... Paste sisa kode DetailTugasPage Anda di sini agar file tetap utuh ...
-  // (Untuk menghemat ruang, saya asumsikan sisa fungsi di bawah ini tidak berubah dari file asli Anda)
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

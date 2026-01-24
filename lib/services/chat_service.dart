@@ -173,7 +173,7 @@ class ChatService {
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
     });
   }
-  
+ 
   Future<String> getOrCreateTugasChatThread({
     required String tipeTugas,
     required int idTugas,
@@ -183,10 +183,29 @@ class ChatService {
   }) async {
     final threadId = generateTugasThreadId(tipeTugas: tipeTugas, idTugas: idTugas);
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
-    final doc = await threadRef.get();
+    
+    final currentUserUid = currentUser['firebase_uid'].toString().trim();
 
-    if (!doc.exists) {
-      final currentUserUid = currentUser['firebase_uid'].toString().trim();
+    // Variable untuk menyimpan snapshot jika berhasil dibaca
+    DocumentSnapshot? doc;
+    bool isReadSuccessful = false;
+
+    // [LANGKAH 1] Coba BACA dokumen
+    try {
+      doc = await threadRef.get();
+      isReadSuccessful = true;
+    } catch (e) {
+      // Jika Permission Denied, kemungkinan besar dokumen SUDAH ADA 
+      // tapi kita (Anggota Tim) belum terdaftar sebagai peserta.
+      // Kita abaikan error ini dan lanjut ke langkah "Force Join".
+      print("Gagal membaca thread (kemungkinan permission denied): $e");
+    }
+
+    // [LANGKAH 2] Logika Percabangan
+    // Jika berhasil dibaca DAN dokumen belum ada => BUAT BARU
+    if (isReadSuccessful && (doc == null || !doc.exists)) {
+      
+      // --- LOGIKA PEMBUATAN CHAT BARU ---
       List<String> participantUids = [currentUserUid];
       Map<String, dynamic> participantNames = {currentUserUid: currentUser['nama']};
 
@@ -205,14 +224,28 @@ class ChatService {
           'tipeTugas': tipeTugas,
           'cabangId': cabangId,
           'initiatorId': currentUser['id'],
-          'initiatorType': 'pelanggan',
+          'initiatorType': 'petugas', // Diubah generic jadi petugas jika yg mulai petugas
         },
         'participantUids': participantUids,
         'participantNames': participantNames,
         'lastMessage': 'Chat dimulai.',
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
       });
+
+    } else {
+      // [LANGKAH 3] FORCE JOIN (Untuk Anggota Tim)
+      // Masuk ke sini jika:
+      // A. Dokumen ada (Read success, exists = true)
+      // B. ATAU Read gagal (Permission denied) -> Kita asumsikan dokumen ada.
+      
+      // Gunakan set dengan SetOptions(merge: true) agar lebih kuat menembus permission 
+      // dibanding .update() biasa jika rules-nya memperbolehkan create/write.
+      
+      await threadRef.set({
+        'participantUids': FieldValue.arrayUnion([currentUserUid])
+      }, SetOptions(merge: true));
     }
+
     return threadId;
   }
   

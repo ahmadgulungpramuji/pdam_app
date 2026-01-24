@@ -21,7 +21,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio;
-  final String baseUrl = 'https://pelayananperumdamtda.com/api';
+  final String baseUrl = 'http://192.168.1.10:8000/api';
   final String _wilayahBaseUrl = 'https://wilayah.id/api';
   final String _witAiServerAccessToken = 'BHEGRMVFUOEG45BEAVKLS3OBLATWD2JN';
   final String _witAiApiUrl = 'http://api.wit.ai/message';
@@ -33,7 +33,7 @@ class ApiService {
   ApiService()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'https://pelayananperumdamtda.com/api',
+            baseUrl: 'http://192.168.1.10:8000/api',
             connectTimeout: const Duration(seconds: 60),
             receiveTimeout: const Duration(seconds: 60),
             headers: {'Accept': 'application/json'},
@@ -1835,7 +1835,7 @@ class ApiService {
     return await http.post(url, headers: headers, body: body);
   }
 
-  Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
+ Future<Map<String, dynamic>> getTunggakan(String pdamId) async {
     final token = await getToken();
     final url = Uri.parse('$baseUrl/cek-tagihan-pdam/$pdamId');
 
@@ -1853,35 +1853,31 @@ class ApiService {
       if (response.statusCode == 200 && responseBody['success'] == true) {
         final data = responseBody['data'];
         
-        // --- PERBAIKAN DI SINI ---
         return {
           'id_pdam': data['info']['id_pelanggan'],
           'nama': data['info']['nama'],
           'alamat': data['info']['alamat'] ?? '-',
           'jumlah': data['tagihan']['total_tagihan'] ?? 0,
           'pemakaian': data['tagihan']['pemakaian_saat_ini'] ?? "0",
-          
-          // >>> TAMBAHKAN BARIS INI <<<
           'periode_pemakaian': data['tagihan']['periode_pemakaian'] ?? '-', 
-          // >>> AGAR DATA DARI PHP SAMPAI KE FLUTTER <<<
-
           'status': data['tagihan']['status'] ?? '-',
-
           'jumlah_bulan': data['tagihan']['jumlah_bulan_nunggak'] ?? 0,
           'rincian': data['tagihan']['rincian'] ?? [],
+          
+          // [PERBAIKAN PENTING] Tangkap data riwayat meter dari Controller PHP
+          'riwayat_meter': data['tagihan']['riwayat_meter'] ?? [], 
+          
           'error': null,
-
-
-
         };
       } else {
         return {
           'id_pdam': pdamId,
           'jumlah': 0,
           'pemakaian': "0",
-          'periode_pemakaian': "-", // Tambahkan default value juga disini
+          'periode_pemakaian': "-",
           'jumlah_bulan': 0,
           'rincian': [],
+          'riwayat_meter': [], // Default kosong jika error
           'error': responseBody['message'] ?? 'Data tidak ditemukan.',
         };
       }
@@ -1891,9 +1887,10 @@ class ApiService {
         'id_pdam': pdamId,
         'jumlah': 0,
         'pemakaian': "0",
-        'periode_pemakaian': "-", // Tambahkan default value juga disini
+        'periode_pemakaian': "-",
         'jumlah_bulan': 0,
         'rincian': [],
+        'riwayat_meter': [], // Default kosong jika error
         'error': 'Gagal koneksi server.',
       };
     }

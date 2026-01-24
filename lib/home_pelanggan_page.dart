@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:pdam_app/services/chat_service.dart';
 
 import 'dart:async';
+import 'dart:ui';
 
 // --- WIDGET ANIMASI (TETAP SAMA) ---
 class FadeInAnimation extends StatefulWidget {
@@ -188,6 +189,9 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   List<Berita> _beritaList = [];
   bool _isBeritaLoading = true;
   String? _beritaErrorMessage;
+  List<dynamic> _riwayatMeterList = [];
+  String _detailNamaPelanggan = "";
+  String _detailIdPelanggan = "";
   
   DateTime? _lastPressed;
 
@@ -254,19 +258,12 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       final userProfile = await _apiService.getUserProfile();
       
       if (userProfile != null) {
-        // PRIORITAS 1: Cek kolom 'id_pdam' di database user
         if (userProfile['id_pdam'] != null && userProfile['id_pdam'].toString() != 'null') {
           targetIdPdam = userProfile['id_pdam'].toString().trim();
-        } 
-        // PRIORITAS 2: Cek kolom 'nomor_sambungan'
-        else if (userProfile['nomor_sambungan'] != null) {
+        } else if (userProfile['nomor_sambungan'] != null) {
           targetIdPdam = userProfile['nomor_sambungan'].toString().trim();
-        }
-        // PRIORITAS 3: Cek Username (Jika username adalah angka/ID Pelanggan)
-        // Logika ini menyamakan dengan halaman Cek Tagihan
-        else if (userProfile['username'] != null) {
+        } else if (userProfile['username'] != null) {
            String username = userProfile['username'].toString().trim();
-           // Cek apakah username hanya berisi angka dan panjangnya masuk akal
            if (RegExp(r'^[0-9]+$').hasMatch(username) && username.length > 3) {
              targetIdPdam = username;
            }
@@ -276,44 +273,35 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       // 2. FALLBACK: Jika di Profil Kosong, Ambil dari List API
       if (targetIdPdam.isEmpty) {
         final ids = await _apiService.getAllUserPdamIds();
-        
         if (ids.isNotEmpty) {
-          // --- PERBAIKAN DI SINI ---
-          // Sebelumnya: ids.first (ID Paling Baru ditambahkan) -> Menyebabkan muncul Rp 160rb
-          // Sekarang: ids.last (ID Paling Lama/Awal didaftarkan) -> Seharusnya muncul Rp 123rb (Sunarto)
-          // Karena API biasanya mengurutkan dari Terbaru ke Terlama (DESC).
-          
-          targetIdPdam = ids.last['nomor']?.toString() ?? 
-                         ids.last['id_pdam']?.toString() ?? ''; 
+          targetIdPdam = ids.last['nomor']?.toString() ?? ids.last['id_pdam']?.toString() ?? ''; 
         }
       }
 
       // 3. EKSEKUSI CEK TAGIHAN
       if (targetIdPdam.isNotEmpty) {
-        // Panggil API Cek Tagihan spesifik untuk ID Utama tersebut
         final billData = await _apiService.getTunggakan(targetIdPdam);
         
         if (mounted) {
           setState(() {
-            // Mengambil data pemakaian
-            _usageAmount = billData['pemakaian_saat_ini']?.toString() ?? 
-                           billData['pemakaian']?.toString() ?? "0";
-            
-            // Mengambil periode
+            // Data Kartu Biru
+            _usageAmount = billData['pemakaian']?.toString() ?? "0";
             _usagePeriod = billData['periode_pemakaian']?.toString() ?? ""; 
-            
-            // Mengambil total tagihan (Rupiah)
-            _billAmount = int.tryParse(billData['total_tagihan'].toString()) ?? 
-                          int.tryParse(billData['jumlah'].toString()) ?? 0;
+            _billAmount = int.tryParse(billData['jumlah'].toString()) ?? 0;
+
+            // [PERBAIKAN PENTING] Simpan Data Detail untuk Popup
+            _detailNamaPelanggan = billData['nama'] ?? 'Pelanggan';
+            _detailIdPelanggan = billData['id_pdam']?.toString() ?? targetIdPdam;
+            _riwayatMeterList = billData['riwayat_meter'] ?? []; // List ini dipakai di _showDetailPemakaianDialog
           });
         }
       } else {
-        // Jika benar-benar tidak ada ID sama sekali
         if (mounted) {
           setState(() {
             _usageAmount = "0";
             _usagePeriod = "-";
             _billAmount = 0;
+            _riwayatMeterList = [];
           });
         }
       }
@@ -336,10 +324,33 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     try {
       final berita = await _apiService.getBerita();
       if (mounted) {
+        // --- PERBAIKAN LOGIKA DISINI ---
+        // Kita sort manual lagi di Flutter untuk memastikan 100% akurat
+        // Sort: Tanggal terbaru di atas (b.compareTo(a))
+        berita.sort((a, b) {
+           int compareDate = b.tanggalTerbit.compareTo(a.tanggalTerbit);
+           if (compareDate == 0) {
+             // Jika tanggal sama persis, bandingkan ID (ID besar = lebih baru)
+             return b.id.compareTo(a.id);
+           }
+           return compareDate;
+        });
+        // -------------------------------
+
         setState(() {
           _beritaList = berita;
           _isBeritaLoading = false;
         });
+
+        if (_beritaList.isNotEmpty) {
+          final beritaTerbaru = _beritaList.first; 
+          
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              _showPopupBerita(beritaTerbaru);
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -434,6 +445,271 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
     }
   }
 
+  void _showDetailPemakaianDialog() {
+    // Warna tema untuk dialog ini
+    const Color primaryBlue = Color(0xFF0077B6);
+    const Color lightBlueBg = Color(0xFFF0F8FF);
+
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Bisa ditutup dengan klik di luar
+      builder: (BuildContext context) {
+        // Gunakan Dialog kustom, bukan AlertDialog standar agar lebih fleksibel
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24), // Sudut lebih membulat
+          ),
+          elevation: 10,
+          backgroundColor: Colors.transparent, // Transparan agar kita bisa atur containernya
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400), // Batasi lebar di tablet
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // --- 1. HEADER DIALOG ---
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: lightBlueBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Ionicons.water, color: primaryBlue, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Detail Pemakaian Air',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          color: const Color(0xFF2B2B2B),
+                        ),
+                      ),
+                    ),
+                    // Tombol Close kecil di pojok kanan atas
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Icon(Icons.close_rounded, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // --- 2. KARTU INFO PELANGGAN (Dengan Gradien Elegant) ---
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    // Gradien yang senada tapi lebih terang dari kartu utama
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade300],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade200.withOpacity(0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Ionicons.person, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _detailNamaPelanggan.toUpperCase(),
+                              style: GoogleFonts.manrope(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'ID Pelanggan: $_detailIdPelanggan',
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w500
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+                Text(
+                  "Riwayat Stand Meter (2 Bulan Terakhir)",
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700]
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // --- 3. KONTEN TABEL (Kustom agar lebih elegan) ---
+                Flexible(
+                  child: _riwayatMeterList.isEmpty
+                      ? _buildEmptyState() // Tampilan jika kosong
+                      : _buildCustomTable(lightBlueBg, primaryBlue), // Tampilan tabel
+                ),
+
+                const SizedBox(height: 24),
+
+                // --- 4. TOMBOL TUTUP (Full Width) ---
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: lightBlueBg,
+                      foregroundColor: primaryBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      "Tutup",
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  Widget _buildCustomTable(Color headerBg, Color highlightColor) {
+  // Gaya text header
+  final headerStyle = GoogleFonts.manrope(
+      fontWeight: FontWeight.w700, fontSize: 12, color: Colors.grey[700]);
+  // Gaya text isi
+  final cellStyle = GoogleFonts.manrope(
+      fontWeight: FontWeight.w500, fontSize: 13, color: Colors.black87);
+
+  return Container(
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.grey.shade200),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          // Header Tabel
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            color: headerBg,
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text('Periode', style: headerStyle)),
+                Expanded(flex: 1, child: Text('Awal', style: headerStyle, textAlign: TextAlign.center)),
+                Expanded(flex: 1, child: Text('Akhir', style: headerStyle, textAlign: TextAlign.center)),
+                Expanded(flex: 1, child: Text('Pakai', style: headerStyle, textAlign: TextAlign.end)),
+              ],
+            ),
+          ),
+          // Isi Tabel
+          ListView.separated(
+            shrinkWrap: true, // Agar tidak error di dalam Column
+            physics: const NeverScrollableScrollPhysics(), // Scroll ikut parent
+            itemCount: _riwayatMeterList.length,
+            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade200),
+            itemBuilder: (context, index) {
+              final item = _riwayatMeterList[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(flex: 2, child: Text(item['periode'] ?? '-', style: cellStyle.copyWith(fontWeight: FontWeight.w600))),
+                    Expanded(flex: 1, child: Text(item['stand_awal'] ?? '0', style: cellStyle, textAlign: TextAlign.center)),
+                    Expanded(flex: 1, child: Text(item['stand_akhir'] ?? '0', style: cellStyle, textAlign: TextAlign.center)),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        item['pemakaian'] ?? '0',
+                        style: cellStyle.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: highlightColor // Highlight warna biru untuk pemakaian
+                        ),
+                        textAlign: TextAlign.end
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Ionicons.document_text_outline, size: 40, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text(
+            "Data riwayat tidak tersedia saat ini.",
+            style: GoogleFonts.manrope(color: Colors.grey[600], fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
   void _showSnackbar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -448,64 +724,382 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
   // ... COPY PASTE DARI FILE LAMA ANDA JIKA INGIN MENGHEMAT RUANG, ATAU GUNAKAN FILE ASLI ...
   // ... UNTUK KELENGKAPAN SAYA TULIS ULANG DI BAWAH ...
 
+  // --- UPDATE: DETAIL BERITA (DESAIN MENYESUAIKAN POPUP) ---
   void _showBeritaDetailModal(Berita berita) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(berita.judul,
-              style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
+        // Konstanta desain (Samakan dengan Popup)
+        const double dialogRadius = 24.0;
+        const double imageHeight = 250.0; // Sedikit lebih pendek dari popup agar teks muat banyak
+
+        return Dialog(
+          // KUNCI UTAMA: Inset padding ini membuat dialog lebar seperti popup
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(dialogRadius)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              // Pastikan dialog tidak melebihi tinggi layar (agar bisa di-scroll)
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(dialogRadius),
+              boxShadow: [
+                 BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10)),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (berita.fotoBanner != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      _apiService.rootBaseUrl +
-                          '/storage/' +
-                          berita.fotoBanner!,
-                      fit: BoxFit.cover,
+                // 1. BAGIAN GAMBAR HEADER (FIXED)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(dialogRadius),
+                        topRight: Radius.circular(dialogRadius),
+                      ),
+                      child: berita.fotoBanner != null
+                        ? Image.network(
+                            '${_apiService.rootBaseUrl}/storage/${berita.fotoBanner!}',
+                            height: imageHeight,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(height: imageHeight, color: Colors.grey.shade300, child: Icon(Icons.broken_image, size: 60, color: Colors.grey.shade400)),
+                          )
+                        : Container(height: imageHeight, color: const Color(0xFF0077B6)),
                     ),
-                  ),
-                const SizedBox(height: 12),
-                Text(
-                  DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
-                  style: GoogleFonts.manrope(
-                      fontSize: 14, color: Colors.grey.shade600),
-                ),
-                if (berita.namaAdmin != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      'Oleh: ${berita.namaAdmin}',
-                      style: GoogleFonts.manrope(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.bold,
+                    
+                    // Overlay Gradient
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(dialogRadius),
+                            topRight: Radius.circular(dialogRadius),
+                          ),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.4), // Gelap di atas agar tombol close terlihat
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.6), // Gelap di bawah untuk teks judul (opsional)
+                            ],
+                            stops: const [0.0, 0.4, 1.0]
+                          ),
+                        ),
                       ),
                     ),
+
+                    // Tombol Close (X) di Pojok Kanan Atas
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(30),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                     // Label Kategori/Info
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                       child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0077B6).withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.info_outline, size: 14, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Detail Berita",
+                                    style: GoogleFonts.manrope(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                       ),
+                    ),
+                  ],
+                ),
+
+                // 2. BAGIAN KONTEN (SCROLLABLE)
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tanggal & Penulis
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade500),
+                            const SizedBox(width: 6),
+                            Text(
+                              DateFormat('d MMMM yyyy').format(berita.tanggalTerbit),
+                              style: GoogleFonts.manrope(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                            ),
+                            const Spacer(),
+                            if (berita.namaAdmin != null) ...[
+                              Icon(Icons.person_outline_rounded, size: 16, color: const Color(0xFF0077B6)),
+                              const SizedBox(width: 4),
+                              Text(
+                                berita.namaAdmin!,
+                                style: GoogleFonts.manrope(fontSize: 13, color: const Color(0xFF0077B6), fontWeight: FontWeight.bold),
+                              ),
+                            ]
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Judul Besar
+                        Text(
+                          berita.judul,
+                          style: GoogleFonts.manrope(
+                            fontSize: 24, // Lebih besar
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black87,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Divider(thickness: 1, height: 30),
+                        
+                        // Isi Berita Lengkap
+                        Text(
+                          berita.isi,
+                          style: GoogleFonts.manrope(
+                            fontSize: 16, // Lebih nyaman dibaca
+                            color: Colors.grey.shade800,
+                            height: 1.8, // Spasi antar baris lebih lega
+                          ),
+                          textAlign: TextAlign.justify,
+                        ),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: 12),
-                Text(berita.isi, style: GoogleFonts.manrope(fontSize: 16)),
+                ),
+
+                // 3. BAGIAN BAWAH (TOMBOL TUTUP BESAR)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(dialogRadius),
+                      bottomRight: Radius.circular(dialogRadius),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        foregroundColor: Colors.black87,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text("Tutup", style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Tutup'),
-            ),
-          ],
         );
       },
     );
   }
 
+// --- FITUR BARU: POPUP BERITA TERBARU (UKURAN LEBIH BESAR) ---
+  
+  // --- UPDATE: POPUP LEBIH TINGGI & BESAR ---
+  void _showPopupBerita(Berita berita) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          // Inset padding diatur agar tidak terlalu mepet tepi layar HP
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0), 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24), // Padding bawah sedikit ditambah
+                margin: const EdgeInsets.only(top: 16, right: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, 10)),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // Akan mengikuti konten, tapi karena gambar besar dia jadi tinggi
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label KABAR TERBARU
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.new_releases_rounded, size: 18, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Text(
+                            "KABAR TERBARU",
+                            style: GoogleFonts.manrope(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // GAMBAR (DIPERBESAR TINGGINYA JADI 300)
+                    if (berita.fotoBanner != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          '${_apiService.rootBaseUrl}/storage/${berita.fotoBanner!}',
+                          // --- UPDATE DISINI: Tinggi jadi 300 agar popup memanjang ---
+                          height: 300, 
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(height: 300, color: Colors.grey.shade200, child: Icon(Icons.broken_image, size: 60)),
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+
+                    // Judul Berita
+                    Text(
+                      berita.judul,
+                      style: GoogleFonts.manrope(
+                        fontSize: 22, // Font judul diperbesar sedikit
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Isi Singkat
+                    Text(
+                      berita.isi,
+                      style: GoogleFonts.manrope(fontSize: 15, color: Colors.grey.shade700, height: 1.6),
+                      maxLines: 4, // Baris teks ditambah agar mengisi ruang vertikal
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Tombol
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              side: BorderSide(color: Colors.grey.shade400, width: 1.5),
+                              padding: EdgeInsets.symmetric(vertical: 16), // Tombol lebih tinggi
+                            ),
+                            child: Text("Tutup", style: GoogleFonts.manrope(color: Colors.grey.shade800, fontSize: 16, fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); 
+                              _showBeritaDetailModal(berita); 
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF0077B6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: EdgeInsets.symmetric(vertical: 16), // Tombol lebih tinggi
+                              elevation: 4,
+                              shadowColor: Color(0xFF0077B6).withOpacity(0.4),
+                            ),
+                            child: Text("Baca Detail", style: GoogleFonts.manrope(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Tombol Close Bulat
+              Positioned(
+                right: 0,
+                top: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0,4))]
+                    ),
+                    child: Icon(Icons.close, color: Colors.black87, size: 26),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   void _showInfoDialog({required String title, required List<String> steps}) {
     showDialog(
       context: context,
@@ -895,112 +1489,119 @@ class _HomePelangganPageState extends State<HomePelangganPage> {
       decimalDigits: 0
     );
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
+    // [MODIFIKASI] Bungkus dengan GestureDetector/InkWell
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _isBillLoading ? null : _showDetailPemakaianDialog, // <--- Panggil Dialog Di Sini
         borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [primary, secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ],
-      ),
-      child: _isBillLoading
-          ? const Center(
-              child: SizedBox(
-                height: 30, 
-                width: 30, 
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-              )
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Penggunaan Air Terakhir", 
-                      style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
-                    ),
-                    Icon(Ionicons.water,
-                        color: Colors.white.withOpacity(0.8), size: 28),
-                  ],
-                ),
-                
-                // --- [BAGIAN BARU] TAMPILAN PERIODE ---
-                if (_usagePeriod.isNotEmpty && _usagePeriod != "-")
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      "Periode: $_usagePeriod", 
-                      style: GoogleFonts.manrope(
-                        color: Colors.white.withOpacity(0.9), 
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FontStyle.italic
-                      ),
-                    ),
-                  )
-                else
-                   const SizedBox(height: 8),
-
-                const SizedBox(height: 4),
-
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      _usageAmount, 
-                      style: GoogleFonts.manrope(
-                          fontSize: 40, 
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    const SizedBox(width: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6.0),
-                      child: Text(
-                        'Liter', 
-                        style: GoogleFonts.manrope(
-                            fontSize: 20,
-                            color: Colors.white.withOpacity(0.9),
-                            fontWeight: FontWeight.w300),
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 4),
-                const Divider(color: Colors.white30, height: 32),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Tagihan Tertunggak", 
-                        style: GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
-                    Text(
-                      currencyFormatter.format(_billAmount), 
-                      style: GoogleFonts.manrope(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              colors: [primary, secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+          ),
+          child: _isBillLoading
+              ? const Center(
+                  child: SizedBox(
+                    height: 30, 
+                    width: 30, 
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                  )
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Penggunaan Air Terakhir", 
+                          style: GoogleFonts.manrope(color: Colors.white, fontSize: 16),
+                        ),
+                        // Tambahkan ikon info kecil agar user tahu bisa diklik
+                        Icon(Ionicons.information_circle_outline,
+                            color: Colors.white.withOpacity(0.8), size: 24),
+                      ],
+                    ),
+                    
+                    if (_usagePeriod.isNotEmpty && _usagePeriod != "-")
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          "Periode: $_usagePeriod", 
+                          style: GoogleFonts.manrope(
+                            color: Colors.white.withOpacity(0.9), 
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic
+                          ),
+                        ),
+                      )
+                    else
+                       const SizedBox(height: 8),
+    
+                    const SizedBox(height: 4),
+    
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          _usageAmount, 
+                          style: GoogleFonts.manrope(
+                              fontSize: 40, 
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                        const SizedBox(width: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Text(
+                            'Liter', 
+                            style: GoogleFonts.manrope(
+                                fontSize: 20,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w300),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 4),
+                    const Divider(color: Colors.white30, height: 32),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Tagihan Tertunggak", 
+                            style: GoogleFonts.manrope(color: Colors.white, fontSize: 14)),
+                        Text(
+                          currencyFormatter.format(_billAmount), 
+                          style: GoogleFonts.manrope(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
-
   Widget _buildMainServicesGrid(Color primaryColor, Color textColor) {
     final services = [
       {

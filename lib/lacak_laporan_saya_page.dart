@@ -107,6 +107,14 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  String _getStorageUrl(String relativePath) {
+    // Mengambil URL dasar tanpa '/api' (misal: http://192.168.1.10:8000)
+    final baseUrl = _apiService.rootBaseUrl; 
+    
+    // Gabungkan menjadi URL lengkap storage Laravel
+    return '$baseUrl/storage/$relativePath';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -683,6 +691,194 @@ class _LacakLaporanSayaPageState extends State<LacakLaporanSayaPage>
                                     .format(laporan.createdAt.toLocal())),
                             _buildDetailRowSheet('Deskripsi', laporan.deskripsi,
                                 isMultiline: true),
+                                if (laporan.fotoSebelum != null && laporan.fotoSebelum!.isNotEmpty) ...[
+  const SizedBox(height: 20),
+  Text(
+    'Kondisi Awal (Foto Sebelum):',
+    style: GoogleFonts.manrope(
+      fontWeight: FontWeight.bold,
+      fontSize: 14,
+      color: Colors.grey.shade800,
+    ),
+  ),
+  const SizedBox(height: 10),
+  
+  GestureDetector(
+    onTap: () {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+               InteractiveViewer(
+                 panEnabled: true,
+                 boundaryMargin: const EdgeInsets.all(20),
+                 minScale: 0.5,
+                 maxScale: 4,
+                 child: Image.network(
+                   _getStorageUrl(laporan.fotoSebelum!), // Gunakan helper yang sama
+                   fit: BoxFit.contain,
+                 ),
+               ),
+               Positioned(
+                 top: 0,
+                 right: 0,
+                 child: IconButton(
+                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                   onPressed: () => Navigator.pop(context),
+                 ),
+               ),
+            ],
+          ),
+        ),
+      );
+    },
+    child: Container(
+      height: 200,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          _getStorageUrl(laporan.fotoSebelum!),
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(child: CircularProgressIndicator());
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, color: Colors.grey.shade400, size: 40),
+                const SizedBox(height: 8),
+                Text("Gagal memuat", style: GoogleFonts.manrope(fontSize: 12)),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  ),
+  const SizedBox(height: 8),
+  Center(
+    child: Text(
+      "(Ketuk gambar untuk memperbesar)",
+      style: GoogleFonts.manrope(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+    ),
+  ),
+],
+                                if (laporan.status.toLowerCase() == 'selesai' &&
+    laporan.fotoSesudah != null &&
+    laporan.fotoSesudah!.isNotEmpty) ...[
+  
+  const SizedBox(height: 20),
+  Text(
+    'Bukti Penyelesaian (Foto):',
+    style: GoogleFonts.manrope(
+      fontWeight: FontWeight.bold,
+      fontSize: 14,
+      color: Colors.grey.shade800,
+    ),
+  ),
+  const SizedBox(height: 10),
+  
+  // Widget Gambar dengan Fitur Zoom (Tap untuk perbesar)
+  GestureDetector(
+    onTap: () {
+      // Menampilkan popup gambar full screen saat diklik
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+               // Gambar Full
+               InteractiveViewer(
+                 panEnabled: true,
+                 boundaryMargin: const EdgeInsets.all(20),
+                 minScale: 0.5,
+                 maxScale: 4,
+                 child: Image.network(
+                   _getStorageUrl(laporan.fotoSesudah!),
+                   fit: BoxFit.contain,
+                 ),
+               ),
+               // Tombol Tutup
+               Positioned(
+                 top: 0,
+                 right: 0,
+                 child: IconButton(
+                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                   onPressed: () => Navigator.pop(context),
+                 ),
+               ),
+            ],
+          ),
+        ),
+      );
+    },
+    child: Container(
+      height: 200, // Tinggi gambar di preview
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+           BoxShadow(
+             color: Colors.black.withOpacity(0.05),
+             blurRadius: 5,
+             offset: const Offset(0, 2),
+           )
+        ],
+      ),
+      // Menggunakan ClipRRect agar sudut gambar melengkung sesuai container
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          _getStorageUrl(laporan.fotoSesudah!),
+          fit: BoxFit.cover, // Gambar memenuhi kotak
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, color: Colors.grey.shade400, size: 40),
+                const SizedBox(height: 8),
+                Text("Gagal memuat gambar", style: GoogleFonts.manrope(fontSize: 12)),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  ),
+  const SizedBox(height: 8),
+  Center(
+    child: Text(
+      "(Ketuk gambar untuk memperbesar)",
+      style: GoogleFonts.manrope(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+    ),
+  ),
+],
                             if ((laporan.status.toLowerCase() == 'dibatalkan' ||
                                     laporan.status.toLowerCase() ==
                                         'ditolak') &&
