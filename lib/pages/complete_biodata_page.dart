@@ -1,10 +1,54 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Untuk SystemNavigator
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:pdam_app/api_service.dart';
 import 'package:pdam_app/models/petugas_model.dart';
-import 'package:pdam_app/home_petugas_page.dart'; // Sesuaikan import
-import 'package:pdam_app/main.dart'; // Untuk navigatorKey jika perlu
+import 'package:pdam_app/home_petugas_page.dart';
+
+// --- WIDGET ANIMASI (Sama seperti di Home Pelanggan) ---
+class FadeInAnimation extends StatefulWidget {
+  final int delay;
+  final Widget child;
+  const FadeInAnimation({super.key, this.delay = 0, required this.child});
+  @override
+  State<FadeInAnimation> createState() => _FadeInAnimationState();
+}
+
+class _FadeInAnimationState extends State<FadeInAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _position;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    final curve =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+    _position = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(curve);
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(position: _position, child: widget.child));
+  }
+}
+// --- END WIDGET ANIMASI ---
 
 class CompleteBiodataPage extends StatefulWidget {
   final Petugas petugas;
@@ -21,43 +65,38 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
   final ApiService _apiService = ApiService();
 
   late TextEditingController _hpController;
-  late TextEditingController _emailController;
   bool _isLoading = false;
+
+  // Warna Tema (Sesuai Home Pelanggan)
+  final Color primaryColor = const Color(0xFF0077B6);
+  final Color backgroundColor = const Color(0xFFF8F9FA);
+  final Color textColor = const Color(0xFF212529);
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi controller. Jika null, set string kosong.
     _hpController = TextEditingController(text: widget.petugas.nomorHp ?? '');
-    _emailController = TextEditingController(text: widget.petugas.email ?? '');
   }
 
   @override
   void dispose() {
     _hpController.dispose();
-    _emailController.dispose();
     super.dispose();
   }
 
-  // Buka complete_biodata_page.dart
-
   Future<void> _submitBiodata() async {
-    // 1. Validasi Form Frontend
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 2. Panggil API Update Profile
-      // Data dikirim ke server. Jika No HP duplikat, server akan melempar error (Exception).
+      // Logic Update API
       await _apiService.updatePetugasProfile(data: {
         'nama': widget.petugas.nama,
         'nomor_hp': _hpController.text.trim(),
-        if (_emailController.text.trim().isNotEmpty)
-          'email': _emailController.text.trim(),
       });
 
-      // 3. Sync ke Firebase (Opsional, dijalankan jika update sukses)
+      // Sync Firebase (Opsional)
       try {
         await _apiService.syncUserToFirebase();
       } catch (e) {
@@ -66,7 +105,7 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
 
       if (!mounted) return;
 
-      // 4. Navigasi ke Beranda (Hanya tercapai jika tidak ada error)
+      // Navigasi ke Home Petugas
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
@@ -76,50 +115,38 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
         (route) => false,
       );
 
-      // Tampilkan pesan sukses
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Biodata berhasil disimpan. Selamat datang!"),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text("Data berhasil disimpan. Selamat bertugas!",
+              style: GoogleFonts.manrope()),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
         ),
       );
-
     } catch (e) {
-      // === BAGIAN PENANGANAN ERROR YANG DISESUAIKAN ===
-      
       String rawError = e.toString();
       String finalErrorMessage;
 
-      // Deteksi kata kunci error dari server (Laravel)
-      // Kita cek variasi kata-kata yang mungkin muncul saat duplikat
-      if (rawError.toLowerCase().contains("sudah digunakan") || 
+      if (rawError.toLowerCase().contains("sudah digunakan") ||
           rawError.toLowerCase().contains("sudah terdaftar") ||
           rawError.toLowerCase().contains("taken")) {
-        
-        // PAKSA pesan menjadi kalimat yang Anda inginkan
-        finalErrorMessage = "Nomor HP yang Anda masukan sudah terdaftar.";
-        
+        finalErrorMessage = "Nomor HP ini sudah digunakan petugas lain.";
       } else {
-        // Jika errornya BUKAN masalah nomor HP (misal koneksi putus),
-        // kita bersihkan pesan error bawaan agar tetap rapi.
         finalErrorMessage = rawError.replaceAll('Exception:', '').trim();
-        
-        // Bersihkan prefix umum seperti "Data tidak valid:"
         if (finalErrorMessage.startsWith("Data tidak valid:")) {
-           finalErrorMessage = finalErrorMessage.replaceAll("Data tidak valid:", "").trim();
+          finalErrorMessage =
+              finalErrorMessage.replaceAll("Data tidak valid:", "").trim();
         }
-        
-        // Hapus tanda strip (-) di awal jika ada
         if (finalErrorMessage.startsWith("-")) {
           finalErrorMessage = finalErrorMessage.substring(1).trim();
         }
       }
 
-      // Tampilkan SnackBar dengan pesan yang sudah difilter
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(finalErrorMessage), 
-          backgroundColor: Colors.redAccent,
+          content:
+              Text(finalErrorMessage, style: GoogleFonts.manrope()),
+          backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -127,105 +154,254 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    // WillPopScope untuk menangani tombol Back fisik
     return WillPopScope(
       onWillPop: () async {
-        // Opsi B: Menutup aplikasi jika ditekan back
         SystemNavigator.pop();
         return false;
       },
       child: Scaffold(
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          title: Text("Lengkapi Biodata",
-              style: GoogleFonts.poppins(color: Colors.black87)),
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
-          automaticallyImplyLeading: false, // Hilangkan tombol back di AppBar
+          automaticallyImplyLeading: false,
+          title: Text(
+            "Verifikasi Petugas",
+            style: GoogleFonts.manrope(
+                color: textColor, fontWeight: FontWeight.w800, fontSize: 18),
+          ),
         ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildInfoSection(),
-                const SizedBox(height: 30),
-                Text(
-                  "Data Kontak (Wajib Diisi)",
-                  style: GoogleFonts.poppins(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Mohon lengkapi nomor HP aktif Anda agar dapat menerima notifikasi tugas.",
-                  style:
-                      GoogleFonts.lato(fontSize: 14, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 20),
-
-                // Input No HP
-                TextFormField(
-                  controller: _hpController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: "Nomor HP (Wajib)",
-                    hintText: "Contoh: 0812xxxxxxxx",
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.phone_android),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Nomor HP wajib diisi';
-                    }
-                    if (value.length < 10) {
-                      return 'Nomor HP tidak valid';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Input Email (Opsional)
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: "Email (Opsional)",
-                    hintText: "petugas@pdam.com",
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.email_outlined),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Tombol Simpan
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submitBiodata,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D47A1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // 1. Header Animasi
+                FadeInAnimation(
+                  delay: 100,
+                  child: Center(
+                    child: Container(
+                      height: 100,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Ionicons.shield_checkmark_outline,
+                        size: 50,
+                        color: primaryColor,
                       ),
                     ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            "SIMPAN & LANJUTKAN",
-                            style: GoogleFonts.poppins(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                FadeInAnimation(
+                  delay: 200,
+                  child: Text(
+                    "Lengkapi Profil Anda",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.manrope(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FadeInAnimation(
+                  delay: 300,
+                  child: Text(
+                    "Data ini diperlukan untuk aktivasi akun petugas dan penerimaan tugas lapangan.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // 2. Info Card (Tugas Petugas) - Sesuai Permintaan
+                FadeInAnimation(
+                  delay: 400,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                          Border.all(color: Colors.blue.shade100, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Ionicons.information_circle,
+                            color: primaryColor, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Mengapa Nomor HP?",
+                                style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: textColor),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Nomor HP digunakan sebagai ID unik untuk menandai Anda sebagai petugas yang aktif dan terverifikasi.",
+                                style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade700,
+                                    height: 1.4),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 3. Data Read-Only (Nama & NIK)
+                FadeInAnimation(
+                  delay: 500,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildReadOnlyItem("Nama Petugas", widget.petugas.nama),
+                        const Divider(height: 24),
+                        _buildReadOnlyItem(
+                            "NIK / NIP", widget.petugas.nik ?? '-'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 4. Form Input HP
+                FadeInAnimation(
+                  delay: 600,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Nomor WhatsApp Aktif",
+                        style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _hpController,
+                        keyboardType: TextInputType.phone,
+                        style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w600, color: textColor),
+                        decoration: InputDecoration(
+                          hintText: "Contoh: 0812xxxxxxxx",
+                          hintStyle: GoogleFonts.manrope(
+                              color: Colors.grey.shade400),
+                          prefixIcon: Icon(Ionicons.call_outline,
+                              color: primaryColor),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: primaryColor, width: 1.5),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Nomor HP wajib diisi';
+                          }
+                          if (value.length < 10) {
+                            return 'Nomor HP tidak valid (min. 10 digit)';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // 5. Tombol Submit
+                FadeInAnimation(
+                  delay: 700,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _submitBiodata,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: primaryColor.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 3),
+                            )
+                          : Text(
+                              "Simpan & Aktifkan Akun",
+                              style: GoogleFonts.manrope(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -234,34 +410,26 @@ class _CompleteBiodataPageState extends State<CompleteBiodataPage> {
     );
   }
 
-  Widget _buildInfoSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: Column(
-        children: [
-          _readOnlyRow("Nama Lengkap", widget.petugas.nama),
-          const Divider(),
-          _readOnlyRow("NIK", widget.petugas.nik ?? '-'),
-        ],
-      ),
-    );
-  }
-
-  Widget _readOnlyRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: GoogleFonts.lato(color: Colors.grey[600])),
-          Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        ],
-      ),
+  Widget _buildReadOnlyItem(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      ],
     );
   }
 }
