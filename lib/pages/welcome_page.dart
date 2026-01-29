@@ -132,8 +132,7 @@ class _WelcomePageState extends State<WelcomePage>
                 Image.asset(
                   'assets/images/logo.png',
                     height: 120,
-                    color: Colors.white,
-                    colorBlendMode: BlendMode.srcIn,
+                    
                 ),
                 const SizedBox(height: 20),
                 Text(

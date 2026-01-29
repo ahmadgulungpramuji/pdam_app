@@ -48,12 +48,15 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   int _currentPage = 0;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isAtLocation = true;
+  bool? _isLocationModeSelected;
 
   int? _selectedCabangId;
   List<Cabang> _cabangOptionsApi = [];
   bool _isCabangLoading = true;
   String? _cabangError;
   String? _detectedCabangName;
+  
 
   Position? _currentPosition;
   XFile? _imageFile;
@@ -80,16 +83,40 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   // --- Navigation ---
   void _nextPage() {
     bool isStepValid = false;
+
     if (_currentPage == 0) {
+      // Langkah 1: Validasi Info Pelapor
       isStepValid = _step1FormKey.currentState?.validate() ?? false;
+    
     } else if (_currentPage == 1) {
+      // Langkah 2: Validasi Lokasi
+      
+      // Cek 1: Apakah user sudah memilih mode? (Wajib pilih salah satu kartu dulu)
+      if (_isLocationModeSelected == null) {
+        _showSnackbar('Silakan pilih apakah Anda sedang di lokasi atau tidak.', isError: true);
+        return; // Berhenti di sini, jangan lanjut
+      }
+
+      // Cek 2: Validasi Form standar (Alamat & Cabang wajib terisi)
       isStepValid = _step2FormKey.currentState?.validate() ?? false;
-      if (isStepValid && _currentPosition == null) {
-        _showSnackbar('Lokasi GPS belum didapatkan.', isError: true);
+
+      // Cek 3: Validasi Khusus Mode GPS
+      // Jika pengguna mengaku di lokasi, GPS harus berhasil diambil.
+      if (_isLocationModeSelected == true) {
+        if (isStepValid && _currentPosition == null) {
+          _showSnackbar('Lokasi GPS wajib diambil jika Anda memilih "Sedang di Lokasi". Silakan tekan tombol Refresh Lokasi atau tombol Peta.', isError: true);
+          isStepValid = false;
+        }
+      }
+      
+      // Cek 4: Pastikan Cabang Terpilih (Safety check)
+      if (isStepValid && _selectedCabangId == null) {
+        _showSnackbar('Cabang pelaporan harus dipilih.', isError: true);
         isStepValid = false;
       }
+
     } else if (_currentPage == 2) {
-      // <-- Perubahan: Validasi untuk langkah 3
+      // Langkah 3: Validasi Foto & Deskripsi
       isStepValid = _step3FormKey.currentState?.validate() ?? false;
       if (isStepValid && _imageFile == null) {
         _showSnackbar('Foto bukti wajib diunggah.', isError: true);
@@ -97,6 +124,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
       }
     }
 
+    // Jika semua valid, lanjut ke halaman berikutnya
     if (isStepValid) {
       if (_currentPage < 3) {
         _pageController.nextPage(
@@ -122,7 +150,7 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _fetchCabangOptions();
-    await _getCurrentLocation();
+    
     setState(() => _isLoading = false);
   }
 
@@ -157,7 +185,39 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     }
   }
 
+  void _selectLocationMode(bool isAtLocation) {
+    setState(() {
+      _isLocationModeSelected = isAtLocation;
+      
+      if (isAtLocation) {
+        // Jika pilih "Di Lokasi" -> Bersihkan data manual, nyalakan GPS
+        _deskripsiLokasiController.clear(); 
+        _selectedCabangId = null; 
+        _detectedCabangName = null;
+        _getCurrentLocation(); // Panggil GPS sekarang
+      } else {
+        // Jika pilih "Tidak di Lokasi" -> Matikan GPS, Reset Cabang Otomatis
+        _currentPosition = null;
+        _selectedCabangId = null;
+        _detectedCabangName = null;
+        _deskripsiLokasiController.clear();
+      }
+    });
+  }
+
+  // Fungsi 2: Tombol "Ubah" untuk mereset pilihan
+  void _resetLocationMode() {
+    setState(() {
+      _isLocationModeSelected = null; // Kembali ke tampilan kartu pilihan
+      _currentPosition = null;
+      _selectedCabangId = null;
+      _detectedCabangName = null;
+      _deskripsiLokasiController.clear();
+    });
+  }
+
   Future<void> _getCurrentLocation() async {
+    // 1. Cek Permission (Tetap sama seperti sebelumnya)
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) throw Exception('Layanan lokasi tidak aktif.');
@@ -173,44 +233,63 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
         throw Exception('Izin lokasi ditolak permanen.');
       }
 
+      // 2. Ambil Koordinat GPS (Latitude/Longitude)
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 20),
       );
 
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
+      String resultAddress = "";
 
+      // 3. (PERBAIKAN UTAMA) Coba ubah Koordinat jadi Alamat
+      try {
+        // OPSI A: Coba pakai Geocoding bawaan HP (Sering error di Emulator)
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+            position.latitude, position.longitude);
+
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          String formattedAddress =
+              "${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? ''}, ${place.subAdministrativeArea ?? ''}"
+                  .trim();
+          
+          // Bersihkan koma di awal jika ada
+          resultAddress = formattedAddress.startsWith(',')
+              ? formattedAddress.substring(2).trim()
+              : formattedAddress;
+        }
+      } catch (e) {
+        // OPSI B (FALLBACK): Jika Opsi A Gagal (Error grpc/IO_ERROR), 
+        // gunakan API Service (OpenStreetMap)
+        // print("Geocoding Native Gagal, mencoba OpenStreetMap: $e");
+        try {
+           resultAddress = await _apiService.getAddressFromCoordinates(
+              position.latitude, position.longitude);
+        } catch (ex) {
+           resultAddress = "Lokasi ditemukan (Alamat gagal dimuat)";
+        }
+      }
+
+      // 4. Update UI
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          if (placemarks.isNotEmpty) {
-            final place = placemarks.first;
-            String formattedAddress =
-                "${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? ''}, ${place.subAdministrativeArea ?? ''}"
-                    .trim();
-            _deskripsiLokasiController.text = formattedAddress.startsWith(',')
-                ? formattedAddress.substring(2)
-                : formattedAddress;
-          }
+          _deskripsiLokasiController.text = resultAddress; // Isi kolom alamat
         });
+        
         _showSnackbar('Lokasi berhasil didapatkan!', isError: false);
-        _findNearestBranch();
+        _findNearestBranch(); // Cari cabang terdekat
       }
+
     } catch (e) {
       if (mounted) {
-        // --- AWAL PERUBAHAN ---
         String errorMessage;
         if (e is SocketException) {
-          errorMessage =
-              'Periksa koneksi internet Anda untuk mendapatkan nama alamat.';
-        } else if (e is TimeoutException) {
-          errorMessage = 'Koneksi timeout saat mencari alamat.';
+          errorMessage = 'Periksa koneksi internet Anda.';
         } else {
           errorMessage = e.toString().replaceFirst("Exception: ", "");
         }
         _showSnackbar(errorMessage, isError: true);
-        // --- AKHIR PERUBAHAN ---
       }
     }
   }
@@ -280,6 +359,98 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     }
   }
 
+  // --- LOGIKA BARU PILIH GAMBAR ---
+  
+  void _handleImageSelection() {
+    // LOGIKA:
+    // Jika User mengaku "Di Lokasi" (_isLocationModeSelected == true), 
+    // maka WAJIB pakai Kamera (Langsung jepret).
+    // Jika "Tidak di Lokasi", boleh pilih Kamera atau Galeri.
+    
+    if (_isLocationModeSelected == true) {
+      // Langsung buka kamera tanpa tanya
+      _pickImage(ImageSource.camera);
+    } else {
+      // Tampilkan pilihan (Kamera / Galeri)
+      _showImageSourcePicker();
+    }
+  }
+
+  void _showImageSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: 180,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Pilih Sumber Foto",
+                style: GoogleFonts.manrope(
+                  fontSize: 18, 
+                  fontWeight: FontWeight.bold
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Pilihan Kamera
+                  _buildSourceOption(
+                    icon: Ionicons.camera,
+                    label: "Kamera",
+                    onTap: () {
+                      Navigator.pop(context); // Tutup modal
+                      _pickImage(ImageSource.camera);
+                    },
+                  ),
+                  // Pilihan Galeri
+                  _buildSourceOption(
+                    icon: Ionicons.image,
+                    label: "Galeri",
+                    onTap: () {
+                      Navigator.pop(context); // Tutup modal
+                      _pickImage(ImageSource.gallery);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSourceOption({
+    required IconData icon, 
+    required String label, 
+    required VoidCallback onTap
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFF0077B6), size: 30),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openGoogleMaps(double latitude, double longitude) async {
     final String googleMapsUrl =
         'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
@@ -295,24 +466,31 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
   }
 
   Future<void> _submitForm() async {
-    if (_imageFile == null ||
-        _currentPosition == null ||
-        _selectedCabangId == null) {
-      _showSnackbar('Pastikan semua data pada langkah sebelumnya sudah benar.',
-          isError: true);
+    // Validasi data akhir
+    if (_imageFile == null || _selectedCabangId == null) {
+      _showSnackbar('Data belum lengkap (Foto/Cabang).', isError: true);
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
       var request = http.MultipartRequest('POST', Uri.parse(_apiUrlSubmit));
+      
+      // --- LOGIKA PENGIRIMAN KOORDINAT ---
+      // Default: Kirim "0,0" (Jika mode manual dipilih)
+      String koordinatToSend = '0,0';
+      
+      // Jika mode GPS dipilih DAN posisi GPS berhasil didapat -> Kirim koordinat asli
+      if (_isLocationModeSelected == true && _currentPosition != null) {
+        koordinatToSend = '${_currentPosition!.latitude},${_currentPosition!.longitude}';
+      }
+
       request.fields.addAll({
         'nama_pelapor': _namaController.text.trim(),
         'nomor_hp_pelapor': _nomorHpController.text.trim(),
         'deskripsi': _deskripsiLaporanController.text.trim(),
         'id_cabang': _selectedCabangId.toString(),
-        'lokasi_maps':
-            '${_currentPosition!.latitude},${_currentPosition!.longitude}',
+        'lokasi_maps': koordinatToSend, // <-- Gunakan logika di atas
         'deskripsi_lokasi': _deskripsiLokasiController.text.trim(),
       });
 
@@ -321,50 +499,37 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
 
       var res = await request.send().timeout(const Duration(seconds: 60));
 
-      // --- AWAL PERBAIKAN ---
-      // Pindahkan pengecekan status 429 KE ATAS, sebelum membaca body.
       if (res.statusCode == 429) {
         _showSnackbar(
             'Anda telah terlalu sering mengirim laporan. Coba lagi nanti.',
             isError: true);
-        // Hentikan eksekusi di sini
         return;
       }
-      // --- AKHIR PERBAIKAN ---
 
       final responseBody = await res.stream.bytesToString();
-
-      // Jika bukan 429, baru kita aman untuk decode
       final responseData = jsonDecode(responseBody);
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         _showSuccessDialog(
             responseData['data']?['tracking_code'] as String? ?? 'N/A');
-      }
-      // else if (res.statusCode == 429) { ... } // Pindahkan ini ke atas
-      else {
-        // Status error lain yang memiliki body JSON (seperti 422, 500)
+      } else {
         _showSnackbar(responseData['message'] ?? 'Gagal mengirim data',
             isError: true);
       }
     } catch (e) {
-      // --- AWAL PERUBAHAN ---
       String errorMessage;
       if (e is SocketException) {
         errorMessage = 'Periksa koneksi internet Anda.';
       } else if (e is TimeoutException) {
         errorMessage = 'Koneksi timeout. Gagal mengirim laporan.';
       } else {
-        errorMessage =
-            'Terjadi kesalahan: ${e.toString().replaceFirst("Exception: ", "")}';
+        errorMessage = 'Terjadi kesalahan sistem: ${e.toString()}';
       }
       _showSnackbar(errorMessage, isError: true);
-      // --- AKHIR PERUBAHAN ---
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
-
   // --- UI ---
   @override
   Widget build(BuildContext context) {
@@ -606,76 +771,208 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
           children: [
             _buildSectionHeader(
                 'Langkah 2: Detail Lokasi', Ionicons.map_outline),
-            SizedBox(
-              // <-- Perubahan: Peta Statis Dihapus
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                icon: const Icon(Ionicons.map, color: Colors.white, size: 20),
-                label: Text(
-                  'Buka Detail di Google Maps',
-                  style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.bold,
+
+            // KONDISI 1: User BELUM memilih mode (Tampilkan 2 Kartu Pilihan)
+            if (_isLocationModeSelected == null) ...[
+              Text(
+                'Apakah Anda sedang berada di lokasi kebocoran saat ini?',
+                style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 20),
+              
+              // KARTU OPSI A: SAYA DI LOKASI
+              InkWell(
+                onTap: () => _selectLocationMode(true),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
                     color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF0077B6).withOpacity(0.5), width: 2),
+                    boxShadow: [
+                      BoxShadow(color: Colors.blue.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))
+                    ]
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: const Color(0xFF0077B6).withOpacity(0.1), shape: BoxShape.circle),
+                        child: const Icon(Ionicons.location, color: Color(0xFF0077B6), size: 30),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Ya, Saya di Lokasi', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 4),
+                            Text('GPS otomatis aktif. Cabang & alamat terdeteksi otomatis.', style: GoogleFonts.manrope(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0077B6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              ),
+              
+              const SizedBox(height: 16),
+
+              // KARTU OPSI B: TIDAK DI LOKASI (MANUAL)
+              InkWell(
+                onTap: () => _selectLocationMode(false),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                        child: const Icon(Ionicons.create_outline, color: Colors.black54, size: 30),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tidak, Saya di Tempat Lain', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 4),
+                            Text('Isi alamat & pilih cabang secara manual.', style: GoogleFonts.manrope(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
                   ),
                 ),
-                onPressed: _currentPosition == null
-                    ? null
-                    : () {
-                        _openGoogleMaps(
-                          _currentPosition!.latitude,
-                          _currentPosition!.longitude,
-                        );
-                      },
               ),
-            ),
-            Center(
-                child: TextButton.icon(
-                    icon: const Icon(Icons.refresh, size: 20),
-                    label: const Text("Ambil Ulang Lokasi"),
-                    onPressed: _isLoading ? null : _getCurrentLocation)),
-            if (_isCabangLoading)
-              const Center(
-                  child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: CircularProgressIndicator()))
-            else if (_cabangError != null)
-              Center(
-                  child: Text(_cabangError!,
-                      style: const TextStyle(color: Colors.red)))
-            else
-              DropdownButtonFormField<int>(
-                value: _selectedCabangId,
-                hint: const Text('Pilih Cabang Pelaporan'),
-                decoration: _dropdownDecoration(_detectedCabangName != null
-                    ? "Cabang Terdeteksi Otomatis"
-                    : 'Pilih Cabang Manual'),
-                items: _cabangOptionsApi
-                    .map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child:
-                            Text(c.namaCabang, style: GoogleFonts.manrope())))
-                    .toList(),
-                onChanged: (value) => setState(() {
-                  _selectedCabangId = value;
-                  _detectedCabangName = null;
-                }),
-                validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
+
+            // KONDISI 2: User SUDAH memilih mode (Tampilkan Formulir Isian)
+            ] else ...[
+              
+              // Header Info Mode & Tombol Ubah (Reset)
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isLocationModeSelected == true ? const Color(0xFFE3F2FD) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _isLocationModeSelected == true ? Colors.blue.shade200 : Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isLocationModeSelected == true ? Ionicons.location : Ionicons.create_outline,
+                      color: _isLocationModeSelected == true ? const Color(0xFF0077B6) : Colors.black54,
+                      size: 20
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _isLocationModeSelected == true ? 'Mode GPS Otomatis' : 'Mode Input Manual',
+                        style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _resetLocationMode, // Panggil fungsi reset untuk kembali ke pilihan kartu
+                      child: Text(
+                        'Ubah',
+                        style: GoogleFonts.manrope(color: const Color(0xFF0077B6), fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                      ),
+                    )
+                  ],
+                ),
               ),
-            const SizedBox(height: 16),
-            _buildTextField(
-                controller: _deskripsiLokasiController,
-                label: 'Deskripsi Detail Lokasi',
-                hint: 'Misal: Depan toko X, dekat jembatan Y',
-                maxLines: 3,
-                validator: (v) =>
-                    v!.isEmpty ? 'Deskripsi lokasi wajib diisi' : null),
+
+              // --- ISI FORMULIR ---
+              
+              // 1. Tombol GPS (Hanya muncul jika Mode GPS Aktif)
+              if (_isLocationModeSelected == true) ...[
+                if (_isLoading)
+                  const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                else
+                  Column(
+                    children: [
+                       SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Ionicons.map, color: Colors.white, size: 20),
+                          label: Text(
+                            'Lihat di Google Maps',
+                            style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0077B6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _currentPosition == null
+                              ? null
+                              : () => _openGoogleMaps(_currentPosition!.latitude, _currentPosition!.longitude),
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.refresh, size: 20),
+                        label: const Text("Refresh Akurasi GPS"),
+                        onPressed: _isLoading ? null : _getCurrentLocation
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+              ],
+
+              // 2. Dropdown Cabang
+              if (_isCabangLoading)
+                const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()))
+              else if (_cabangError != null)
+                Center(child: Text(_cabangError!, style: const TextStyle(color: Colors.red)))
+              else
+                DropdownButtonFormField<int>(
+                  value: _selectedCabangId,
+                  // Teks Hint Berbeda tergantung mode
+                  hint: Text(_isLocationModeSelected == true ? 'Mendeteksi Cabang...' : 'Pilih Cabang (Wajib)'),
+                  // Label Berbeda tergantung mode
+                  decoration: _dropdownDecoration(
+                      _isLocationModeSelected == true && _detectedCabangName != null
+                      ? "Cabang Terdeteksi Otomatis"
+                      : 'Pilih Cabang Manual'),
+                  items: _cabangOptionsApi
+                      .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.namaCabang, style: GoogleFonts.manrope())))
+                      .toList(),
+                  // LOGIKA:
+                  // Jika Mode GPS: Disable dropdown (null) agar user tidak ubah sembarangan
+                  // Jika Mode Manual: Enable dropdown agar user bisa pilih
+                  onChanged: _isLocationModeSelected == true 
+                      ? null 
+                      : (value) => setState(() {
+                          _selectedCabangId = value;
+                          _detectedCabangName = null;
+                        }),
+                  validator: (v) => v == null ? 'Pilih cabang pelaporan' : null,
+                ),
+
+              const SizedBox(height: 16),
+              
+              // 3. Deskripsi Alamat
+              _buildTextField(
+                  controller: _deskripsiLokasiController,
+                  // Label Berbeda tergantung mode
+                  label: _isLocationModeSelected == true ? 'Alamat Terdeteksi' : 'Alamat / Patokan Lengkap',
+                  hint: 'Contoh: Jl. Sudirman No 5, Sebelah Alfamart',
+                  maxLines: 3,
+                  validator: (v) =>
+                      v!.isEmpty ? 'Detail lokasi wajib diisi' : null),
+            ],
           ],
         ),
       ),
@@ -686,13 +983,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
-        // <-- Perubahan: Dibungkus Form
         key: _step3FormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader('Langkah 3: Bukti & Deskripsi',
-                Ionicons.camera_outline), // <-- Judul diubah
+                Ionicons.camera_outline),
             if (_isImageProcessing)
               const Center(
                   child: Padding(
@@ -704,7 +1000,12 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => _pickImage(ImageSource.camera),
+                  
+                  // --- PERUBAHAN DI SINI ---
+                  // Memanggil logika "Di Lokasi = Kamera, Tidak = Bebas"
+                  onTap: _handleImageSelection, 
+                  // -------------------------
+
                   child: Container(
                     width: double.infinity,
                     height: 200,
@@ -726,10 +1027,16 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                               Icon(Ionicons.camera_outline,
                                   size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 8),
-                              Text('Ambil Foto Kebocoran',
-                                  style: GoogleFonts.manrope(
+                              
+                              // Ubah teks sedikit agar user paham
+                              Text(
+                                _isLocationModeSelected == true 
+                                  ? 'Ambil Foto (Kamera)' 
+                                  : 'Ambil Foto / Pilih Galeri',
+                                style: GoogleFonts.manrope(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold)),
+                              
                               Text('Foto diperlukan sebagai bukti laporan',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.manrope(
@@ -751,9 +1058,8 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
                   ),
                 ),
               ),
-            const SizedBox(height: 24), // Spasi
+            const SizedBox(height: 24),
             _buildTextField(
-                // <-- Perubahan: TextField dipindahkan ke sini
                 controller: _deskripsiLaporanController,
                 label: 'Deskripsi Laporan',
                 hint: 'Jelaskan secara singkat apa yang terjadi',
@@ -766,11 +1072,17 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
     );
   }
 
-  Widget _buildStep4Confirmation() {
+ Widget _buildStep4Confirmation() {
+    // Ambil nama cabang dari ID yang dipilih
     String cabangName = _cabangOptionsApi
         .firstWhere((c) => c.id == _selectedCabangId,
             orElse: () => Cabang(id: 0, namaCabang: "Tidak Dipilih"))
         .namaCabang;
+
+    // Tentukan teks koordinat yang akan ditampilkan di konfirmasi
+    String koordinatText = (_isLocationModeSelected == true && _currentPosition != null)
+        ? "${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}"
+        : "Lokasi Manual (Tidak di TKP)";
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -784,21 +1096,28 @@ class _TemuanKebocoranPageState extends State<TemuanKebocoranPage> {
             style: GoogleFonts.manrope(color: Colors.grey.shade700),
           ),
           const Divider(height: 32),
+          
           _buildConfirmationSection("Data Laporan", [
             _buildConfirmationRow("Nama Lengkap", _namaController.text),
             _buildConfirmationRow("No. HP", _nomorHpController.text),
             _buildConfirmationRow(
                 "Deskripsi Laporan", _deskripsiLaporanController.text),
           ]),
+          
           const Divider(height: 32),
+          
           _buildConfirmationSection("Detail Lokasi", [
+            // Tambahan Info: Status Kehadiran
+            _buildConfirmationRow("Status Kehadiran", 
+                _isLocationModeSelected == true ? "Berada di Lokasi" : "Tidak di Lokasi"),
             _buildConfirmationRow("Cabang Laporan", cabangName),
             _buildConfirmationRow(
                 "Deskripsi Lokasi", _deskripsiLokasiController.text),
-            _buildConfirmationRow("Koordinat GPS",
-                "${_currentPosition?.latitude.toStringAsFixed(6)}, ${_currentPosition?.longitude.toStringAsFixed(6)}"),
+            _buildConfirmationRow("Koordinat GPS", koordinatText),
           ]),
+          
           const Divider(height: 32),
+          
           _buildConfirmationSection("Bukti Laporan", [
             _buildConfirmationRow("Foto Bukti",
                 _imageFile != null ? "Terunggah" : "Belum diunggah",
