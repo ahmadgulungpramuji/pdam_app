@@ -485,32 +485,34 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     );
   }
 
-  Widget _buildTugasCard(Tugas tugas) {
+ Widget _buildTugasCard(Tugas tugas) {
     // 1. Setup Data & Format Tanggal
     KontakInfo? kontak = tugas.infoKontakPelapor;
     String formattedDate = tugas.tanggalTugas;
     try {
       if (tugas.tanggalTugas.isNotEmpty) {
-        // Pastikan format tanggal sesuai locale Indonesia
         formattedDate = DateFormat('dd MMM yyyy', 'id_ID')
             .format(DateTime.parse(tugas.tanggalTugas));
       }
-    } catch (e) {
-      // Fallback jika parsing gagal, gunakan string asli
-    }
+    } catch (e) {}
 
-    // 2. Ambil Warna Berdasarkan Status (Method helper tetap dipakai)
+    // 2. Ambil Warna Berdasarkan Status
     final Color statusColor = _getColorForStatus(tugas.status);
+
+    // 3. Tentukan Peran (Ketua vs Anggota)
+    final bool isKetua = tugas.isPetugasPelapor;
+    final Color roleColor = isKetua ? const Color(0xFFF59E0B) : const Color(0xFF64748B);
+    final Color roleBg = isKetua ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9);
+    final IconData roleIcon = isKetua ? Ionicons.star : Ionicons.person;
+    final String roleLabel = isKetua ? "Ketua Tim" : "Anggota";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20), // Sudut membulat modern (Radius 20)
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            // Shadow Navy transparan yang sangat halus
             color: const Color(0xFF1565C0).withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
@@ -523,7 +525,6 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // Logika Navigasi (Sama seperti sebelumnya)
             if (tugas is CalonPelangganTugas) {
               Navigator.push(
                 context,
@@ -545,11 +546,11 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- HEADER: Ikon, Kategori, & Status ---
+                // --- HEADER: Layout Baru (Judul di Atas, Status di Bawah) ---
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Ikon dalam Lingkaran
+                    // 1. Ikon Kategori (Kiri)
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -561,90 +562,114 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                     ),
                     const SizedBox(width: 14),
 
-                    // Teks Kategori & ID
+                    // 2. Konten Utama (Kanan)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // A. JUDUL (Full Width, bisa multi-line)
                           Text(
                             tugas.kategoriDisplay,
                             style: GoogleFonts.manrope(
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
-                              color: const Color(
-                                  0xFF1E293B), // Slate 800 (Hitam Kebiruan)
-                              height: 1.2,
+                              color: const Color(0xFF1E293B),
+                              height: 1.3,
                             ),
-                            maxLines: 1,
+                            maxLines: 2, // Izinkan judul panjang turun baris
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '#${tugas.tipeTugas.toUpperCase()}-${tugas.idTugas}',
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              color: const Color(
-                                  0xFF94A3B8), // Slate 400 (Abu-abu soft)
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
+                          
+                          const SizedBox(height: 12), // Jarak antara Judul dan Info Bawah
+
+                          // B. Baris Info: ID + Role (Kiri) & Status (Kanan)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end, // Rata bawah agar rapi
+                            children: [
+                              // Kiri: ID & Role
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // ID Tugas
+                                    Text(
+                                      '#${tugas.tipeTugas.toUpperCase()}-${tugas.idTugas}',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        color: const Color(0xFF94A3B8),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    // Role Badge (Ketua/Anggota)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: roleBg,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: roleColor.withOpacity(0.3), width: 1),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(roleIcon, size: 10, color: roleColor),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            roleLabel,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: roleColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // Kanan: Status Badge
+                              // Menggunakan Flexible agar tidak overflow jika layar sempit
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: statusColor.withOpacity(0.2), width: 1),
+                                  ),
+                                  child: Text(
+                                    tugas.friendlyStatus,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2, // Status panjang aman 2 baris
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-
-                    // Status Badge (Pill Shape)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: statusColor.withOpacity(0.2), width: 1),
-                      ),
-                      child: Text(
-                        tugas.friendlyStatus,
-                        style: GoogleFonts.manrope(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
 
                 const SizedBox(height: 16),
-                const Divider(
-                    height: 1,
-                    color: Color(0xFFF1F5F9)), // Divider sangat tipis
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 const SizedBox(height: 16),
 
-                // --- CONTENT: Lokasi & Kontak ---
-                // Baris Lokasi
-                Row(
-                  children: [
-                    const Icon(Ionicons.location_outline,
-                        size: 18, color: Color(0xFF64748B)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        tugas.deskripsiLokasi,
-                        style: GoogleFonts.manrope(
-                          fontSize: 14,
-                          color: const Color(0xFF334155), // Slate 700
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // Baris Kontak (Jika ada)
                 if (kontak != null && kontak.nama.isNotEmpty)
                   Row(
                     children: [
@@ -668,14 +693,12 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
 
                 const SizedBox(height: 20),
 
-                // --- FOOTER: Tanggal & Action Button ---
+                // --- FOOTER: Tanggal & Chat Action (Tidak Berubah) ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Tanggal dengan Ikon Kecil
                     Row(
                       children: [
-                        // PERBAIKAN DI SINI: Ganti 'calendar_clear_outline' menjadi 'calendar_outline'
                         Icon(Ionicons.calendar_outline,
                             size: 16, color: Colors.grey[400]),
                         const SizedBox(width: 6),
@@ -683,24 +706,20 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                           formattedDate,
                           style: GoogleFonts.manrope(
                             fontSize: 13,
-                            color: const Color(0xFF94A3B8), // Slate 400
+                            color: const Color(0xFF94A3B8),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-
-                    // Tombol Aksi (Panah) & Chat Badge
                     Row(
                       children: [
-                        _buildChatBadge(
-                            tugas), // Badge Chat (Jika ada pesan belum dibaca)
+                        _buildChatBadge(tugas),
                         const SizedBox(width: 12),
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
-                            color: Color(
-                                0xFF1565C0), // Navy Blue (Warna Utama Petugas)
+                            color: Color(0xFF1565C0),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Ionicons.arrow_forward,
@@ -816,7 +835,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
 }
 
 // // ===============================================================
-// == HALAMAN RIWAYAT (TAB 3) - 
+// == HALAMAN RIWAYAT (TAB 3) -
 // ===============================================================
 class HistoryPage extends StatefulWidget {
   final int idPetugasLoggedIn;
@@ -873,6 +892,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   // --- LOGIKA FETCH DATA DENGAN FILTER ---
   Future<void> _fetchRiwayat() async {
+    // Pengecekan standar
     if (_isLoading || !_hasMore) return;
 
     setState(() => _isLoading = true);
@@ -884,26 +904,24 @@ class _HistoryPageState extends State<HistoryPage> {
       String? endDateStr =
           _selectedDateRange?.end.toIso8601String().split('T')[0];
 
-      // PANGGIL API (Pastikan update ApiService Anda untuk menerima parameter ini)
-      // Contoh: getRiwayatPetugas(id, page, limit, startDate, endDate)
+      // --- PERBAIKAN: Hapus tanda komentar (//) pada parameter ---
       final response = await _apiService.getRiwayatPetugas(
         widget.idPetugasLoggedIn,
         _currentPage,
-        // limit: _limitPerPage,     <-- Tambahkan parameter ini di ApiService
-        // startDate: startDateStr,  <-- Tambahkan parameter ini di ApiService
-        // endDate: endDateStr       <-- Tambahkan parameter ini di ApiService
+        limit: _limitPerPage, // <--- Pastikan ini aktif
+        startDate: startDateStr, // <--- Pastikan ini aktif
+        endDate: endDateStr, // <--- Pastikan ini aktif
       );
 
       if (!mounted) return;
 
       setState(() {
-        if (_currentPage == 1)
-          _riwayatList.clear(); // Reset jika halaman pertama
+        // ... (logika setState Anda sudah benar) ...
+        if (_currentPage == 1) _riwayatList.clear();
 
         _riwayatList.addAll(response.tugasList);
 
-        // Cek apakah masih ada halaman selanjutnya
-        // Jika data yang diterima kurang dari limit, berarti sudah habis
+        // Cek halaman berikutnya
         if (response.tugasList.length < _limitPerPage) {
           _hasMore = false;
         } else {
@@ -915,7 +933,7 @@ class _HistoryPageState extends State<HistoryPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() => _isLoading = false); // Pastikan loading mati jika error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Gagal memuat: ${e.toString()}'),
@@ -928,10 +946,10 @@ class _HistoryPageState extends State<HistoryPage> {
     setState(() {
       _currentPage = 1;
       _hasMore = true;
-      _riwayatList.clear(); // List dikosongkan dulu
-      _isLoading = true;    // Set loading true agar muncul loading spinner
+      _riwayatList.clear();
+      _isLoading = false;
     });
-    
+
     // Panggil fetch
     _fetchRiwayat();
   }
@@ -1029,7 +1047,8 @@ class _HistoryPageState extends State<HistoryPage> {
         // Filter Tanggal
         Expanded(
           flex: 3,
-          child: InkWell(
+          child: GestureDetector(
+            // <--- Ganti InkWell jadi GestureDetector
             onTap: _pickDateRange,
             child: Container(
               height: 40,
@@ -1142,6 +1161,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       child: InkWell(
         onTap: () {
+          // Logika navigasi tetap sama
           if (tugas is CalonPelangganTugas) {
             Navigator.push(
                 context,
@@ -1172,16 +1192,27 @@ class _HistoryPageState extends State<HistoryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // --- BARIS JUDUL & TANGGAL (PERBAIKAN DISINI) ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        tugas.kategoriDisplay,
-                        style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: _slateText),
+                      // 1. Gunakan Expanded pada Judul agar tidak menabrak tanggal
+                      Expanded(
+                        child: Text(
+                          tugas.kategoriDisplay,
+                          style: GoogleFonts.manrope(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: _slateText),
+                          maxLines: 2, // Batasi maks 2 baris
+                          overflow: TextOverflow
+                              .ellipsis, // Tambah "..." jika kepanjangan
+                        ),
                       ),
+                      const SizedBox(width: 8), // Jarak aman
+
+                      // 2. Tanggal (Ukurannya tetap)
                       Text(
                         dateStr,
                         style:
@@ -1189,7 +1220,10 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 4),
+
+                  // Deskripsi Lokasi
                   Text(
                     tugas.deskripsiLokasi,
                     style: GoogleFonts.manrope(fontSize: 13, color: _subText),
@@ -1197,6 +1231,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
+
                   // Badges (ID & Status)
                   Row(
                     children: [
@@ -1213,19 +1248,28 @@ class _HistoryPageState extends State<HistoryPage> {
                                 fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4)),
-                        child: Text(tugas.friendlyStatus,
-                            style: GoogleFonts.manrope(
-                                fontSize: 10,
-                                color: statusColor,
-                                fontWeight: FontWeight.bold)),
+
+                      // Bungkus status dengan Flexible untuk keamanan ekstra
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4)),
+                          child: Text(tugas.friendlyStatus,
+                              style: GoogleFonts.manrope(
+                                  fontSize: 10,
+                                  color: statusColor,
+                                  fontWeight: FontWeight.bold),
+                              overflow: TextOverflow
+                                  .ellipsis, // Jaga-jaga jika status panjang
+                              maxLines: 1),
+                        ),
                       ),
+
                       const Spacer(),
+
                       // Rating Star jika ada
                       if ((tugas.ratingHasil ?? 0) > 0)
                         Row(
@@ -1300,10 +1344,18 @@ class _HistoryPageState extends State<HistoryPage> {
 
   // Helper Date Picker
   Future<void> _pickDateRange() async {
+    // Tentukan lastDate yang aman (minimal sampai akhir bulan ini agar tidak crash)
+    final now = DateTime.now();
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    // Gunakan tanggal mana yang lebih jauh: hari ini atau akhir bulan
+    final safeLastDate = endOfMonth.isAfter(now) ? endOfMonth : now;
+
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      // UBAH BARIS DI BAWAH INI
+      lastDate: safeLastDate, // Jangan gunakan DateTime.now() langsung
       initialDateRange: _selectedDateRange,
       builder: (context, child) {
         return Theme(
@@ -1326,8 +1378,9 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 }
+
 // ===============================================================
-// == HALAMAN PROFIL (TAB 4) - 
+// == HALAMAN PROFIL (TAB 4) -
 // ===============================================================
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -1362,9 +1415,12 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Konfirmasi Logout', style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
-          content: Text('Apakah Anda yakin ingin keluar dari akun Anda?', style: GoogleFonts.manrope()),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Konfirmasi Logout',
+              style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+          content: Text('Apakah Anda yakin ingin keluar dari akun Anda?',
+              style: GoogleFonts.manrope()),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1374,9 +1430,12 @@ class _ProfilePageState extends State<ProfilePage> {
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade600,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('Ya, Keluar', style: GoogleFonts.manrope(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text('Ya, Keluar',
+                  style: GoogleFonts.manrope(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -1404,13 +1463,14 @@ class _ProfilePageState extends State<ProfilePage> {
           future: _petugasFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator(color: _primaryNavy));
+              return Center(
+                  child: CircularProgressIndicator(color: _primaryNavy));
             }
             if (snapshot.hasError || !snapshot.hasData) {
               return _buildErrorUI("Gagal memuat profil. Silakan coba lagi.");
             }
             final petugas = snapshot.data!;
-            
+
             return CustomScrollView(
               slivers: [
                 _buildProfileHeader(petugas),
@@ -1439,7 +1499,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
 
                         const SizedBox(height: 32),
-                        
+
                         // Tombol Aksi
                         FadeInUp(
                           from: 20,
@@ -1460,9 +1520,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildProfileHeader(Petugas petugas) {
     final String? profilePhotoPath = petugas.fotoProfil;
-    final String fullImageUrl = profilePhotoPath != null && profilePhotoPath.isNotEmpty
-        ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
-        : '';
+    final String fullImageUrl =
+        profilePhotoPath != null && profilePhotoPath.isNotEmpty
+            ? '${_apiService.rootBaseUrl}/storage/$profilePhotoPath'
+            : '';
 
     return SliverAppBar(
       expandedHeight: 260.0,
@@ -1497,7 +1558,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            
+
             // Konten Profil
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1510,7 +1571,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 3),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10))
                       ],
                     ),
                     child: CircleAvatar(
@@ -1520,13 +1584,14 @@ class _ProfilePageState extends State<ProfilePage> {
                           ? CachedNetworkImageProvider(fullImageUrl)
                           : null,
                       child: fullImageUrl.isEmpty
-                          ? Icon(Ionicons.person, size: 60, color: Colors.grey.shade300)
+                          ? Icon(Ionicons.person,
+                              size: 60, color: Colors.grey.shade300)
                           : null,
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Nama
                 FadeInUp(
                   delay: const Duration(milliseconds: 100),
@@ -1540,20 +1605,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-                
+
                 // Email
                 FadeInUp(
                   delay: const Duration(milliseconds: 200),
                   child: Container(
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       petugas.email ?? 'Tidak ada email',
-                      style: GoogleFonts.manrope(fontSize: 14, color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w500),
+                      style: GoogleFonts.manrope(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -1571,16 +1640,23 @@ class _ProfilePageState extends State<ProfilePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: _primaryNavy.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(
+              color: _primaryNavy.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 10)),
         ],
       ),
       child: Column(
         children: [
           _buildInfoRow(Ionicons.card_outline, 'NIK', petugas.nik ?? '-'),
-          const Divider(height: 1, indent: 60, endIndent: 20, color: Color(0xFFF1F5F9)),
-          _buildInfoRow(Ionicons.call_outline, 'Nomor HP', petugas.nomorHp ?? '-'),
-          const Divider(height: 1, indent: 60, endIndent: 20, color: Color(0xFFF1F5F9)),
-          _buildInfoRow(Ionicons.business_outline, 'Cabang', petugas.cabang?.namaCabang ?? 'Pusat'),
+          const Divider(
+              height: 1, indent: 60, endIndent: 20, color: Color(0xFFF1F5F9)),
+          _buildInfoRow(
+              Ionicons.call_outline, 'Nomor HP', petugas.nomorHp ?? '-'),
+          const Divider(
+              height: 1, indent: 60, endIndent: 20, color: Color(0xFFF1F5F9)),
+          _buildInfoRow(Ionicons.business_outline, 'Cabang',
+              petugas.cabang?.namaCabang ?? 'Pusat'),
         ],
       ),
     );
@@ -1636,12 +1712,19 @@ class _ProfilePageState extends State<ProfilePage> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            icon: const Icon(Ionicons.create_outline, size: 20, color: Colors.white),
-            label: Text('Edit Profil', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+            icon: const Icon(Ionicons.create_outline,
+                size: 20, color: Colors.white),
+            label: Text('Edit Profil',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.white)),
             onPressed: () async {
               final result = await Navigator.push<Petugas>(
                 context,
-                MaterialPageRoute(builder: (context) => EditProfilePage(currentPetugas: petugas)),
+                MaterialPageRoute(
+                    builder: (context) =>
+                        EditProfilePage(currentPetugas: petugas)),
               );
               if (result != null && mounted) {
                 setState(() {
@@ -1654,24 +1737,31 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               elevation: 4,
               shadowColor: _primaryNavy.withOpacity(0.4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Tombol Logout
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            icon: Icon(Ionicons.log_out_outline, size: 20, color: Colors.red.shade600),
-            label: Text('Logout', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red.shade600)),
+            icon: Icon(Ionicons.log_out_outline,
+                size: 20, color: Colors.red.shade600),
+            label: Text('Logout',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.red.shade600)),
             onPressed: _logout,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: BorderSide(color: Colors.red.shade200, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               backgroundColor: Colors.red.shade50.withOpacity(0.3),
             ),
           ),
@@ -1687,7 +1777,8 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Ionicons.cloud_offline_outline, size: 60, color: Colors.grey.shade300),
+            Icon(Ionicons.cloud_offline_outline,
+                size: 60, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
               message,
@@ -1697,12 +1788,16 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               icon: const Icon(Ionicons.refresh, size: 18, color: Colors.white),
-              label: Text('Coba Lagi', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white)),
+              label: Text('Coba Lagi',
+                  style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
               onPressed: _loadProfileData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryNavy,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
