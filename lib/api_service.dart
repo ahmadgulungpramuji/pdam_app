@@ -676,49 +676,62 @@ class ApiService {
     }
   }
 
-  Future<PaginatedTugasResponse> getRiwayatPetugas(
-    //
-    int idPetugas, //
-    int page, //
-  ) async {
-    final url = Uri.parse('$baseUrl/petugas/history/$idPetugas?page=$page'); //
-    final token = await getToken(); //
+ Future<PaginatedTugasResponse> getRiwayatPetugas(
+    int idPetugas,
+    int page, {
+    // [BARU] Parameter Opsional untuk Filter
+    int limit = 10,
+    String? startDate,
+    String? endDate,
+  }) async {
+    // 1. Siapkan Query Parameters
+    final Map<String, String> queryParams = {
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
 
-    // Pastikan Anda sudah mengimpor 'package:http/http.dart' as http;
-    final response = await http //
-        .get(
-      //
-      url, //
+    // Tambahkan filter tanggal jika ada
+    if (startDate != null && startDate.isNotEmpty) {
+      queryParams['start_date'] = startDate;
+    }
+    if (endDate != null && endDate.isNotEmpty) {
+      queryParams['end_date'] = endDate;
+    }
+
+    // 2. Buat URL dengan Query Parameters yang dinamis
+    // Menggunakan .replace(queryParameters: ...) akan otomatis menyusun URL
+    // Contoh hasil: .../history/123?page=1&limit=20&start_date=2023-10-01&end_date=2023-10-31
+    final url = Uri.parse('$baseUrl/petugas/history/$idPetugas')
+        .replace(queryParameters: queryParams);
+
+    final token = await getToken();
+
+    // 3. Request ke Server
+    final response = await http.get(
+      url,
       headers: {
-        //
-        'Content-Type': 'application/json', //
-        if (token != null) 'Authorization': 'Bearer $token', //
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
       },
-    ).timeout(const Duration(seconds: 30)); //
+    ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
-      //
-      // Pastikan Anda sudah mengimpor 'dart:convert';
-      final responseBody = json.decode(response.body); //
-      final List<dynamic> riwayatJson = responseBody['data']; //
+      final responseBody = json.decode(response.body);
+      final List<dynamic> riwayatJson = responseBody['data'];
 
-      // LOGIKA KUNCI: Cek apakah ada halaman berikutnya dari respons API
-      final bool hasMore = responseBody['next_page_url'] != null; //
+      // Cek halaman berikutnya
+      final bool hasMore = responseBody['next_page_url'] != null;
 
-      // Pastikan Anda sudah mengimpor model Tugas
-      final List<Tugas> tugasList = //
-          riwayatJson //
-              .map((json) => Tugas.fromJson(json as Map<String, dynamic>)) //
-              .toList(); //
+      final List<Tugas> tugasList = riwayatJson
+          .map((json) => Tugas.fromJson(json as Map<String, dynamic>))
+          .toList();
 
-      // Kembalikan objek PaginatedTugasResponse yang baru
       return PaginatedTugasResponse(
-        //
-        tugasList: tugasList, //
-        hasMorePages: hasMore, //
+        tugasList: tugasList,
+        hasMorePages: hasMore,
       );
     } else {
-      throw Exception('Gagal memuat data riwayat dari API'); //
+      throw Exception('Gagal memuat data riwayat (Status: ${response.statusCode})');
     }
   }
 
